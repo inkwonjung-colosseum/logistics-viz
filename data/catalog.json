@@ -306,6 +306,78 @@
       "tags": ["안전재고", "재주문점", "EOQ"]
     },
     {
+      "id": "channel-order-intake",
+      "title": "판매 채널 연동 · 주문 수집",
+      "category": "주문·이행",
+      "summary": "자사몰 API·마켓 EDI·수기 엑셀로 흩어져 들어오는 주문을 한 형식으로 모은다 — 수집 방식과 필수 항목 검증을 바꾸며 자동 수집률·보류·배송 실패가 어떻게 갈리는지 본다.",
+      "file": "concepts/channel-order-intake.html",
+      "tags": ["판매 채널", "주문 수집", "API", "EDI"]
+    },
+    {
+      "id": "carrier-selection",
+      "title": "운송사 선정 · 운임 비교",
+      "category": "수송·네트워크",
+      "summary": "운임·서비스 권역·집하 마감이 다른 운송사 3곳에 출고 10건을 배정 — 최저 운임·납기 우선·지역 강점 정책이 운임 격차·마감 임박·목적지 분포에 따라 뒤집힌다.",
+      "file": "concepts/carrier-selection.html",
+      "tags": ["운임", "운송사", "집하 마감"]
+    },
+    {
+      "id": "inventory-reconciliation",
+      "title": "재고 대사 (OMS 재고 vs WMS 재고)",
+      "category": "재고",
+      "summary": "OMS 105개·WMS 103개·실물 100개 — 어느 기록을 진실로 삼을지 기준을 바꾸면 조정량·남는 불일치·판매 약속 위험이 달라진다. 창고 3곳을 나란히 비교하는 측정형.",
+      "file": "concepts/inventory-reconciliation.html",
+      "tags": ["재고 대사", "실사", "불일치"]
+    },
+    {
+      "id": "cost-to-serve",
+      "title": "Cost-to-serve · 물류비 정산",
+      "category": "전략",
+      "summary": "화주 3곳의 한 달 실적을 건별 원가로 따진다 — 원가 반영 범위와 반품 비용을 넣고 빼면 화주별 마진 순위가 뒤집힌다. 기본 요금만 세면 다 남는 것처럼 보인다.",
+      "file": "concepts/cost-to-serve.html",
+      "tags": ["Cost-to-serve", "정산", "마진"]
+    },
+    {
+      "id": "network-design",
+      "title": "네트워크 설계 (창고 수 · 위치)",
+      "category": "수송·네트워크",
+      "summary": "후보 6노드 중 창고를 몇 곳 계약할까 — 창고 수를 늘리면 배송 거리는 짧아지고 고정비는 커진다. 수요 편중·운임 단가에 따라 최적 창고 수가 뒤집히는 U자 비용곡선을 본다.",
+      "file": "concepts/network-design.html",
+      "tags": ["네트워크 설계", "고정비", "창고 수"]
+    },
+    {
+      "id": "routing-game",
+      "title": "주문 배정 챌린지 (미니게임)",
+      "category": "주문·이행",
+      "summary": "주문 10건에 창고와 운송사를 직접 골라 배정하고 기준 정책(균형 배정)과 점수로 겨룬다 — 비용 중시·납기 중시 평가 기준에 따라 같은 배정의 등급이 달라진다.",
+      "file": "concepts/routing-game.html",
+      "tags": ["게임", "배정", "라우팅"]
+    },
+    {
+      "id": "tl-ltl",
+      "title": "TL vs LTL · 화물 묶음",
+      "category": "수송·네트워크",
+      "summary": "같은 화물을 트럭 통째로 직행(TL)과 허브 환적 나눠 싣기(LTL)로 나란히 보낸다 — 화물 크기에 따라 운임 승자가 갈리는 역전점과 환적 횟수의 리스크를 본다.",
+      "file": "concepts/tl-ltl.html",
+      "tags": ["TL", "LTL", "화물 묶음", "환적"]
+    },
+    {
+      "id": "last-mile",
+      "title": "라스트마일 배송",
+      "category": "수송·네트워크",
+      "summary": "기사의 하루 루트를 개별 배달과 권역 묶음으로 나란히 돌린다 — 수령지 밀도와 부재 재배송이 건당 비용·하루 처리·재배송을 어떻게 바꾸는지 보며 마지막 구간이 비싼 이유를 본다.",
+      "file": "concepts/last-mile.html",
+      "tags": ["라스트마일", "동선", "재배송"]
+    },
+    {
+      "id": "returns-flow",
+      "title": "반품 · 역물류",
+      "category": "전략",
+      "summary": "고객→운송사→창고→운영사→화주로 되돌아오는 반품의 릴레이 — 판정 기준(엄격↔관대)과 반품 사유 구성에 따라 재판매율·처리 일수·처리 비용이 갈린다.",
+      "file": "concepts/returns-flow.html",
+      "tags": ["반품", "역물류", "RMA"]
+    },
+    {
       "id": "order-handoff",
       "title": "OMS → WMS → TMS 연계",
       "category": "주문·이행",
@@ -346,15 +418,5 @@
       "tags": ["입하", "검수", "적치", "예외", "책임", "3PL"]
     }
   ],
-  "planned": [
-    { "id": "channel-order-intake", "title": "판매 채널 연동 · 주문 수집", "category": "주문·이행" },
-    { "id": "carrier-selection", "title": "운송사 선정 · 운임 비교", "category": "수송·네트워크" },
-    { "id": "inventory-reconciliation", "title": "재고 대사 (OMS 재고 vs WMS 재고)", "category": "재고" },
-    { "id": "cost-to-serve", "title": "Cost-to-serve · 물류비 정산", "category": "전략" },
-    { "id": "network-design", "title": "네트워크 설계 (창고 수 · 위치)", "category": "수송·네트워크" },
-    { "id": "routing-game", "title": "주문 배정 챌린지 (미니게임)", "category": "주문·이행" },
-    { "id": "tl-ltl", "title": "TL vs LTL · 화물 묶음", "category": "수송·네트워크" },
-    { "id": "last-mile", "title": "라스트마일 배송", "category": "수송·네트워크" },
-    { "id": "returns-flow", "title": "반품 · 역물류", "category": "전략" }
-  ]
+  "planned": []
 }

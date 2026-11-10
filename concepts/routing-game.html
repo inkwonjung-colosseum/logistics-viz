@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주문 배정 챌린지 (미니게임) — 물류 개념 시각화</title>
+<meta name="description" content="주문 10건에 창고 3곳·운송사 2곳을 직접 배정하고, 비용과 납기를 함께 보는 기준 정책(균형 배정)과 점수를 비교해 등급을 매기는 미니게임 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+  --gold:light-dark(#a97a15,#e0b34c);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.opd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--viz-series-1);margin-right:5px}
+.stock{margin:0 0 12px;font-size:12.5px;color:var(--muted-foreground)}
+.stock b{color:var(--foreground);font-weight:500}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.act:disabled{opacity:.45;cursor:default}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.capline{margin:0 0 10px;font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.capline b{color:var(--foreground);font-weight:500}
+.capline .whn{color:var(--viz-series-3);font-weight:600}
+#dia{display:block;width:100%}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+svg .t12{font-size:12px;fill:var(--foreground)}
+svg .t11{font-size:11px;fill:var(--muted-foreground)}
+svg .txf{font-size:11px;fill:var(--foreground)}
+svg .tb{font-weight:600}
+svg .bad{fill:var(--bad)}
+svg .good{fill:var(--viz-series-2)}
+svg .ct{font-size:11px;fill:var(--foreground)}
+svg .ctm{font-size:11px;fill:var(--muted-foreground)}
+svg .ctb{font-weight:600}
+svg .card{fill:var(--background);stroke:var(--border);stroke-width:1}
+svg .cardw{stroke:var(--bad);stroke-dasharray:4 3;stroke-width:1.5}
+svg .chw{fill:color-mix(in srgb,var(--viz-series-3) 10%,transparent);stroke:var(--viz-series-3);stroke-width:1;opacity:.5;transition:opacity .15s ease-out,stroke-width .15s ease-out}
+svg .chw.sel{opacity:1;stroke-width:2}
+svg .chw.off{fill:transparent;stroke:var(--border);stroke-dasharray:3 3;opacity:1}
+svg .chc{fill:color-mix(in srgb,var(--viz-series-4) 10%,transparent);stroke:var(--viz-series-4);stroke-width:1;opacity:.5;transition:opacity .15s ease-out,stroke-width .15s ease-out}
+svg .chc.sel{opacity:1;stroke-width:2}
+svg [data-w],svg [data-c]{cursor:pointer}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 14px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;margin:0 0 12px}
+.tbl th{font-weight:500;color:var(--muted-foreground);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:4px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--foreground)}
+.tbl td.late{color:var(--bad)}
+.tbl .tag{font-size:11px;padding:0 6px;border:1px dashed var(--muted-foreground);border-radius:999px;color:var(--muted-foreground);white-space:nowrap}
+.gS{color:var(--gold);font-weight:600}.gA{color:var(--viz-series-2);font-weight:600}.gB{color:var(--viz-series-3);font-weight:600}
+#hintline{font-size:12.5px;margin:0 0 12px;padding:8px 12px;border-radius:10px;background:var(--soft);color:var(--foreground)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat em{font-style:normal;font-weight:500;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (max-width:560px){.tbl th,.tbl td{padding:3px 4px;font-size:11px}.tbl{font-size:11px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">주문·이행</span>
+  <p class="q">비용과 납기를 동시에 지키며 직접 배정할 수 있는가</p>
+  <h1>주문 배정 챌린지 (미니게임)</h1>
+  <p class="def">학습자가 직접 주문마다 창고와 운송사를 골라 배정하는 미니게임이다 — 점수는 <b>기준 정책</b>(비용·납기를 함께 보는 균형 배정)과 비교해 매겨진다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>주문 라우팅(order routing)</b> — 주문마다 어느 창고에서 내보낼지 정하는 규칙이다. (<a href="order-routing.html">주문 라우팅</a>)</p>
+  <p><b>운송사(carrier)</b> — 물건을 한 곳에서 다른 곳으로 옮기는 일을 맡은 회사다. 주문마다 어떤 운송사를 고를지는 운송사 선정에서 다룬다. (<a href="carrier-selection.html">운송사 선정</a>)</p>
+  <p><b>컨트롤 타워(control tower)</b> — 여러 창고·운송사의 상황을 한곳에서 모아 보고, 사람이 봐야 할 문제를 골라 알려 주는 시스템이다. (<a href="control-tower.html">컨트롤 타워</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 야구 감독</b> · 감독은 상황에 맞는 선수를 기용하고, 시즌 성적으로 평가받습니다. 이 게임의 선수는 창고 3곳·운송사 2곳이고, 성적은 비용과 납기입니다. 다만 감독은 경기 중에 바꿀 수 있지만, 이 게임은 출고 전에 미리 정해야 합니다.</p>
+
+<div class="panel">
+  <h2><span class="opd" aria-hidden="true"></span>운영사 배정 담당자로서 주문 10건을 직접 배정합니다</h2>
+  <p class="stock" id="stock"></p>
+  <div class="controls">
+    <div class="ctl">난이도 — 창고 재고 상황
+      <div class="seg" id="segDiff" role="group" aria-label="난이도 — 창고 재고 상황">
+        <button type="button" data-v="easy" aria-pressed="true">보통 · 재고 여유</button>
+        <button type="button" data-v="hard" aria-pressed="false">어려움 · 재고 편중 + 마감 임박</button>
+      </div>
+    </div>
+    <div class="ctl">평가 기준 — 미준수 1건당 벌점
+      <div class="seg" id="segP" role="group" aria-label="평가 기준 — 납기 미준수 1건당 벌점">
+        <button type="button" data-v="2000" aria-pressed="false">비용 중시 2,000원</button>
+        <button type="button" data-v="4000" aria-pressed="true">균형 4,000원</button>
+        <button type="button" data-v="8000" aria-pressed="false">납기 중시 8,000원</button>
+      </div>
+    </div>
+    <button type="button" class="act" id="score" disabled>채점 시작</button>
+    <button type="button" class="ghostb" id="resetb">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <p class="capline" id="capline"></p>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="주문 10건 배정 게임판"></svg>
+  </div>
+  <p class="patn">운임(화물을 한 구간 옮기는 데 내는 돈)은 아래 표의 구간과 운송사로 정해집니다 · 창고 칩의 <b>재고 없음</b> = 그 창고가 이 주문의 품목을 다 갖고 있지 않아 선택 불가 · 마감 여력을 넘긴 창고의 주문은 주문 번호가 뒤인 것부터 다음 날 출고 · 칩을 다시 누르면 선택 해제</p>
+
+  <table class="tbl" aria-label="창고별 권역 거리와 운임 구간">
+    <thead><tr><th>거리(km) · 구간</th><th>수도권</th><th>충청·호남</th><th>영남</th></tr></thead>
+    <tbody>
+      <tr><th>서울 창고</th><td>10 · 가까움</td><td>170 · 중간</td><td>400 · 원거리</td></tr>
+      <tr><th>대전 창고</th><td>170 · 중간</td><td>20 · 가까움</td><td>230 · 중간</td></tr>
+      <tr><th>부산 창고</th><td>400 · 원거리</td><td>230 · 중간</td><td>10 · 가까움</td></tr>
+    </tbody>
+  </table>
+  <table class="tbl" aria-label="운송사별 구간 운임과 소요일">
+    <thead><tr><th>운임(운송사 · 소요일)</th><th>가까움 ≤100km</th><th>중간 ~300km</th><th>원거리 400km</th></tr></thead>
+    <tbody>
+      <tr><th>속달</th><td>5,000원 · 1일</td><td>6,500원 · 1일</td><td>9,000원 · 2일</td></tr>
+      <tr><th>정기</th><td>3,500원 · 1일</td><td>4,500원 · 2일</td><td>6,000원 · 3일</td></tr>
+    </tbody>
+  </table>
+
+  <div id="resWrap" hidden>
+    <p id="hintline"></p>
+    <table class="tbl" id="sumT" aria-label="나의 배정과 기준 정책 비교"></table>
+    <p class="patn">분할 출고(한 주문을 여러 창고 또는 여러 번에 나눠 보내는 것)는 이 시나리오에서 나지 않습니다 — 모든 주문이 창고 하나의 재고로 다 담기기 때문입니다. 재고가 더 편중되면 분할이 답이 되기도 한다.</p>
+    <table class="tbl" id="detT" aria-label="주문별 나의 배정과 기준 정책 비교"></table>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="kCost">—</b><span>총 배정 비용(원) — 운임 합계, 낮을수록 좋음</span><span class="cmp" id="cCost">채점 전</span></div>
+  <div class="stat"><b id="kOn">—</b><span>납기 준수(%) — 희망 도착일 안에 도착한 주문 비율, 높을수록 좋음</span><span class="cmp" id="cOn">채점 전</span></div>
+  <div class="stat"><b id="kGrade">—</b><span>등급 — S 최적 ±5% · A 110% 이내 · B 그 이상 (벌점 포함 점수 기준)</span><span class="cmp" id="cGrade">채점 전</span></div>
+</div>
+
+<p class="foot">전제: 주문 10건·창고 3곳·운송사 2곳이며, 운임·재고·거리는 재도전해도 같은 고정 시나리오(시드 42)다. 각 창고는 하루 마감 전에 정해진 건수(보통 6건 · 어려움 3건)만 내보낼 수 있고, 여력을 넘친 주문은 주문 번호 순서로 다음 날 출고된다. 기준 정책은 비용과 납기를 함께 보는 균형 배정이다.</p>
+<p class="takeaway"><b>할 수 있습니다 — 단, 주문마다 비용과 납기를 함께 따져야 합니다.</b> 가까운 창고만 고르면 비용은 좋지만 재고가 밀리는 곳이 생기고, 싼 운송사만 고르면 마감·납기에서 놓칩니다 — 비용과 납기를 함께 보는 배정이 실무의 기준 정책이 되는 이유입니다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 학습자의 선택처럼 창고·운송사별 조건을 입력받아 기준 정책으로 자동 배정합니다. 정책의 우선순위는 운영사마다 다르게 설정합니다.</p>
+<div class="next">
+  <p>선행: <a href="order-routing.html">주문 라우팅</a> · <a href="carrier-selection.html">운송사 선정</a></p>
+  <p>마지막 페이지 — 같은 묶음 이어 보기: <a href="tl-ltl.html">TL·LTL</a> · <a href="last-mile.html">라스트마일</a> · <a href="returns-flow.html">반품 흐름</a></p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="routing-game">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+/*PURE-START*/
+const WN=['서울','대전','부산'],ZN=['수도권','충청·호남','영남'];
+const D=[[10,170,400],[170,20,230],[400,230,10]];
+const bandOf=k=>k<=100?0:k<=300?1:2;
+const BAND=['가까움','중간','원거리'];
+const CAR=[{n:'속달',fare:[5000,6500,9000],days:[1,1,2]},{n:'정기',fare:[3500,4500,6000],days:[1,2,3]}];
+const HOLD={easy:[['A','B','C','D'],['B','C','D','E'],['A','B','D','E']],
+            hard:[['A','B','C'],['B','C','D'],['C','D','E']]};
+const CAP={easy:6,hard:3};
+const DAYN=[,'내일','모레','3일 뒤','4일 뒤'];
+// 주문 10건: 품목×권역이 맞물린 선택지에서 시드 42로 뽑아 고정
+const ROWS=[
+ {it:[['E']],z:[0],h:[1,2]},
+ {it:[['A']],z:[2],h:[2]},
+ {it:[['C']],z:[1],h:[1]},
+ {it:[['A','B'],['B','C']],z:[0,2],h:[1,2]},
+ {it:[['D']],z:[0],h:[1,2]},
+ {it:[['B','C']],z:[1],h:[1]},
+ {it:[['A','B','C']],z:[0],h:[2]},
+ {it:[['C','D']],z:[2],h:[1,2]},
+ {it:[['D','E'],['B','C']],z:[1,0],h:[1,2]},
+ {it:[['B']],z:[1,2],h:[1,2]}
+];
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const ORDERS=(()=>{const r=rng(42);
+  return ROWS.map((row,i)=>({no:i+1,
+    zone:row.z[Math.floor(r()*row.z.length)],
+    items:row.it[Math.floor(r()*row.it.length)].slice(),
+    hope:row.h[Math.floor(r()*row.h.length)]}))})();
+const holds=(diff,w,items)=>items.every(s=>HOLD[diff][w].includes(s));
+const fareOf=(w,c,o)=>CAR[c].fare[bandOf(D[w][o.zone])];
+const daysOf=(w,c,o)=>CAR[c].days[bandOf(D[w][o.zone])];
+const fmt=v=>v.toLocaleString('ko-KR');
+// 마감 규칙: 주문 번호 순서로 창고별 여력까지는 오늘 출고, 넘치면 다음 날 출고
+function run(asg,diff,pen){
+  const cap=CAP[diff],seen=[0,0,0];let fareT=0,lateN=0;
+  const rows=asg.map((a,i)=>{
+    const o=ORDERS[i],miss=seen[a.w]++>=cap,b=bandOf(D[a.w][o.zone]);
+    const fare=CAR[a.c].fare[b],days=CAR[a.c].days[b],arrive=(miss?1:0)+days,late=arrive>o.hope;
+    fareT+=fare;if(late)lateN++;
+    return {w:a.w,c:a.c,fare,days,arrive,late,miss};
+  });
+  return {rows,fareT,lateN,on:(10-lateN)*10,score:fareT+lateN*pen};
+}
+// 기준 정책(균형 배정): 건마다 운임+미준수 벌점이 최소인 조합을 재고·마감 여력을 보고 고른다
+function policy(diff){
+  const cap=CAP[diff],cnt=[0,0,0],asg=[];
+  ORDERS.forEach(o=>{let best=null;
+    for(let w=0;w<3;w++){if(!holds(diff,w,o.items))continue;
+      for(let c=0;c<2;c++){
+        const b=bandOf(D[w][o.zone]),fare=CAR[c].fare[b],days=CAR[c].days[b];
+        const arrive=(cnt[w]>=cap?1:0)+days,late=arrive>o.hope,sc=fare+(late?4000:0);
+        if(!best||sc<best.sc-1e-9||(Math.abs(sc-best.sc)<1e-9&&fare<best.fare))best={w,c,sc,fare};
+      }}
+    cnt[best.w]++;asg.push({w:best.w,c:best.c});});
+  return asg;
+}
+const gradeOf=(mine,base)=>mine<=base*1.05+1e-9?'S':mine<=base*1.10+1e-9?'A':'B';
+function hintText(mine,base,pen){
+  if(mine.score<=base.score-1e-9)return '기준 정책보다 점수가 좋습니다 — 평가 기준을 바꾸면 최적 배정도 달라집니다.';
+  let wi=-1,wg=0;
+  mine.rows.forEach((r,i)=>{const g=r.fare+(r.late?pen:0)-(base.rows[i].fare+(base.rows[i].late?pen:0));
+    if(g>wg){wg=g;wi=i;}});
+  if(wi<0)return '기준 정책과 같은 점수입니다 — 서로 다른 배정이 같은 점수에 도달했습니다.';
+  const r=mine.rows[wi],b=base.rows[wi],o=ORDERS[wi];
+  const my=`${WN[r.w]} 창고·${CAR[r.c].n} ${fmt(r.fare)}원${r.miss?' · 마감 놓침':''}${r.late?` · ${DAYN[r.arrive]} 도착 미준수`:''}`;
+  const bs=`기준 정책은 ${WN[b.w]} 창고·${CAR[b.c].n} ${fmt(b.fare)}원 · ${DAYN[b.arrive]} 도착${b.late?'(재고 탓에 어차피 늦음)':' ✓'}`;
+  return `가장 아까운 배정 — 주문 #${o.no}(${ZN[o.zone]}·${o.items.length}품(${o.items.join('·')})): 나의 선택은 ${my}. ${bs}.`;
+}
+function board(W,diff,asg,scored,res,worst){
+  const narrow=W<620,per=narrow?1:2;
+  const cw=narrow?W:Math.floor((W-10)/2),pad=6;
+  const c3=Math.floor((cw-2*pad-8)/3),c2=Math.floor((cw-2*pad-4)/2);
+  const ch=96,gap=10,P=[],rows=Math.ceil(10/per);
+  ORDERS.forEach((o,i)=>{
+    const col=i%per,rr=(i-col)/per,x=col*(cw+gap),y=rr*(ch+gap),a=asg[i];
+    P.push(`<g><rect x="${x}" y="${y}" width="${cw}" height="${ch}" rx="10" class="card${scored&&worst===i?' cardw':''}"/>`);
+    P.push(`<text x="${x+pad}" y="${y+16}" class="t12"><tspan class="tb">#${o.no}</tspan> ${ZN[o.zone]}·${o.items.length}품(${o.items.join('·')})</text>`);
+    P.push(`<text x="${x+cw-pad}" y="${y+16}" text-anchor="end" class="${o.hope===1?'t11 tb txf':'t11'}">${o.hope===1?'납기 내일':'납기 모레'}</text>`);
+    for(let w=0;w<3;w++){
+      const ok=holds(diff,w,o.items),sel=a&&a.w===w,cx=x+pad+w*(c3+4);
+      P.push(`<g data-o="${i}" data-w="${w}"><rect x="${cx}" y="${y+24}" width="${c3}" height="22" rx="6" class="chw${sel?' sel':ok?'':' off'}"/>`);
+      P.push(`<text x="${cx+c3/2}" y="${y+39}" text-anchor="middle" class="${ok?'ct':'ctm'}${sel?' ctb':''}">${ok?WN[w]+' '+D[w][o.zone]+'km':'재고 없음'}</text></g>`);
+    }
+    for(let c=0;c<2;c++){
+      const sel=a&&a.c===c,cx=x+pad+c*(c2+4);
+      const lab=a?`${CAR[c].n} ${fmt(fareOf(a.w,c,o))}원·${daysOf(a.w,c,o)}일`:CAR[c].n;
+      P.push(`<g data-o="${i}" data-c="${c}"><rect x="${cx}" y="${y+50}" width="${c2}" height="22" rx="6" class="chc${sel?' sel':''}"/>`);
+      P.push(`<text x="${cx+c2/2}" y="${y+65}" text-anchor="middle" class="${a?'ct':'ctm'}${sel?' ctb':''}">${lab}</text></g>`);
+    }
+    let line='',cls='t11';
+    if(a&&a.c!==null){
+      if(res){const r=res.rows[i];
+        line=`${r.miss?'마감 놓침 · ':''}${DAYN[r.arrive]} 도착 ${r.late?'✗ 미준수':'✓ 준수'}`;
+        cls=r.late?'t11 bad':'t11 good';
+      }else{line=`${WN[a.w]} 창고·${CAR[a.c].n} ${fmt(fareOf(a.w,a.c,o))}원`;cls='t11 txf';}
+    }else if(a){line='운송사를 고르세요';}
+    else{line='창고·운송사를 고르세요';}
+    P.push(`<text x="${x+pad}" y="${y+90}" class="${cls}">${line}</text></g>`);
+  });
+  return {s:P.join(''),h:rows*(ch+gap)-gap+2};
+}
+/*PURE-END*/
+const $=x=>document.getElementById(x);
+const svg=$('dia'),host=$('diaHost'),status=$('status');
+let diff='easy',pen=4000,asg=Array.from({length:10},()=>null);
+let scored=false,mine=null,base=null,worst=-1,POL=policy(diff);
+const done=()=>asg.every(a=>a&&a.c!==null);
+
+function render(){
+  const W=host.clientWidth;
+  if(!W||W<40)return;
+  const cnt=[0,0,0];asg.forEach(a=>{if(a)cnt[a.w]++;});
+  const b=board(W,diff,asg,scored,mine,worst);
+  svg.innerHTML=b.s;
+  svg.setAttribute('viewBox','0 0 '+W+' '+b.h);
+  svg.setAttribute('height',b.h);
+  const cap=CAP[diff],over=cnt.reduce((t,n)=>t+Math.max(0,n-cap),0),n=done()?10:asg.filter(a=>a).length;
+  $('capline').innerHTML=`<b>마감 여력</b> — `+WN.map((nm,i)=>`<span class="whn">${nm} ${cnt[i]}/${cap}</span>`).join(' · ')+(over?` · <b>초과 ${over}건은 다음 날 출고</b>`:'');
+  svg.setAttribute('aria-label',`주문 10건 배정 게임판 — ${scored?`채점 결과 등급 ${gradeOf(mine.score,base.score)}(나의 점수 ${fmt(mine.score)}원, 기준 정책 ${fmt(base.score)}원)`:`${n}/10건 배정`}. 주문마다 창고(서울·대전·부산)와 운송사(속달·정기) 칩을 눌러 배정한다.`);
+  $('score').disabled=scored||!done();
+  $('score').textContent=scored?'채점 완료':'채점 시작';
+  renderKPI();
+}
+function renderKPI(){
+  const kC=$('kCost'),kO=$('kOn'),kG=$('kGrade');
+  if(!scored){kC.textContent=kO.textContent=kG.textContent='—';
+    $('cCost').textContent=$('cOn').textContent=$('cGrade').textContent='채점 전';return;}
+  const g=gradeOf(mine.score,base.score);
+  const wc=mine.fareT<base.fareT?'나의 배정':mine.fareT>base.fareT?'기준 정책':'동률';
+  kC.innerHTML=(mine.fareT<=base.fareT?'<em>':'')+fmt(mine.fareT)+'원'+(mine.fareT<=base.fareT?'</em>':'');
+  $('cCost').innerHTML=`기준 정책 ${fmt(base.fareT)}원 대비 ${Math.round(mine.fareT/base.fareT*100)}% · 비용 1위 <em>${wc}</em>`;
+  const wo=mine.on>base.on?'나의 배정':mine.on<base.on?'기준 정책':'동률';
+  kO.innerHTML=(mine.on>=base.on?'<em>':'')+mine.on+'%'+(mine.on>=base.on?'</em>':'');
+  $('cOn').innerHTML=`기준 정책 ${base.on}% · 준수 1위 <em>${wo}</em>`;
+  kG.innerHTML=`<span class="g${g}">${g}</span>`;
+  $('cGrade').innerHTML=`점수 ${fmt(mine.score)}원 · 기준 ${fmt(base.score)}원 대비 ${(mine.score/base.score*100).toFixed(1)}%`;
+}
+function renderRes(){
+  $('resWrap').hidden=false;
+  $('hintline').textContent=hintText(mine,base,pen);
+  const g=gradeOf(mine.score,base.score);
+  $('sumT').innerHTML=
+    `<thead><tr><th>비교 항목</th><th>나의 배정</th><th>기준 정책(균형)</th></tr></thead><tbody>`+
+    `<tr><th>총비용</th><td>${fmt(mine.fareT)}원</td><td>${fmt(base.fareT)}원</td></tr>`+
+    `<tr><th>납기 준수</th><td>${mine.on}% (미준수 ${mine.lateN}건)</td><td>${base.on}% (미준수 ${base.lateN}건)</td></tr>`+
+    `<tr><th>분할 출고</th><td>0건</td><td>0건</td></tr>`+
+    `<tr><th>점수(비용+벌점)</th><td>${fmt(mine.score)}원 · 대비 ${(mine.score/base.score*100).toFixed(1)}%</td><td>${fmt(base.score)}원 · 등급 <span class="g${g}">${g}</span></td></tr></tbody>`;
+  const cell=(r,other)=>`<td>${WN[r.w]}·${CAR[r.c].n} ${fmt(r.fare)}원${r.miss?' <span class="tag">마감</span>':''}${other&&((other.w!==r.w||other.c!==r.c))?' <span class="tag">기준과 다름</span>':''}</td>`;
+  $('detT').innerHTML=
+    `<thead><tr><th>주문</th><th>나의 배정</th><th>기준 정책 · 도착</th><th>나의 도착</th></tr></thead><tbody>`+
+    ORDERS.map((o,i)=>{const r=mine.rows[i],b=base.rows[i];
+      return `<tr><td>#${o.no} ${ZN[o.zone]} ${o.items.length}품(${o.items.join('·')})</td>${cell(r,b)}<td>${WN[b.w]}·${CAR[b.c].n} ${fmt(b.fare)}원 · ${DAYN[b.arrive]}${b.late?' ✗':' ✓'}</td><td class="${r.late?'late':''}">${DAYN[r.arrive]} ${r.late?'✗':'✓'}</td></tr>`;}).join('')+
+    `</tbody>`;
+}
+function doScore(){
+  if(scored||!done())return;
+  mine=run(asg,diff,pen);base=run(POL,diff,pen);scored=true;
+  worst=-1;let wg=0;
+  mine.rows.forEach((r,i)=>{const gp=r.fare+(r.late?pen:0)-(base.rows[i].fare+(base.rows[i].late?pen:0));
+    if(gp>wg){wg=gp;worst=i;}});
+  render();renderRes();
+  const g=gradeOf(mine.score,base.score);
+  status.textContent=`채점 완료 — 등급 ${g} · 나의 점수 ${fmt(mine.score)}원(비용+벌점) · 기준 정책 ${fmt(base.score)}원 대비 ${(mine.score/base.score*100).toFixed(1)}%.`;
+}
+function resetAll(msg){
+  asg=Array.from({length:10},()=>null);
+  scored=false;mine=null;base=null;worst=-1;
+  stockLine();
+  $('resWrap').hidden=true;$('hintline').textContent='';
+  render();
+  status.textContent=msg||'초기화했습니다 — 주문 카드에서 창고·운송사를 다시 고르세요.';
+}
+function pickWh(i,w){
+  const o=ORDERS[i];
+  if(scored){status.textContent='채점을 마쳤습니다 — 초기화로 다시 도전하세요.';return;}
+  if(!holds(diff,w,o.items)){status.textContent=`${WN[w]} 창고에는 품목(${o.items.join('·')})이 모두 없습니다 — 재고 없음 창고는 고를 수 없습니다.`;return;}
+  const a=asg[i],cnt=[0,0,0];asg.forEach(x=>{if(x&&x!==a)cnt[x.w]++;});
+  if(a&&a.w===w){asg[i]=null;status.textContent=`주문 #${o.no} 창고 선택을 해제했습니다.`;}
+  else{asg[i]={w,c:a?a.c:null};
+    status.textContent=`주문 #${o.no} → ${WN[w]} 창고(${D[w][o.zone]}km · ${BAND[bandOf(D[w][o.zone])]})${cnt[w]>=CAP[diff]?` · 주의: ${WN[w]} 창고 마감 여력 초과 — 다음 날 출고됩니다`:' · 운송사를 고르세요'}`;}
+  render();
+}
+function pickCar(i,c){
+  const o=ORDERS[i],a=asg[i];
+  if(scored){status.textContent='채점을 마쳤습니다 — 초기화로 다시 도전하세요.';return;}
+  if(!a){status.textContent='먼저 창고를 고르세요 — 창고 칩을 클릭하세요.';return;}
+  if(a.c===c){a.c=null;status.textContent=`주문 #${o.no} 운송사 선택을 해제했습니다.`;}
+  else{a.c=c;
+    status.textContent=`주문 #${o.no} 배정 — ${WN[a.w]} 창고·${CAR[c].n} ${fmt(fareOf(a.w,c,o))}원 · 소요 ${daysOf(a.w,c,o)}일${done()?' · 10건 모두 배정 — 채점 시작!':''}`;}
+  render();
+}
+svg.addEventListener('click',e=>{
+  const wp=e.target.closest('[data-w]');
+  if(wp){pickWh(+wp.getAttribute('data-o'),+wp.getAttribute('data-w'));return;}
+  const cp=e.target.closest('[data-c]');
+  if(cp)pickCar(+cp.getAttribute('data-o'),+cp.getAttribute('data-c'));
+});
+$('score').addEventListener('click',doScore);
+$('resetb').addEventListener('click',()=>resetAll());
+$('segDiff').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||b.dataset.v===diff)return;
+  diff=b.dataset.v;POL=policy(diff);
+  document.querySelectorAll('#segDiff button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  resetAll(`난이도를 ${b.textContent}로 바꿨습니다 — 창고 보유: ${WN.map((n,i)=>n+' '+HOLD[diff][i].join('·')).join(' · ')} · 마감 여력 창고당 ${CAP[diff]}건. 배정을 초기화했습니다.`);
+});
+$('segP').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  pen=+b.dataset.v;
+  document.querySelectorAll('#segP button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  if(scored){
+    mine=run(asg,diff,pen);base=run(POL,diff,pen);
+    worst=-1;let wg=0;
+    mine.rows.forEach((r,i)=>{const gp=r.fare+(r.late?pen:0)-(base.rows[i].fare+(base.rows[i].late?pen:0));
+      if(gp>wg){wg=gp;worst=i;}});
+    render();renderRes();
+    status.textContent=`평가 기준을 바꿔 같은 배정을 다시 채점했습니다(미준수 1건당 ${fmt(pen)}원) — 등급 ${gradeOf(mine.score,base.score)}. 같은 배정도 평가 기준에 따라 등급이 달라집니다.`;
+  }else status.textContent=`평가 기준: 납기 미준수 1건당 ${fmt(pen)}원으로 채점합니다.`;
+});
+new ResizeObserver(()=>render()).observe(host);
+$('stock').innerHTML=`<b>창고 보유 상품</b> — <span id="stockBody"></span> · <b>마감(그날 물건을 마지막으로 내보내기로 정한 시각) 출하 여력</b> — 창고당 <span id="capBody"></span>건`;
+function stockLine(){
+  $('stockBody').textContent=WN.map((n,i)=>n+' '+HOLD[diff][i].join('·')).join(' · ')+` (${diff==='easy'?'보통 · 재고 여유':'어려움 · 재고 편중'})`;
+  $('capBody').textContent=String(CAP[diff]);
+}
+render();
+status.textContent='창고·운송사 칩을 클릭해 10건을 모두 배정한 뒤 채점하세요. 재고 없음 창고는 고를 수 없습니다.';
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

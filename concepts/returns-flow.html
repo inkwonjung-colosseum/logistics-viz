@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>반품 · 역물류 — 물류 개념 시각화</title>
+<meta name="description" content="반품 5건이 고객→운송사→창고→운영사→화주 레인을 거슬러 돌아가는 8단계 릴레이를 단계별로 살펴보고, 판정 기준(엄격·관대)과 반품 사유 구성(변심·불량)을 바꿔 가며 재판매율·처리 기간·건당 처리 비용이 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:500}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.opd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--viz-series-1);margin-right:5px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{accent-color:var(--primary)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#dia{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+svg .t12{font-size:12px}
+svg .t11{font-size:11px}
+svg .w5{font-weight:500}
+svg .mut{fill:var(--muted-foreground)}
+svg .txt{fill:var(--foreground)}
+svg .num{font-variant-numeric:tabular-nums}
+svg .c0{fill:var(--muted-foreground)}
+svg .c1{fill:var(--viz-series-4)}
+svg .c2{fill:var(--viz-series-3)}
+svg .c3{fill:var(--viz-series-1)}
+svg .c4{fill:var(--viz-series-2)}
+svg .b0{fill:color-mix(in srgb,var(--muted-foreground) 10%,transparent)}
+svg .b1{fill:color-mix(in srgb,var(--viz-series-4) 10%,transparent)}
+svg .b2{fill:color-mix(in srgb,var(--viz-series-3) 10%,transparent)}
+svg .b3{fill:color-mix(in srgb,var(--viz-series-1) 10%,transparent)}
+svg .b4{fill:color-mix(in srgb,var(--viz-series-2) 10%,transparent)}
+svg .sep{stroke:var(--border);stroke-width:1}
+svg .ln{stroke:color-mix(in srgb,var(--muted-foreground) 45%,transparent);stroke-width:1.2;stroke-dasharray:4 3}
+svg .hl{fill:var(--soft)}
+svg .tok{fill:var(--card);stroke:color-mix(in srgb,var(--muted-foreground) 55%,transparent);stroke-width:1.2}
+svg .t-ok{stroke:var(--viz-series-2);fill:color-mix(in srgb,var(--viz-series-2) 16%,var(--card))}
+svg .t-fix{stroke:var(--viz-series-3);fill:color-mix(in srgb,var(--viz-series-3) 16%,var(--card))}
+svg .t-dx{stroke:var(--bad);fill:color-mix(in srgb,var(--bad) 16%,var(--card))}
+svg .t-rt{stroke:var(--viz-series-4);fill:color-mix(in srgb,var(--viz-series-4) 16%,var(--card))}
+svg text.s-ok{fill:var(--viz-series-2)}
+svg text.s-fix{fill:var(--viz-series-3)}
+svg text.s-dx{fill:var(--bad)}
+svg text.s-rt{fill:var(--viz-series-4)}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 10px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted-foreground);margin:0 0 10px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:12px;height:10px;border-radius:2px}
+.sw-ok{background:color-mix(in srgb,var(--viz-series-2) 60%,transparent)}
+.sw-fix{background:color-mix(in srgb,var(--viz-series-3) 60%,transparent)}
+.sw-dx{background:color-mix(in srgb,var(--bad) 60%,transparent)}
+.sw-rt{background:color-mix(in srgb,var(--viz-series-4) 60%,transparent)}
+#vl{font-size:12.5px;margin:0 0 12px;padding:8px 12px;border-radius:10px;background:var(--soft);color:var(--muted-foreground)}
+#vl b{font-weight:600}
+.v-ok{color:var(--viz-series-2)}
+.v-fix{color:var(--viz-series-3)}
+.v-dx{color:var(--bad)}
+.v-rt{color:var(--viz-series-4)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin:0}
+.tbl th{font-weight:500;color:var(--muted-foreground);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:4px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.tbl td.v-ok{color:var(--viz-series-2)}
+.tbl td.v-fix{color:var(--viz-series-3)}
+.tbl td.v-dx{color:var(--bad)}
+.tbl td.v-rt{color:var(--viz-series-4)}
+@media (max-width:560px){.tbl .opt{display:none}.tbl th,.tbl td{padding:3px 4px}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.good{color:var(--viz-series-2)}
+.stat em{font-style:normal;font-weight:500;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">전략</span>
+  <p class="q">되돌아오는 물건은 누가 받아 어떻게 판정하는가</p>
+  <h1>반품 · 역물류</h1>
+  <p class="def">고객이 돌려보낸 물건을 받아 처리하는 일이 <b>반품</b>이고, 되돌아오는 방향의 물류가 <b>역물류</b>다 — 갈 때와 정반대로, 고객→운송사→창고→운영사→화주를 거치며 재판매·수리·폐기가 판정된다.</p>
+</header>
+
+<div class="terms">
+  <p><b>반품(return, RMA)</b> — 고객이 돌려보낸 물건을 받아 처리하는 일이다(RMA는 반품 승인 절차·번호를 가리킨다).</p>
+  <p><b>역물류(reverse logistics)</b> — 되돌아오는 방향의 물류이다. 반품·회수·재활용이 모두 역물류이다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>Cost-to-serve(고객별 서비스 비용)</b> — 화주·주문별로 그 물건을 다루는 데 든 비용을 따져 계산한 값이다. 반품 처리 비용도 여기에 더해진다. (<a href="cost-to-serve.html">Cost-to-serve</a>)</p>
+  <p><b>검수(receiving check)</b> — 도착한 물건이 주문·통지 내용과 수량까지 같은지 확인하는 일이다. 반품 검수는 여기에 물건의 상태까지 살핀다. (<a href="blind-receiving.html">블라인드 입고</a>)</p>
+  <p><b>보류(hold)</b> — 검수나 판정이 끝날 때까지 팔거나 쓰지 못하게 잡아 둔 상태다. 수리 후 판매로 판정된 반품은 이 보류 상태가 됩니다. (<a href="qc-stock-status.html">검품과 재고 상태</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 대여한 도서 반납</b> · 반납함에 넣으면 사서가 책의 상태를 확인해 재비치하거나 수리·폐기한다. <b>폐기(disposal)</b>는 못 쓰게 된 물건을 버리는 처리다. 반품도 받은 창고가 상태를 보고 판정해야 끝난다. 다만 도서관은 반납함이 곧 창고지만, 물류는 그 앞에 고객에게서 회수해 오는 운송 구간이 따로 붙는다.</p>
+
+<div class="panel">
+  <h2><span class="opd" aria-hidden="true"></span>반품 5건(R-101~R-105)이 거슬러 올라가는 8단계 릴레이</h2>
+  <div class="controls">
+    <div class="ctl">판정 기준(엄격 ↔ 관대)
+      <input type="range" id="knS" min="0" max="100" step="5" value="50" aria-label="판정 기준 — 엄격에서 관대">
+      <span class="cnt" id="lblS"></span>
+    </div>
+    <div class="ctl">반품 사유 구성(변심 ↔ 불량)
+      <input type="range" id="knM" min="0" max="100" step="5" value="0" aria-label="반품 사유 구성 — 변심 위주에서 불량 위주">
+      <span class="cnt" id="lblM"></span>
+    </div>
+    <button type="button" class="ghostb" id="prev">◀ 이전</button>
+    <button type="button" class="ghostb" id="next">다음 ▶</button>
+    <button type="button" class="ghostb" id="all">전체 보기</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="반품 5건이 고객·운송사·창고·운영사·화주 레인을 거치는 8단계 역물류 릴레이 지도"></svg>
+  </div>
+  <p class="patn">가로 줄은 물건이 있는 주체 레인(위에서부터 고객 · 운송사 · 창고 · 운영사 · 화주)이고, 세로 점선은 서류가 오가는 방향입니다. 동그라미 1~5는 반품 5건이며, 판정(4단계)부터 테두리 색이 판정 결과를 가리킵니다.</p>
+  <p class="legend" aria-label="판정 결과 색">
+    <span>판정 색</span>
+    <span><i class="sw-ok"></i>재판매 가능</span>
+    <span><i class="sw-fix"></i>수리 후 판매</span>
+    <span><i class="sw-dx"></i>폐기</span>
+    <span><i class="sw-rt"></i>화주 반송</span>
+  </p>
+  <p id="vl"></p>
+  <table class="tbl" id="tbl" aria-label="반품 5건 판정 결과">
+    <thead><tr><th>반품</th><th>사유</th><th class="opt">상태</th><th>판정</th><th class="opt">완료</th><th>비용</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 반품 5건 · 창고 1곳. 판정 기준과 비용은 일반적인 이커머스 반품을 단순화했고, 회수·검수·수리·폐기·반송 단가와 상태 점수(0~100)는 예시 값입니다. 시나리오는 고정돼 있어 같은 조건에서는 항상 같은 결과가 나옵니다.</p>
+<p class="takeaway">판정을 <b>관대히 하면</b> 재판매율은 오르지만 나쁜 물건이 다시 나가 비용이 뒤돌아오고, <b>엄격히 하면</b> 처리는 깨끗하지만 폐기·회수 비용이 커진다 — 반품은 받는 순간이 아니라 <b>판정이 끝날 때</b> 끝난다. 그래서 실무에서는 사유·상태별 판정 기준을 미리 정해 두고, 창고가 그 기준으로 판정하게 한다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 RMA 번호로 반품을 추적해 창고의 판정 결과(재판매/수리/폐기/반송)를 받아 재고와 정산에 반영합니다. 판정 기준은 화주·운영사마다 다르게 설정합니다.</p>
+<div class="next">
+  <p>선행: <a href="cost-to-serve.html">Cost-to-serve(고객별 서비스 비용)</a> — 반품의 회수·처리 비용도 화주별로 따져 청구합니다</p>
+  <p>여기가 로드맵의 마지막 칸입니다 — 필요하면 첫걸음 <a href="logistics-basics.html">물류의 첫걸음</a>으로 돌아가 전체를 되짚어 보세요</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="returns-flow">✓ 학습 완료</button>
+</div>
+
+<script id="logic">
+// 순수 계산 블록 — DOM 없음 (node --check · 손검산 대상)
+const RETURNS=[
+  {id:'R-101',defectAt:999,st:92},
+  {id:'R-102',defectAt:95,st:74},
+  {id:'R-103',defectAt:75,st:52},
+  {id:'R-104',defectAt:50,st:33},
+  {id:'R-105',defectAt:0,st:40}
+];
+const BASE=3500, RISK_K=500, RISK_BAR=75, FIX=6000, DX=4000, RTX=5500, RECOVER=8000;
+const VD={
+  ok:{n:'재판매 가능',day:4},
+  fix:{n:'수리 후 판매',day:7},
+  dx:{n:'폐기',day:4},
+  rt:{n:'화주 반송',day:9}
+};
+const VKEYS=['ok','fix','dx','rt'];
+const limitA=s=>Math.round(80-0.35*s); // 재판매 기준선 — s 0=엄격 → 100=관대
+const limitB=s=>Math.round(45-0.25*s); // 수리 기준선
+function reasonOf(i,m){return m>=RETURNS[i].defectAt?'불량':'단순 변심';}
+function verdictOf(i,s,m){
+  if(reasonOf(i,m)==='불량')return 'rt';
+  const st=RETURNS[i].st;
+  return st>=limitA(s)?'ok':(st>=limitB(s)?'fix':'dx');
+}
+function riskOf(i,v){return v==='ok'?Math.max(0,RISK_BAR-RETURNS[i].st)*RISK_K:0;}
+function costOf(i,v){const st=RETURNS[i].st;
+  let c=BASE+riskOf(i,v);
+  if(v==='fix')c+=FIX;
+  else if(v==='dx')c+=DX;
+  else if(v==='rt')c+=RTX;
+  return c;}
+function runCase(s,m){
+  const rows=RETURNS.map((r,i)=>{const v=verdictOf(i,s,m);
+    return {id:r.id,i,reason:reasonOf(i,m),st:RETURNS[i].st,v,cost:costOf(i,v),
+      risk:riskOf(i,v),day:VD[v].day,recover:(v==='ok'||v==='fix')?RECOVER:0};});
+  const cnt={ok:0,fix:0,dx:0,rt:0};
+  rows.forEach(r=>cnt[r.v]++);
+  const totCost=rows.reduce((a,r)=>a+r.cost,0);
+  const totRec=rows.reduce((a,r)=>a+r.recover,0);
+  return {rows,cnt,riskSum:rows.reduce((a,r)=>a+r.risk,0),
+    resale:cnt.ok*20,
+    avgDay:rows.reduce((a,r)=>a+r.day,0)/5,
+    perCost:Math.round(totCost/5),
+    totCost,totRec};
+}
+</script>
+<script>
+(() => {
+  const NS='http://www.w3.org/2000/svg';
+  const $=x=>document.getElementById(x);
+  const fmt=v=>v.toLocaleString('ko-KR');
+  const LANES=[
+    {n:'고객',cls:'c0'},{n:'운송사',cls:'c1'},{n:'창고',cls:'c2'},{n:'운영사',cls:'c3'},{n:'화주',cls:'c4'}
+  ];
+  const STAGES=[
+    {s:'신청',a:'고객 → 운영사',f:'고객이 반품을 신청하면 운영사가 RMA(반품 승인 번호)를 발급합니다',c:[0,3],d:'1일차'},
+    {s:'픽업',a:'운송사',f:'운송사가 고객에게서 회수 픽업해 창고로 옮깁니다',c:null,d:'2일차'},
+    {s:'검수',a:'창고',f:'창고가 도착한 물건의 외관·상태를 확인합니다',c:null,d:'3일차'},
+    {s:'판정',a:'창고',f:'창고가 검수 결과로 판정합니다 — 재판매 · 수리 후 판매 · 폐기 · 화주 반송',c:null,d:'3–4일차'},
+    {s:'상태',a:'창고',f:'창고가 재고 상태에 반영합니다 — 가용 · 보류(수리 대기) · 폐기',c:null,d:'4일차'},
+    {s:'보고',a:'창고 → 운영사',f:'창고가 운영사에 판정 결과를 완료 보고합니다',c:[2,3],d:'5일차'},
+    {s:'정산',a:'운영사 → 화주',f:'운영사가 회수·처리 비용을 정산하고 화주에 청구합니다',c:[3,4],d:'6–8일차'},
+    {s:'통보',a:'운영사 → 화주',f:'운영사가 화주에 결과를 통보하고, 반송 건은 화주에 도착합니다',c:[3,4],d:'8–9일차'}
+  ];
+  // 반품 토큰이 단계 k(0~7)에서 머무는 레인 — 판정 전엔 모두 같이 이동, 반송 건만 화주 쪽으로 되돌아감
+  const laneOf=(v,k)=>k===0?0:(k===1?1:(k<=4?2:(k<=6?(v==='rt'?1:2):(v==='rt'?4:2))));
+  let s=50, m=0, cur=-1, last=null;
+  const svg=$('dia'), host=$('diaHost'), status=$('status');
+
+  function el(n,at,p){const e=document.createElementNS(NS,n);for(const a in at)e.setAttribute(a,at[a]);(p||svg).appendChild(e);return e;}
+  function txt(x,y,cls,str,anchor,p){const e=el('text',{x,y,'class':cls},p);if(anchor)e.setAttribute('text-anchor',anchor);e.textContent=str;return e;}
+
+  function drawWide(W){
+    const LW=92,HD=36,TOP=4,LH=54,colW=(W-LW-6)/8,H=HD+TOP+5*LH+8;
+    const yC=i=>HD+TOP+i*LH+LH/2;
+    LANES.forEach((L,i)=>{
+      el('rect',{x:LW,y:HD+TOP+i*LH+3,width:W-LW-2,height:LH-6,rx:9,'class':'b'+i});
+      el('circle',{cx:10,cy:yC(i),r:3.5,'class':L.cls});
+      txt(19,yC(i)+4,'t12 w5 '+L.cls,L.n);
+    });
+    for(let k=1;k<8;k++)el('line',{x1:LW+colW*k,y1:HD+TOP,x2:LW+colW*k,y2:HD+TOP+5*LH,'class':'sep'});
+    for(let k=0;k<8;k++){
+      const g=el('g',{});
+      if(cur>=0&&k>cur)g.setAttribute('opacity','0.35');
+      if(k===cur)el('rect',{x:LW+colW*k+1,y:2,width:colW-2,height:H-6,rx:10,'class':'hl'},g);
+      const cx=LW+colW*(k+.5), st=STAGES[k];
+      txt(cx,16,(k===cur?'t11 w5 txt':'t11 w5 mut'),(k+1)+' '+st.s,'middle',g);
+      txt(cx,30,'t11 mut',st.d,'middle',g);
+      if(st.c)el('line',{x1:cx,y1:yC(st.c[0]),x2:cx,y2:yC(st.c[1]),'class':'ln'},g);
+      const byLane=[[],[],[],[],[]];
+      last.rows.forEach((r,i)=>byLane[laneOf(r.v,k)].push(i));
+      byLane.forEach((arr,L)=>{const nR=Math.ceil(arr.length/2);
+        arr.forEach((i,j)=>{
+          const x=cx+(j%2?9:-9), y=yC(L)+(Math.floor(j/2)-(nR-1)/2)*17;
+          el('circle',{cx:x,cy:y,r:7.5,'class':'tok'+(k>=3?' t-'+last.rows[i].v:'')},g);
+          txt(x,y+4,'t11 num txt',String(i+1),'middle',g);
+        });});
+    }
+    return H;
+  }
+
+  function drawNarrow(W){
+    let y=10;
+    for(let k=0;k<8;k++){
+      const g=el('g',{});
+      if(cur>=0&&k>cur)g.setAttribute('opacity','0.35');
+      if(k===cur)el('rect',{x:2,y:y-16,width:W-4,height:36,rx:8,'class':'hl'},g);
+      txt(8,y,'t12 w5 txt',(k+1)+' '+STAGES[k].s+' · '+STAGES[k].a,null,g);
+      y+=16;
+      if(k<3){
+        const ls=[...new Set(last.rows.map(r=>laneOf(r.v,k)))];
+        txt(8,y,'t11 mut','반품 5건 — '+ls.map(L=>LANES[L].n+' 레인').join(' · '),null,g);
+      }else{
+        const t=el('text',{x:8,y,'class':'t11'},g);
+        VKEYS.forEach((v,j)=>{
+          if(j){const dot=document.createElementNS(NS,'tspan');dot.setAttribute('class','mut');dot.textContent=' · ';t.appendChild(dot);}
+          const sp=document.createElementNS(NS,'tspan');sp.setAttribute('class','s-'+v);sp.textContent=VD[v].n+' '+last.cnt[v];t.appendChild(sp);
+        });
+      }
+      y+=22;
+    }
+    return y+2;
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const H=W>=620?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('aria-label','반품 5건이 고객→운송사→창고→운영사→화주 레인을 거치는 8단계 릴레이 지도. 재판매 '+last.cnt.ok+'건 · 수리 후 판매 '+last.cnt.fix+'건 · 폐기 '+last.cnt.dx+'건 · 화주 반송 '+last.cnt.rt+'건.');
+  }
+
+  function labels(){
+    $('lblS').textContent='재판매 상태 '+limitA(s)+' 이상 · 수리 '+limitB(s)+' 이상 — '+(s<=20?'엄격하게':(s>=80?'관대하게':'중간'));
+    $('lblM').textContent='불량 '+last.cnt.rt+'건 / 5 — '+(m<25?'변심 위주':(m<75?'섞임':'불량 위주'));
+  }
+
+  function table(){
+    $('tbl').tBodies[0].innerHTML=last.rows.map(r=>
+      '<tr><td>'+r.id+'</td><td>'+r.reason+'</td><td class="opt">'+r.st+'</td>'+
+      '<td class="v-'+r.v+'">'+VD[r.v].n+'</td><td class="opt">'+r.day+'일</td>'+
+      '<td>'+fmt(r.cost)+'원</td></tr>').join('');
+  }
+
+  function line(pick,fmtV,low){
+    const vs=[last,runCase(100,m),runCase(0,m)].map(pick);
+    const names=['지금 설정','관대한 기준','엄격한 기준'];
+    const best=low?Math.min(...vs):Math.max(...vs);
+    const wIdx=vs.map((v,i)=>v===best?i:-1).filter(i=>i>=0);
+    if(wIdx.length===3)return '<span class="cmp">기준을 바꿔도 '+fmtV(best)+' — 사유 구성이 정한다</span>';
+    if(wIdx.includes(0))return '<span class="cmp good">지금 설정이 1위 — 관대 '+fmtV(vs[1])+' · 엄격 '+fmtV(vs[2])+'보다 유리</span>';
+    return '<span class="cmp">1위 <em>'+names[wIdx[0]]+'</em> · '+fmtV(best)+' (지금 '+fmtV(vs[0])+')</span>';
+  }
+
+  function stats(){
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+last.resale+'%</b><span>재판매율 — 받자마자 다시 팔릴 반품의 비율, 높을수록 좋음</span>'+line(c=>c.resale,v=>v+'%',false)+'</div>'+
+      '<div class="stat"><b>'+last.avgDay.toFixed(1)+'일</b><span>처리 완료까지 걸리는 날 — 신청부터 정산·통보까지 반품 1건 평균, 짧을수록 좋음</span>'+line(c=>c.avgDay,v=>v.toFixed(1)+'일',true)+'</div>'+
+      '<div class="stat"><b>'+fmt(last.perCost)+'원</b><span>건당 처리 비용 — 회수·검수·수리·폐기·반송·클레임·재발송 리스크 포함, 낮을수록 좋음</span>'+line(c=>c.perCost,v=>fmt(v)+'원',true)+'</div>';
+  }
+
+  function announce(){
+    const c='재판매 '+last.cnt.ok+' · 수리 '+last.cnt.fix+' · 폐기 '+last.cnt.dx+' · 반송 '+last.cnt.rt;
+    status.textContent=cur<0
+      ?'전체 8단계 보기 — 판정: '+c+'. 다음으로 단계를 옮겨 보세요.'
+      :(cur+1)+'/8 · '+STAGES[cur].f+(cur===3?' — '+c:'');
+  }
+
+  function render(){
+    last=runCase(s,m);
+    $('vl').innerHTML='이번 판정: <b class="v-ok">재판매 '+last.cnt.ok+'건</b> · <b class="v-fix">수리 '+last.cnt.fix+'건</b> · <b class="v-dx">폐기 '+last.cnt.dx+'건</b> · <b class="v-rt">화주 반송 '+last.cnt.rt+'건</b> — 판매 회수 '+fmt(last.totRec)+'원 − 처리 비용 '+fmt(last.totCost)+'원 = '+fmt(last.totRec-last.totCost)+'원';
+    $('prev').disabled=cur<0;
+    $('next').disabled=cur>=7;
+    labels();draw();table();stats();announce();
+  }
+
+  $('knS').addEventListener('input',()=>{s=+$('knS').value;render();});
+  $('knM').addEventListener('input',()=>{m=+$('knM').value;render();});
+  $('next').addEventListener('click',()=>{cur=Math.min(cur+1,7);render();});
+  $('prev').addEventListener('click',()=>{cur=Math.max(cur-1,-1);render();});
+  $('all').addEventListener('click',()=>{cur=-1;render();});
+  new ResizeObserver(()=>{if(last)draw();}).observe(host);
+  render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TL vs LTL — 화물 묶음 — 물류 개념 시각화</title>
+<meta name="description" content="같은 날 같은 화물을 TL 전세차와 LTL 화물 묶음으로 나란히 실어 보내 보며, 팔레트 수와 긴급도에 따라 총 운임·문 앞 도착 시간·갈아 싣기 횟수가 어떻게 달라지고 역전하는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:500}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.opd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--viz-series-1);margin-right:5px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{accent-color:var(--primary);width:120px}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+svg .t12{font-size:12px;fill:var(--foreground)}
+svg .t11{font-size:11px;fill:var(--muted-foreground)}
+svg .w5{font-weight:600}
+svg .mut{fill:var(--muted-foreground)}
+svg .bad{fill:var(--bad)}
+svg .axis{stroke:var(--border);stroke-width:1}
+svg .road{stroke:color-mix(in srgb,var(--muted-foreground) 28%,transparent);stroke-width:1.2}
+svg .dl{stroke:color-mix(in srgb,var(--foreground) 55%,transparent);stroke-width:1.2;stroke-dasharray:5 4}
+svg .dl.late{stroke:var(--bad)}
+svg .m-wh{fill:color-mix(in srgb,var(--viz-series-3) 30%,transparent);stroke:var(--viz-series-3);stroke-width:1}
+svg .m-ow{fill:color-mix(in srgb,var(--viz-series-2) 30%,transparent);stroke:var(--viz-series-2);stroke-width:1}
+svg .m-cr{fill:color-mix(in srgb,var(--viz-series-4) 30%,transparent);stroke:var(--viz-series-4);stroke-width:1}
+svg .body{fill:color-mix(in srgb,var(--viz-series-4) 15%,transparent);stroke:color-mix(in srgb,var(--viz-series-4) 55%,transparent);stroke-width:1}
+svg .cab{fill:color-mix(in srgb,var(--viz-series-4) 30%,transparent);stroke:color-mix(in srgb,var(--viz-series-4) 55%,transparent);stroke-width:1}
+svg .d-ow{fill:var(--viz-series-2)}
+svg .d-ot{fill:color-mix(in srgb,var(--muted-foreground) 45%,transparent)}
+svg .wheel{fill:var(--muted-foreground)}
+svg .pulse{fill:none;stroke:var(--viz-series-4);stroke-width:1.5}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat b.cmp{font-size:17px}
+.stat b i{font-style:normal;font-size:12px;font-weight:600;color:var(--muted-foreground);padding:0 3px}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat em{font-style:normal;font-weight:600;color:var(--primary)}
+.stat .note{margin-top:2px}
+.stat .note.bad{color:var(--bad)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">수송·네트워크</span>
+  <p class="q">차 한 대를 통째로 쓸 것인가, 나눠 실을 것인가</p>
+  <h1>TL vs LTL — 화물 묶음</h1>
+  <p class="def">트럭 한 대를 통째로 쓰는 것이 <b>TL</b>, 여러 화주의 화물을 한 트럭에 나눠 싣는 것이 <b>LTL</b>이다 — LTL은 한 차에 <b>화물 묶음</b>을 하기 위해 허브를 거쳐 갈아 실는다.</p>
+</header>
+
+<div class="terms">
+  <p><b>TL(Truckload)</b> — 트럭 한 대를 통째로 쓰는 운송이다.</p>
+  <p><b>LTL(Less Than Truckload)</b> — 여러 화주의 화물을 한 트럭에 나눠 싣는 운송이다.</p>
+  <p><b>화물 묶음(consolidation)</b> — 여러 화주·여러 건의 화물을 한 차에 합쳐 싣는 일이다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>허브 앤 스포크(hub and spoke)</b> — 모든 물건을 중앙 허브 한 곳에 모았다가 각지로 뿌리는 연결 방식이다. LTL은 이 방식 위에서 운행한다. (<a href="hub-and-spoke.html">허브 앤 스포크 vs Point-to-Point</a>)</p>
+  <p><b>운임(freight rate)</b> — 화물을 한 구간 옮기는 데 내는 돈이다. 거리·무게·긴급도로 정해진다. 이 페이지의 손잡이 두 개(화물 크기·긴급도)가 운임을 가른다. (<a href="carrier-selection.html">운송사 선정</a>)</p>
+  <p><b>크로스독(cross-docking)</b> — 들어온 물건을 보관하지 않고 바로 출고 차에 갈아태우는 방식이다. LTL 허브의 갈아 싣기와 닮았다. (<a href="crossdock.html">크로스독</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 택시와 셔틀버스</b> · 택시(TL)는 문에서 문으로, 셔틀버스(LTL)는 여러 손님을 태우고 경유지를 거칩니다. 맞지 않는 지점: 승객은 탈 때 기다리지만, 화물은 허브에서 차를 갈아 싣는 동안 흔들립니다.</p>
+
+<div class="panel">
+  <h2><span class="opd" aria-hidden="true"></span>같은 날 같은 화물을 두 방식으로 나란히 보내 봅니다</h2>
+  <div class="controls">
+    <div class="ctl">화물 크기
+      <input type="range" id="knN" min="2" max="12" step="1" value="6" aria-label="화물 크기(팔레트 수)">
+      <span class="cnt" id="lblN"></span>
+    </div>
+    <div class="ctl">긴급도(희망 도착)
+      <div class="seg" id="segU" role="group" aria-label="긴급도(희망 도착)">
+        <button type="button" data-v="spare" aria-pressed="false">여유 · 모레까지</button>
+        <button type="button" data-v="next" aria-pressed="true">다음 날</button>
+        <button type="button" data-v="same" aria-pressed="false">당일</button>
+      </div>
+    </div>
+    <button type="button" class="act" id="play">▶ 재생</button>
+    <button type="button" class="ghostb" id="reset">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="TL과 LTL 비교 운행도"></svg>
+  </div>
+  <p class="patn">위 줄 = TL 전세차 · 아래 줄 = LTL — 가로축은 시각(오늘 9시 출고 요청 기준) · 초록 점 = 우리 화물(화주 A), 회색 점 = 다른 화주의 화물 · 점선 = 희망 도착 시각 · 주황 = 창고, 보라 = 운송사 차량·허브 · A·B·C는 화주 3곳 · 아래 줄 부산행 차는 다른 화주 몫까지 채워 12칸 가득이고, 위 줄 차는 우리 화물만 실려 n/12로 남습니다.</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 같은 날 같은 구간(출고 창고 → 부산 400km)의 화물로 두고, TL 운임은 차량 고정 700,000원 · LTL은 팔레트당 72,000원, 허브에서의 갈아 싣기는 1회로 단순화했습니다. 차 한 대 분량은 12팔레트이며, 화주 B·C의 화물은 같은 날 같은 방향으로 나가는 다른 화주의 것입니다.</p>
+<p class="takeaway">화물이 <b>트럭 가득에 가깝거나 급하면 통째로 쓰는 TL이</b>, <b>작고 여유가 있으면 나눠 싣는 LTL이</b> 싸다 — 기준은 팔레트 수와 마감 시간입니다. 그래서 실무에서는 출고 건마다 팔레트 수와 희망 도착일을 보고 TL/LTL을 가르는 규칙을 운송 담당 앞에 둡니다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 출고 건의 팔레트 수와 희망 도착일을 보고 TL/LTL 방식과 운송사를 고르는 규칙을 돌리고, 고른 방식으로 운송을 맡기는 실행은 TMS(운송 관리 시스템)가 합니다. 몇 팔레트부터 TL로 돌릴지 역전점 기준은 운영사마다 다르게 설정합니다.</p>
+<div class="next">
+  <p>선행: <a href="hub-and-spoke.html">허브 앤 스포크 vs Point-to-Point</a> — LTL이 밤새 도는 허브망의 연결 방식</p>
+  <p>다음: <a href="last-mile.html">라스트마일 배송</a> — 허브·터미널에서 내린 화물이 마지막 구간을 가는 이야기</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="tl-ltl">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const $=x=>document.getElementById(x);
+  // ── 모델: 같은 날 같은 구간(출고 창고 → 부산 400km) · 차 1대 = 12팔레트 ──
+  const FULL=12,TL_RATE=700000,LTL_RATE=72000;
+  const TL_ARR=11,TERM=20,DOOR=28,END=30,AXIS=34;
+  const DL={spare:57,next:33,same:12};
+  const DL_TXT={spare:'모레 18시',next:'내일 18시',same:'당일 21시'};
+  const fmt=v=>v.toLocaleString('ko-KR');
+  function clock(t){const h=9+t,d=Math.floor(h/24),hh=Math.floor(h%24);return (d===0?'오늘':d===1?'내일':'모레')+' '+hh+'시';}
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  const jit=(()=>{const r=rng(42),a=[];for(let i=0;i<24;i++)a.push((r()-0.5)*2.2);return a})(); // 허브 적재 점 흔들림(시드 고정 → 매번 같은 그림)
+  function calc(pn,pu){
+    const tl=TL_RATE,ltl=pn*LTL_RATE,ltlOk=DOOR<=DL[pu];
+    return {tl,ltl,ltlOk,win:!ltlOk?'TL':(ltl<tl?'LTL':'TL'),gap:Math.abs(tl-ltl),lateBy:DOOR-DL[pu]};
+  }
+  function tlPhase(t){return t<2?'적재 중':t<TL_ARR?'직행 주행 중':'도착';}
+  function ltPhase(t){return t<1?'화주 A 픽업 중':t<2.4?'화주 A→B 이동':t<3?'화주 B 픽업':t<4.4?'화주 B→C 이동':t<5?'화주 C 픽업':t<6?'허브로 이동':t<8?'허브 하역 중':t<10?'허브에서 갈아 싣는 중':t<TERM?'허브→부산 주행':t<21?'부산 터미널 하역':t<DOOR?'분배 배송 중':'도착';}
+
+  let n=6,u='next',t=0,playing=false,raf=0,lastTs=0,curPh='',lastW=0;
+  const host=$('diaHost'),svg=$('dia'),statusEl=$('status'),playBtn=$('play');
+  const m=()=>calc(n,u);
+  const verdictText=()=>{
+    const r=m();
+    if(r.win==='TL'&&!r.ltlOk)return `종합 TL 승 — LTL은 허브에서 갈아 싣기 때문에 희망 도착(${DL_TXT[u]})을 넘깁니다(도착 내일 13시).`;
+    if(r.win==='TL')return `종합 TL 승 — 팔레트 ${n}개는 차를 통째로 쓰는 편이 ${fmt(r.gap)}원 싸다(10팔레트부터 역전).`;
+    return `종합 LTL 승 — 희망 도착(${DL_TXT[u]}) 안에 도착하고 ${fmt(r.gap)}원 싸다.`;
+  };
+
+  function truckG(bx,by,own,oth,label){
+    const p=['<rect class="body" x="'+bx.toFixed(1)+'" y="'+by+'" width="36" height="15" rx="2.5"/>',
+      '<rect class="cab" x="'+(bx+36).toFixed(1)+'" y="'+(by+2)+'" width="11" height="13" rx="2"/>'];
+    const tot=Math.min(FULL,own+oth);
+    for(let i=0;i<tot;i++)p.push('<circle class="'+(i<own?'d-ow':'d-ot')+'" cx="'+(bx+4+(i%6)*5.4).toFixed(1)+'" cy="'+(by+(i<6?5.2:10.8)).toFixed(1)+'" r="1.9"/>');
+    p.push('<circle class="wheel" cx="'+(bx+9).toFixed(1)+'" cy="'+(by+17.5)+'" r="2.4"/>');
+    p.push('<circle class="wheel" cx="'+(bx+30).toFixed(1)+'" cy="'+(by+17.5)+'" r="2.4"/>');
+    if(label)p.push('<text class="t11 num" x="'+bx.toFixed(1)+'" y="'+(by-4)+'">'+label+'</text>');
+    return p.join('');
+  }
+  const st=(s,x,cls,lab,ly,by)=>{
+    s.push('<rect class="'+cls+'" x="'+(x-5).toFixed(1)+'" y="'+(by-5)+'" width="10" height="10" rx="2"/>');
+    s.push('<text class="t11" x="'+(x+7).toFixed(1)+'" y="'+ly+'">'+lab+'</text>');
+  };
+
+  function draw(){
+    const W=host.clientWidth;if(!W||W<40)return;
+    lastW=W;
+    const narrow=W<520,scale=(W-28)/AXIS,X=v=>10+v*scale;
+    const r=m(),s=[];
+    for(const tv of (narrow?[0,24]:[0,12,24]))
+      s.push('<text class="t11 num" x="'+X(tv).toFixed(1)+'" y="14" text-anchor="'+(tv===0?'start':'middle')+'">'+clock(tv)+'</text>');
+    s.push('<line class="axis" x1="10" y1="22" x2="'+(W-18).toFixed(1)+'" y2="22"/>');
+    // 희망 도착(마감) 선 — 긴급도 손잡이가 움직인다
+    const dl=DL[u],dlx=dl<=AXIS?X(dl):W-26,dlEnd=dlx>W-240,late=!r.ltlOk;
+    s.push('<line class="dl'+(late?' late':'')+'" x1="'+dlx.toFixed(1)+'" y1="26" x2="'+dlx.toFixed(1)+'" y2="202"/>');
+    s.push('<text class="t11'+(late?' bad':'')+'" x="'+(dlEnd?dlx-5:dlx+5).toFixed(1)+'" y="212" text-anchor="'+(dlEnd?'end':'start')+'">'
+      +(narrow?'마감 ':'희망 도착 · ')+DL_TXT[u]
+      +(late?(narrow?' · LTL 늦음':' · LTL 늦음 +'+r.lateBy+'시간'):(dl>AXIS?' — 차트 밖(여유 충분)':''))+'</text>');
+    // ── TL 레인 ──
+    s.push('<text class="t12" x="10" y="42"><tspan class="w5">TL — 전세차 한 대, 통째로 직행</tspan><tspan class="mut"> · '+tlPhase(t)+'</tspan></text>');
+    s.push('<line class="road" x1="10" y1="74" x2="'+(W-18).toFixed(1)+'" y2="74"/>');
+    st(s,X(0),'m-wh',narrow?'창고':'창고(출고)',100,74);
+    st(s,X(TL_ARR),'m-cr',narrow?'부산':'부산 문 앞',88,74);
+    s.push('<text class="t11 num" x="'+(X(TL_ARR)-7).toFixed(1)+'" y="88" text-anchor="end">'+clock(TL_ARR)+' 도착</text>');
+    const tlPos=t<2?0:Math.min(t,TL_ARR),tlOwn=t<2?Math.ceil(n*Math.min(t/2,1)):n;
+    s.push(truckG(Math.max(2,X(tlPos)-23),58,tlOwn,0,'실적 '+tlOwn+'/'+FULL));
+    // ── LTL 레인 ──
+    s.push('<text class="t12" x="10" y="118"><tspan class="w5">LTL — 화물 묶음, 허브에서 갈아 싣기</tspan><tspan class="mut"> · '+ltPhase(t)+'</tspan></text>');
+    s.push('<line class="road" x1="10" y1="148" x2="'+(W-18).toFixed(1)+'" y2="148"/>');
+    st(s,X(0),'m-ow',narrow?'A':'화주 A(우리)',164,148);
+    st(s,X(2),'m-ow',narrow?'B':'화주 B',176,148);
+    st(s,X(4),'m-ow',narrow?'C':'화주 C',164,148);
+    st(s,X(6),'m-cr',narrow?'허브':'허브 터미널 · 갈아 싣기 1회',176,148);
+    st(s,X(20),'m-cr',narrow?'부산':'부산 터미널',164,148);
+    st(s,X(28),'m-ow',narrow?'문 앞':'문 앞',176,148);
+    if(narrow)s.push('<text class="t11 num" x="'+(X(28)-7).toFixed(1)+'" y="176" text-anchor="end">'+clock(DOOR)+'</text>');
+    else s.push('<text class="t11 num" x="'+(X(28)-7).toFixed(1)+'" y="164" text-anchor="end">'+clock(DOOR)+' 도착</text>');
+    // 화물 점 분배: 픽업 차 → 허브 스택 → 부산행 차(12칸 가득) → 배송 차
+    const truckOwn=t<1?Math.ceil(n*Math.min(t,1)):t<8?Math.max(0,n-Math.floor(n*(t-6)/2)):0;
+    const stackOwn=t<6?0:t<8?n-truckOwn:Math.max(0,n-Math.floor(n*(t-8)/2));
+    const lineOwn=t<8?0:n-stackOwn;
+    const lineOth=t<8?0:Math.min(FULL-n,Math.floor((FULL-n)*Math.min((t-8)/2,1)));
+    if(t<8){
+      let pos;
+      if(t<1)pos=0;else if(t<2.4)pos=2*(t-1)/1.4;else if(t<3)pos=2;
+      else if(t<4.4)pos=2+2*(t-3)/1.4;else if(t<5)pos=4;else pos=Math.min(6,4+2*(t-5));
+      s.push(truckG(Math.max(2,X(pos)-23),132,truckOwn,0,''));
+    }
+    if(t>6&&t<7.8){const k=t-6;
+      s.push('<circle class="pulse" cx="'+X(6).toFixed(1)+'" cy="142" r="'+(8+k*16).toFixed(1)+'" opacity="'+Math.max(0,.5-k/1.6).toFixed(2)+'"/>');}
+    if(stackOwn>0)for(let i=0;i<stackOwn;i++)
+      s.push('<circle class="d-ow" cx="'+(X(6)+30+(i%6)*5.4).toFixed(1)+'" cy="'+((i<6?136:142)+jit[i%24]).toFixed(1)+'" r="1.9"/>');
+    if(t>=8){const pos=t<10?6:Math.min(t,TERM);
+      s.push(truckG(Math.max(2,X(pos)-23),132,t<21?lineOwn:0,t<21?lineOth:0,''));}
+    if(t>=21){const pos=20+Math.min(t-21,7)*(8/7);
+      s.push(truckG(Math.max(2,X(pos)-23),132,n,0,''));}
+    svg.setAttribute('viewBox','0 0 '+W+' 218');
+    svg.setAttribute('aria-label','TL과 LTL 나란히 운행도 — TL: 창고에서 팔레트 '+n+'개를 통째로 싣고 '+clock(TL_ARR)+' 도착 · LTL: 화주 3곳(A·B·C)을 픽업해 허브 터미널에서 갈아 싣고 '+clock(DOOR)+' 도착 · 희망 도착 '+DL_TXT[u]+' · 종합 '+(r.win==='TL'?(r.ltlOk?'TL 승(운임 역전)':'TL 승(LTL 마감 미준수)'):'LTL 승'));
+    svg.innerHTML=s.join('');
+  }
+
+  function cards(){
+    const r=m();
+    let c1w,c1l,c1lab,c1cmp;
+    if(r.ltl<r.tl){
+      c1w='<em>LTL '+fmt(r.ltl)+'원</em>';c1l='TL '+fmt(r.tl)+'원';
+      c1lab='총 운임 — 낮을수록 좋음 · LTL 팔레트당 72,000원 × '+n+' vs TL 차 1대 고정';
+      c1cmp=r.ltlOk?('TL은 빈 칸에도 차 1대 값을 냅니다 — '+fmt(r.gap)+'원 차이, 팔레트 10개부터 TL 역전'):'단, 당일 마감을 넘겨 LTL을 쓸 수 없습니다 — 종합은 TL';
+    }else{
+      c1w='<em>TL '+fmt(r.tl)+'원</em>';c1l='LTL '+fmt(r.ltl)+'원';
+      c1lab='총 운임 — 낮을수록 좋음 · TL 차 1대 고정 vs LTL 팔레트당 72,000원 × '+n;
+      c1cmp='팔레트당 누적이 차 1대 고정을 넘었습니다 — 9팔레트까지는 LTL이 싸다';
+    }
+    const c2cmp=u==='same'
+      ?'LTL은 희망 도착(당일 21시)보다 16시간 늦다 — 갈아 싣기와 허브 배차 대기 때문에 당일 배송이 불가'
+      :'LTL도 마감('+DL_TXT[u]+') 안에 도착 — 여유 '+(u==='next'?5:29)+'시간';
+    $('stats').innerHTML=
+      '<div class="stat"><b class="cmp">'+c1w+'<i>vs</i>'+c1l+'</b><span>'+c1lab+'</span><span class="note'+(!r.ltlOk?' bad':'')+'">'+c1cmp+'</span></div>'
+      +'<div class="stat"><b class="cmp"><em>TL 11시간</em><i>vs</i>LTL 28시간</b><span>문 앞 도착까지(시간) — 오늘 9시 출고 요청 기준, TL '+clock(TL_ARR)+' · LTL '+clock(DOOR)+', 짧을수록 좋음</span><span class="note'+(u==='same'?' bad':'')+'">'+c2cmp+'</span></div>'
+      +'<div class="stat"><b class="cmp"><em>TL 0회</em><i>vs</i>LTL 1회</b><span>갈아 싣기 횟수(회) — 허브에서 차를 바꿔 타는 횟수, 적을수록 파손 위험이 낮음</span><span class="note">LTL은 허브에서 한 번 내렸다 다시 실립니다 — 그 사이 흔들림이 파손·파본 위험</span></div>';
+  }
+  function labels(){
+    $('lblN').textContent=n+'팔레트 / 12칸 중 '+n+'칸';
+    document.querySelectorAll('#segU button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===u)));
+  }
+
+  function tick(ts){
+    if(!playing)return;
+    const dt=Math.min(50,lastTs?ts-lastTs:16);lastTs=ts;
+    t=Math.min(END,t+dt/1000*2.2);
+    draw();
+    const key=tlPhase(t)+'|'+ltPhase(t);
+    if(key!==curPh){curPh=key;statusEl.textContent=clock(t)+' · TL '+tlPhase(t)+' / LTL '+ltPhase(t);}
+    if(t>=END){playing=false;playBtn.textContent='▶ 다시 재생';
+      statusEl.textContent='운행 종료 — TL '+clock(TL_ARR)+' · LTL '+clock(DOOR)+' 도착. 초기화를 누르면 처음부터 다시 볼 수 있습니다.';return;}
+    raf=requestAnimationFrame(tick);
+  }
+  playBtn.addEventListener('click',()=>{
+    if(playing){playing=false;cancelAnimationFrame(raf);playBtn.textContent='▶ 재생';
+      statusEl.textContent='일시정지 — '+verdictText();return;}
+    if(t>=END)t=0;
+    playing=true;lastTs=0;curPh='';playBtn.textContent='⏸ 일시정지';
+    statusEl.textContent='재생 — 위 줄 TL, 아래 줄 LTL이 같은 시각 축에서 출발합니다.';
+    raf=requestAnimationFrame(tick);
+  });
+  $('reset').addEventListener('click',()=>{
+    playing=false;cancelAnimationFrame(raf);t=0;curPh='';playBtn.textContent='▶ 재생';
+    draw();statusEl.textContent='초기화 — '+verdictText();
+  });
+  $('knN').addEventListener('input',()=>{n=+$('knN').value;labels();cards();draw();
+    if(!playing)statusEl.textContent=verdictText();});
+  $('segU').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    u=b.dataset.v;labels();cards();draw();statusEl.textContent=verdictText();
+    const nb=$('segU').querySelector('[data-v="'+u+'"]');if(nb)nb.focus();});
+  new ResizeObserver(()=>{const w=host.clientWidth;if(Math.abs(w-lastW)>1)draw();}).observe(host);
+  labels();cards();draw();
+  statusEl.textContent=verdictText();
+})();
+</script>
+<script>
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

@@ -55,6 +55,11 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
 .foot{margin:-12px 0 22px;color:var(--muted-foreground);font-size:12.5px}
 .done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:border-color .15s ease-out,background-color .15s ease-out,color .15s ease-out}
 .done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+.pl4{margin:0 0 18px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:12px;padding:12px 16px}
+.pl4 h2{font-size:14px;font-weight:600;color:var(--primary);margin:0 0 6px}
+.pl4 p{margin:0;font-size:13.5px;line-height:1.6;color:var(--muted-foreground)}
+.pl4 a{color:var(--primary);text-decoration:none}
+.pl4 a:hover{text-decoration:underline}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -64,7 +69,7 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
 <header>
   <span class="cat">수송·네트워크</span>
   <h1>허브 앤 스포크 vs Point-to-Point</h1>
-  <p class="def"><b>Point-to-Point</b>는 목적지끼리 전부 직결, <b>허브 앤 스포크</b>는 중앙 허브 하나 경유. 노드 수를 올려 좌측 노선이 폭발하는 걸 직접 보세요.</p>
+  <p class="def"><b>Point-to-Point</b>는 목적지끼리 전부 직결, <b>허브 앤 스포크</b>는 중앙 허브 하나 경유. 노드(이어지는 거점) 수를 올려 좌측 노선이 폭발하는 걸 직접 보세요.</p>
 </header>
 
 <div class="panel">
@@ -80,9 +85,10 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
 </div>
 
 <div class="stats" id="stats"></div>
-<p class="takeaway">직송은 노선이 n²으로 늘고, 허브는 노선 n개로 정리되는 대신 <b>우회 거리·허브 병목</b>이라는 대가 — 소량·다점은 허브, 대량·전용은 직송.</p>
+<p class="takeaway">지점 직결(Point-to-Point)은 노선이 n²으로 늘고, 허브는 노선 n개로 정리되는 대신 <b>우회 거리·허브 병목</b>이라는 대가 — 소량·다점(조금씩 여러 곳)은 허브, 대량·전용(한 곳에 많이)은 지점 직결.</p>
 <p class="foot">단순화 모델 — 실제로는 허브 처리능력, 시간창, 양방향 흐름이 결과를 바꾼다.</p>
-<button class="done" id="done">✓ 학습 완료</button>
+<aside class="pl4"><h2>4PL 시점에서는</h2><p>노드 수를 정하는 문제가 곧 네트워크 설계다 — 거점을 몇 개 두고 어디에 둘지가 노선 수와 우회 거리를 먼저 결정한다. 창고 수·위치는 운영사마다 다르게 정한다. 그 기준을 세우는 일은 <a href="network-design.html">네트워크 설계 — 창고 수 · 위치</a>에서 본다.</p></aside>
+<button class="done" id="mv-done-btn" data-slug="hub-and-spoke">✓ 학습 완료</button>
 </div>
 
 <script>
@@ -232,7 +238,7 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
         d.p+=dt/d.dur;
         if(d.p>=1){d.leg=2;d.el.setAttribute('opacity','0');d.until=ts+360+arng()*320;addPulse(d.hx,d.hy);}
         else{d.el.setAttribute('cx',d.ax+(d.hx-d.ax)*d.p);d.el.setAttribute('cy',d.ay+(d.hy-d.ay)*d.p);}
-      }else if(d.leg===2){ // 허브 대기(컨솔리데이션): 모였다가
+      }else if(d.leg===2){ // 허브 대기(화물 묶음): 모였다가
         if(ts>=d.until){
           let j=pickNode(d.home);if(j===d.home)j=(d.home+1)%nv;
           d.leg=1;d.bx=Q[j][0];d.by=Q[j][1];d.p=0;
@@ -253,7 +259,7 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
   function start(){
     if(playing)return;playing=true;lastT=0;arng=rng(42);
     play.textContent='⏸ 일시정지';
-    status.textContent=`재생 중 — 좌: 직송 직선 이동 / 우: 노드→허브 모여서→노드 (컨솔리데이션)`;
+    status.textContent=`재생 중 — 좌: 직송 직선 이동 / 우: 노드→허브 모여서→노드 (화물 묶음)`;
     raf=requestAnimationFrame(tick);
   }
   function stop(){
@@ -283,7 +289,7 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
         '허브는 우회 거리가 대가')+
       card('트럭 대수',m.tp,m.th,
         '짐이 쌍별로 흩어져 대부분 빈 채 운행',
-        `컨솔리데이션 — ${pct(m.th,m.tp)}% 절감`);
+        `화물 묶음 — ${pct(m.th,m.tp)}% 절감`);
   }
   function onParam(){
     const m=metrics(nv,cv,mv);
@@ -298,7 +304,7 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
   document.getElementById('reset').addEventListener('click',resetAll);
   new ResizeObserver(()=>{const w=svg.parentElement.clientWidth;if(Math.abs(w-lastW)>1)render();}).observe(svg.parentElement);
   // 진도
-  const db=document.getElementById('done');
+  const db=document.getElementById('mv-done-btn');
   const key='mv-done:'+SLUG;
   try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
   db.addEventListener('click',()=>{

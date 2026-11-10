@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>재고 대사 — OMS 재고 vs WMS 재고 — 물류 개념 시각화</title>
+<meta name="description" content="OMS·WMS·실물 세 숫자가 어긋난 한 달 기록을 대사 기준(OMS·WMS·실사) 세 가지로 각각 맞춰 보며, 조정량·남는 불일치·약속 초과 위험과 창고별 원인 귀속이 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:500}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+svg text.t12{font-size:12px}
+svg text.t11{font-size:11px}
+svg text.w5{font-weight:600}
+svg text.omp{fill:var(--viz-series-1)}
+svg text.whc{fill:var(--viz-series-3)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.num{font-variant-numeric:tabular-nums}
+svg .bO{fill:color-mix(in srgb,var(--viz-series-1) 62%,transparent)}
+svg .bW{fill:color-mix(in srgb,var(--viz-series-3) 55%,transparent)}
+svg .bP{fill:color-mix(in srgb,var(--muted-foreground) 45%,transparent)}
+svg .refl{stroke:var(--foreground);stroke-width:1;stroke-dasharray:3 3;opacity:.5}
+svg .sep{stroke:var(--border);stroke-width:1}
+svg .hxl{stroke:var(--bad);stroke-width:1.3;opacity:.55}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 14px}
+.evl{list-style:none;margin:0;padding:0}
+.evl li{display:grid;grid-template-columns:52px minmax(0,1fr);gap:2px 10px;padding:8px 10px;margin:0 0 6px;border:1px solid var(--border);border-radius:10px}
+.evl .wk{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;line-height:1.9}
+.evl .hd{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.evl .whn{font-size:12px;color:var(--viz-series-3);font-weight:500}
+.evl .sum{font-size:11.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.evl .t{grid-column:2;font-size:13px;line-height:1.5;color:var(--muted-foreground)}
+.tag{font-size:11.5px;line-height:1.6;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--muted-foreground) 12%,transparent);color:var(--muted-foreground);white-space:nowrap}
+.tag.dly{background:color-mix(in srgb,var(--viz-series-1) 12%,transparent);color:var(--viz-series-1)}
+.tag.badt{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin:0}
+.tbl th{font-weight:500;color:var(--muted-foreground);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:4px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.tbl td.whn{color:var(--viz-series-3);font-weight:500;white-space:nowrap}
+.tbl td.att{color:var(--muted-foreground)}
+@media (max-width:560px){.tbl .opt{display:none}.tbl th,.tbl td{padding:3px 4px}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.good{color:var(--viz-series-2)}
+.stat em{font-style:normal;font-weight:500;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">재고</span>
+  <p class="q">시스템의 재고와 창고의 실물이 다르면 어느 쪽이 맞는가</p>
+  <h1>재고 대사 — OMS 재고 vs WMS 재고</h1>
+  <p class="def">두 기록을 맞춰 보고 차이를 찾아 바로잡는 일이 <b>재고 대사</b>다 — 주문 시스템(OMS)과 창고 시스템(WMS)이 같은 날 같은 상품을 다르게 세고 있으면, 실물을 세어 누가 맞는지 가린다.</p>
+</header>
+
+<div class="terms">
+  <p><b>재고 대사(reconciliation)</b> — 두 기록을 맞춰 보고 차이를 찾아 바로잡는 일이다.</p>
+  <p><b>ATP(Available to Promise)</b> — "지금 주문하면 바로 보낼 수 있다"고 약속할 수 있는 수량이다. 이 페이지에서는 OMS 기록이 약속의 기준이 된다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>재고 실사(physical count)</b> — 창고에 있는 물건을 직접 세어 시스템 기록과 맞춰 보는 일이다. 이 페이지에서는 실사로 센 수를 "실물"이라고 부른다. (<a href="inventory-basics.html">재고의 기본</a>)</p>
+  <p><b>배분</b> — 총 재고를 여러 창고에 나눠 담을 비율을 정하는 일이다. 재고가 창고 여러 곳에 나뉘어 있으면 대사도 창고별로 이뤄진다. (<a href="multi-dc-inventory.html">다중 창고 재고 배치</a>)</p>
+  <p><b>컨트롤 타워(control tower)</b> — 여러 창고·운송사의 상황을 한곳에서 모아 보고, 사람이 봐야 할 문제를 골라 알려 주는 시스템이다. 재고 차이는 컨트롤 타워가 골라 내는 대표적 예외다. (<a href="control-tower.html">컨트롤 타워</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 통장과 가계부</b> · 통장(은행 기록)과 내 가계부가 다르면 영수증을 하나씩 대보고 어디가 틀렸는지 가립니다. 재고 대사도 같은 원리입니다. 다만 돈은 거래 기록이 전부지만, 재고는 기록과 별개로 실물이 따로 움직입니다 — 분실한 물건은 영수증이 없어, 실물을 직접 세어 봐야만 알 수 있습니다.</p>
+
+<div class="panel">
+  <h2>창고 3곳의 한 달 재고 — 대사 기준을 바꿔 다시 세워 봅니다</h2>
+  <div class="controls">
+    <div class="ctl">대사 기준
+      <div class="seg" id="segBase" role="group" aria-label="대사 기준">
+        <button type="button" data-v="omswms" aria-pressed="true">OMS 기준</button>
+        <button type="button" data-v="wmsoms" aria-pressed="false">WMS 기준</button>
+        <button type="button" data-v="count" aria-pressed="false">실사 기준</button>
+      </div>
+    </div>
+    <div class="ctl">차이 원인 구성
+      <div class="seg" id="segMix" role="group" aria-label="차이 원인 구성">
+        <button type="button" data-v="delay" aria-pressed="false">전송 지연 위주</button>
+        <button type="button" data-v="half" aria-pressed="true">반반</button>
+        <button type="button" data-v="loss" aria-pressed="false">분실 위주</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <p class="cause" id="causeTxt"></p>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label=""></svg>
+  </div>
+  <p class="patn">막대 = 대사 후 기록 값 · 빗금 = 기록은 있으나 실물에 없는 양(못 보낼 수 있는 주문) · 세로 점선 = 실물(실사) 수 · "(39→40)" = 이번 대사에서 고친 값 · OMS = 주문 시스템(운영사) 기록 · WMS = 창고 시스템(창고) 기록</p>
+
+  <h2>차이의 원인 — 한 달 이벤트 (시간순)</h2>
+  <ol class="evl" id="evl"></ol>
+  <p class="patn"><span class="tag dly">지연</span> 전송 지연은 보고가 도착하면 스스로 해소 · <span class="tag badt">실손</span> 분실·오적치는 실사로만 발견된다</p>
+
+  <h2>창고별 대사 결과 — 어디가 틀리고 누구 탓인가</h2>
+  <table class="tbl" id="tbl" aria-label="창고별 대사 결과">
+    <thead><tr><th>창고</th><th>원인</th><th>조정 후 OMS · WMS</th><th class="opt">조정 내역</th><th>남는 불일치</th><th>귀속</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 상품 1종·창고 3곳·한 달 기록(기본 구성에서 OMS 105 · WMS 103 · 실물 100개), 차이 원인은 전송 지연·분실·오적치 세 가지 대표 경우로 단순화했다. 오적치 1개는 실제로는 창고 어딘가 있지만 이 달 실사 수에는 반영되지 않은 것으로 둔다. 대사 주기와 실사에 드는 노력은 이 페이지에서 숫자로 다루지 않는다.</p>
+<p class="takeaway">기록 하나만 믿고 조정하면 빠르지만 <b>실물과의 차이는 남고</b>, 실사 기준으로 맞추면 느리지만 <b>약속이 흔들리지 않는다</b> — 그래서 주기적 실사와 대사를 함께 돌린다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 WMS와의 재고 차이를 원인 코드(전송 지연·분실·오적치)별로 대사하고, 어느 값을 진실로 삼을지는 운영사마다 다르게 설정합니다.</p>
+<div class="next">
+  <p>선행: <a href="multi-dc-inventory.html">다중 창고 재고 배치</a> — 재고가 창고 여러 곳에 나뉘면 대사도 창고별로 이뤄진다</p>
+  <p>다음: <a href="cost-to-serve.html">Cost-to-serve · 물류비 정산</a> — 맞춰 둔 재고와 작업 기록이 정산의 입력이 된다</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="inventory-reconciliation">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const $=x=>document.getElementById(x);
+  const WH=[{n:'서울'},{n:'대전'},{n:'부산'}];
+  const START=[40,35,30]; // 이벤트가 없었다면의 한 달 기말 수량 — 합계 105
+  const KIND={
+    delay:{n:'미전송 완료 보고',cls:'dly',sum:'기록 차이 1 — OMS만 높음',
+      t:'출고는 끝났는데 완료 보고(일을 실행한 쪽이 끝났다고 시스템에 알리는 기록)가 OMS에 안 갔다. WMS·실물은 이미 줄었고, 다음 달 보고가 도착하면 해소된다.'},
+    loss:{n:'분실',cls:'badt',sum:'기록 차이 1 — OMS·WMS 모두 높음',
+      t:'창고 안에서 물건 1개를 잃어버렸다. 두 기록 모두 모르고 있어 실물을 직접 세어 봐야만 발견된다.'},
+    misput:{n:'오적치',cls:'badt',sum:'기록 차이 1 — OMS·WMS 모두 높음',
+      t:'물건을 기록과 다른 자리에 잘못 올려 둬 실사 때 세지 못했다. 찾으면 다시 셈에 반영되지만, 이 페이지에서는 실물에 없는 것으로 단순화한다.'}
+  };
+  const MIXES={
+    half:{n:'반반',ev:[{w:1,wk:1,k:'loss'},{w:0,wk:2,k:'delay'},{w:2,wk:2,k:'misput'},{w:1,wk:3,k:'delay'},{w:0,wk:4,k:'loss'}]},
+    delay:{n:'전송 지연 위주',ev:[{w:0,wk:1,k:'delay'},{w:2,wk:2,k:'misput'},{w:1,wk:2,k:'delay'},{w:0,wk:3,k:'delay'},{w:1,wk:4,k:'delay'}]},
+    loss:{n:'분실 위주',ev:[{w:0,wk:1,k:'loss'},{w:1,wk:1,k:'loss'},{w:2,wk:2,k:'misput'},{w:0,wk:3,k:'loss'},{w:1,wk:4,k:'loss'}]}
+  };
+  const BASE_N={omswms:'OMS 기준',wmsoms:'WMS 기준',count:'실사 기준'};
+  const BASES=['omswms','wmsoms','count'];
+  const BASE_D={
+    omswms:'OMS 기록을 진실로 삼고 WMS를 그에 맞게 고칩니다. 기록 간 차이는 창고 탓으로 귀속되고, 실물과의 차이는 그대로 남습니다.',
+    wmsoms:'WMS 기록을 진실로 삼고 OMS를 그에 맞게 고칩니다. 남는 차이는 줄지만 실물 확인은 여전히 없습니다.',
+    count:'실물을 직접 세어 나온 수를 진실로 삼아 OMS·WMS 양쪽을 고칩니다. 가장 많이 고치고 실사 노력이 들지만, 차이의 원인까지 가려 냅니다.'
+  };
+  const MIX_NOTE={
+    half:'',
+    delay:' 이 달은 전송 지연 위주 — 기록 차이 대부분은 스스로 해소되지만, 그 속에 섞인 실손(오적치)은 실사로만 걸러집니다.',
+    loss:' 이 달은 분실 위주 — 두 기록이 서로 같아 기록만의 대사로는 아무것도 못 고치고, 귀속도 불가능합니다.'
+  };
+
+  function calc(mix,base){
+    const ev=MIXES[mix].ev;
+    const rows=WH.map((wh,w)=>{
+      const e=ev.filter(x=>x.w===w);
+      const c=k=>e.filter(x=>x.k===k).length;
+      const d=c('delay'),l=c('loss'),m=c('misput');
+      const oms=START[w],wms=START[w]-d,phys=START[w]-d-l-m;
+      let aO=oms,aW=wms,jO=0,jW=0;
+      if(base==='omswms'){aW=oms;jW=oms-wms;}
+      else if(base==='wmsoms'){aO=wms;jO=wms-oms;}
+      else{aO=phys;aW=phys;jO=phys-oms;jW=phys-wms;}
+      return {w,n:wh.n,oms,wms,phys,d,l,m,aO,aW,jO,jW,
+        gap:Math.max(0,aO-phys)+Math.max(0,aW-phys),risk:Math.max(0,aO-phys)};
+    });
+    const S=k=>rows.reduce((s,r)=>s+r[k],0);
+    return {rows,oms:S('oms'),wms:S('wms'),phys:S('phys'),aO:S('aO'),
+      jO:S('jO'),jW:S('jW'),adj:Math.abs(S('jO'))+Math.abs(S('jW')),gap:S('gap'),risk:S('risk')};
+  }
+  const cause=r=>[r.d?'전송 지연 '+r.d:'',r.l?'분실 '+r.l:'',r.m?'오적치 '+r.m:''].filter(Boolean).join(' · ')||'—';
+  const sg=(v,n)=>v>0?'+'+n:'−'+n;
+
+  let mix='half',base='omswms';
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  let last=null;
+
+  const DEFS='<defs><pattern id="hxG" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M0 7 L7 0" class="hxl"/></pattern></defs>';
+
+  function block(P,x0,bw,y0,r,maxV){
+    const scale=(bw-118)/maxV;
+    P.push('<text x="'+x0+'" y="'+(y0+16)+'" class="t12 w5 whc">'+r.n+' 창고</text>');
+    const recs=[['OMS',r.aO,r.oms,'bO','omp'],['WMS',r.aW,r.wms,'bW','whc'],['실물',r.phys,r.phys,'bP','mut']];
+    const physX=x0+46+scale*r.phys;
+    recs.forEach((rr,i)=>{
+      const y=y0+28+i*30,v=rr[1],bw2=Math.max(2,scale*v);
+      P.push('<text x="'+x0+'" y="'+(y+12)+'" class="t11 '+rr[4]+'">'+rr[0]+'</text>');
+      P.push('<rect x="'+(x0+46)+'" y="'+y+'" width="'+bw2.toFixed(1)+'" height="16" rx="3" class="'+rr[3]+'"/>');
+      if(v>r.phys)P.push('<rect x="'+(x0+46+scale*r.phys).toFixed(1)+'" y="'+y+'" width="'+(scale*(v-r.phys)).toFixed(1)+'" height="16" fill="url(#hxG)"/>');
+      let lbl=String(v);
+      if(v!==rr[2])lbl+=' ('+rr[2]+'→'+v+')';
+      P.push('<text x="'+(x0+52+bw2).toFixed(1)+'" y="'+(y+12)+'" class="t11 num mut">'+lbl+'</text>');
+    });
+    P.push('<line x1="'+physX.toFixed(1)+'" y1="'+(y0+26)+'" x2="'+physX.toFixed(1)+'" y2="'+(y0+106)+'" class="refl"/>');
+    P.push('<text x="'+x0+'" y="'+(y0+122)+'" class="t11 num mut">원인: '+cause(r)+'</text>');
+  }
+
+  function draw(){
+    const W=host.clientWidth;if(!W||W<40)return;
+    const maxV=Math.max.apply(null,last.rows.map(r=>Math.max(r.oms,r.wms,r.phys,r.aO,r.aW)));
+    const P=[DEFS];
+    if(W>=620){
+      const cw=Math.floor(W/3);
+      last.rows.forEach((r,w)=>{const x0=w*cw;
+        if(w)P.push('<line x1="'+x0+'" y1="10" x2="'+x0+'" y2="388" class="sep"/>');
+        block(P,x0+6,cw-12,8+w*128,r,maxV);});
+    }else{
+      last.rows.forEach((r,w)=>block(P,6,W-12,8+w*128,r,maxV));
+    }
+    svg.innerHTML=P.join('');
+    svg.setAttribute('viewBox','0 0 '+W+' 396');
+    svg.setAttribute('aria-label','창고 3곳(서울·대전·부산) 상품 1종의 한 달 재고: OMS '+last.oms+'개, WMS '+last.wms+'개, 실물 '+last.phys+'개. '+BASE_N[base]+'으로 대사해 조정 '+last.adj+'개, 남는 불일치 '+last.gap+'개, 약속 초과 위험 '+last.risk+'개.');
+  }
+
+  function renderEvents(){
+    const ev=MIXES[mix].ev.slice().sort((a,b)=>a.wk-b.wk||a.w-b.w);
+    $('evl').innerHTML=ev.map(e=>{
+      const k=KIND[e.k];
+      return '<li><span class="wk">'+e.wk+'주차</span><div class="hd"><span class="whn">'+WH[e.w].n+' 창고</span>'+
+        '<span class="tag '+k.cls+'">'+k.n+'</span><span class="sum">'+k.sum+'</span></div>'+
+        '<div class="t">'+k.t+'</div></li>';
+    }).join('');
+  }
+
+  function attrib(r){
+    if(base==='omswms')return r.jW?('창고(WMS) 기록 부족 판정 — 창고 탓으로 귀속'+(r.d?'(실은 전송 지연)':'')):(r.gap?'조정 없음 — 기록이 같아 귀속 불가':'차이 없음');
+    if(base==='wmsoms')return r.jO?'운영사(OMS) 기록 과다 판정 — OMS를 내려 정정(연동 지연 포함)':(r.gap?'조정 없음 — 기록이 같아 귀속 불가':'차이 없음');
+    const p=[];
+    if(r.d)p.push('전송 지연 '+r.d+' → 연동');
+    if(r.l)p.push('분실 '+r.l+' → 창고');
+    if(r.m)p.push('오적치 '+r.m+' → 창고');
+    return p.join(' · ')||'차이 없음';
+  }
+
+  function renderTable(){
+    $('tbl').tBodies[0].innerHTML=last.rows.map(r=>{
+      const j=[];
+      if(r.jO)j.push('OMS '+sg(r.jO,Math.abs(r.jO)));
+      if(r.jW)j.push('WMS '+sg(r.jW,Math.abs(r.jW)));
+      return '<tr><td class="whn">'+r.n+' 창고</td><td>'+cause(r)+'</td>'+
+        '<td>'+r.aO+' · '+r.aW+'</td><td class="opt">'+(j.join(' · ')||'조정 없음')+'</td>'+
+        '<td>'+r.gap+(r.risk?' <span class="tag badt">초과 '+r.risk+'</span>':'')+'</td>'+
+        '<td class="att">'+attrib(r)+'</td></tr>';
+    }).join('');
+  }
+
+  function renderStats(){
+    const all=BASES.map(b=>calc(mix,b));
+    const adjMin=Math.min.apply(null,all.map(x=>x.adj));
+    const adjWin=BASES.filter((b,i)=>all[i].adj===adjMin).map(b=>BASE_N[b]).join(' · ');
+    const cmpA=last.adj===adjMin
+      ?'<span class="cmp good">이 기준이 가장 적게 고침</span>'
+      :'<span class="cmp">가장 적게 고치는 기준 <em>'+adjWin+'</em> · 각 '+adjMin+'개</span>';
+    const cmpG=base==='count'
+      ?'<span class="cmp good">불일치 0 — 실물에 맞춰 남는 게 없음</span>'
+      :'<span class="cmp">0으로 만드는 기준 <em>실사 기준</em> · 불일치 0</span>';
+    const cmpR=base==='count'
+      ?'<span class="cmp good">초과 0 — 약속이 흔들리지 않음</span>'
+      :'<span class="cmp">0으로 만드는 기준 <em>실사 기준</em> · 초과 0</span>';
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+last.adj+'개</b><span>조정 차애 — 이번 대사에서 고친 기록 수량(OMS·WMS 합), 적을수록 좋음</span>'+cmpA+'</div>'+
+      '<div class="stat"><b>'+last.gap+'개</b><span>대사 후 불일치 — 대사 뒤에도 기록이 실물과 어긋난 총량(OMS·WMS 각각), 0이 좋음</span>'+cmpG+'</div>'+
+      '<div class="stat"><b>'+last.risk+'개</b><span>약속 초과 위험 — OMS가 실물보다 많이 잡고 있어 못 보낼 수 있는 주문(ATP 초과), 0이 좋음</span>'+cmpR+'</div>';
+  }
+
+  function render(){
+    last=calc(mix,base);
+    draw();renderEvents();renderTable();renderStats();
+    document.querySelectorAll('#segBase button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===base)));
+    document.querySelectorAll('#segMix button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===mix)));
+    $('causeTxt').innerHTML='<b>'+BASE_N[base]+'</b> — '+BASE_D[base]+MIX_NOTE[mix];
+    status.textContent=BASE_N[base]+' · '+MIXES[mix].n+' 달 — OMS '+last.oms+' · WMS '+last.wms+' · 실물 '+last.phys+'개를 대사: 조정 '+last.adj+'개, 남는 불일치 '+last.gap+'개, 약속 초과 위험 '+last.risk+'개.';
+  }
+
+  $('segBase').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    base=b.dataset.v;render();
+    const nb=$('segBase').querySelector('[data-v="'+base+'"]');if(nb)nb.focus();});
+  $('segMix').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    mix=b.dataset.v;render();
+    const nb=$('segMix').querySelector('[data-v="'+mix+'"]');if(nb)nb.focus();});
+  new ResizeObserver(()=>{if(last)draw();}).observe(host);
+  render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

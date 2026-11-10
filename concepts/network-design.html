@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>네트워크 설계 — 창고 수 · 위치 — 물류 개념 시각화</title>
+<meta name="description" content="창고 1~4곳 계약 구성안을 바꿔 가며 월 총비용(창고 고정비+운송비)·평균 리드타임·품절 위험 권역이 어떻게 달라지는지, 수요 편중과 운임 단가에 따라 최적 창고 수가 어디서 뒤집히는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:500}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.opd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--viz-series-1);margin-right:5px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{accent-color:var(--primary)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#map,#chart{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+svg text.t12{font-size:12px}
+svg text.t11{font-size:11px}
+svg text.w5{font-weight:500}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.txt{fill:var(--foreground)}
+svg text.bad{fill:var(--bad)}
+svg text.wh{fill:var(--viz-series-3)}
+svg text.num{font-variant-numeric:tabular-nums}
+svg .land{fill:color-mix(in srgb,var(--muted-foreground) 8%,transparent);stroke:var(--border);stroke-width:1.5;stroke-linejoin:round}
+svg .asn{stroke:var(--viz-series-3);stroke-opacity:.4}
+svg .ring{fill:none;stroke:var(--bad);stroke-width:1.3;stroke-dasharray:3 2.5}
+svg .node{fill:var(--background);stroke:var(--muted-foreground);stroke-width:1.5}
+svg .whbox{fill:var(--viz-series-3);stroke:var(--foreground);stroke-width:2}
+svg .seg3{fill:color-mix(in srgb,var(--viz-series-3) 78%,transparent)}
+svg .seg4{fill:color-mix(in srgb,var(--viz-series-4) 68%,transparent)}
+svg .cur{fill:none;stroke:var(--foreground);stroke-width:2;stroke-dasharray:5 4}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat em{font-style:normal;font-weight:500;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">수송·네트워크</span>
+  <p class="q">창고를 몇 곳, 어디와 계약할 것인가</p>
+  <h1>네트워크 설계 — 창고 수 · 위치</h1>
+  <p class="def"><b>네트워크 설계</b>(network design) — 창고를 몇 곳 두고 어디에 둘지 정하는 것이 네트워크 설계다 — 창고가 늘면 배송 거리는 짧아지지만 고정비와 관리 부담이 커진다.</p>
+</header>
+
+<div class="terms">
+  <p><b>고정비(fixed cost)</b> — 계약으로 매달 정해 나가는 돈이다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>허브 앤 스포크(hub and spoke)</b> — 모든 물건을 중앙 허브 한 곳에 모았다가 각지로 뿌리는 연결 방식이다. (<a href="hub-and-spoke.html">허브 앤 스포크 vs Point-to-Point</a>)</p>
+  <p><b>주문 라우팅(order routing)</b> — 주문마다 어느 창고에서 내보낼지 정하는 규칙이다. (<a href="order-routing.html">주문 라우팅</a>)</p>
+  <p><b>물류 센터(DC, Distribution Center)</b> — 여러 지역에 나눠 두고 주문을 받아 상품을 내보내는 역할이 큰 창고를 이르는 말이다. (<a href="multi-dc-inventory.html">다중 창고 재고 배치</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 피자 가게 지점 내기</b> · 지점이 하나면 멀리까지 배달하지만 주방은 하나로 끝입니다. 지점을 더 내면 가까이서 팔지만 매장 비용이 지점마다 매달 듭니다. 다만 피자는 배달 반경이 몇 km로 좁은 데 반해, 창고는 전국을 권역으로 나눠 갖는다는 점이 다릅니다.</p>
+
+<div class="panel">
+  <h2><span class="opd" aria-hidden="true"></span>운영사가 계약 구성안(창고 수·위치)을 바꿔 가며 한 달 총비용을 비교합니다</h2>
+  <div class="controls">
+    <div class="ctl">창고 수 · 계약 구성안
+      <div class="seg" id="segW" role="group" aria-label="창고 수 정책(구성안)">
+        <button type="button" data-v="1" aria-pressed="false">1곳</button>
+        <button type="button" data-v="2" aria-pressed="true">2곳</button>
+        <button type="button" data-v="3" aria-pressed="false">3곳</button>
+        <button type="button" data-v="4" aria-pressed="false">4곳</button>
+      </div>
+    </div>
+    <div class="ctl">수요 편중
+      <input type="range" id="knT" min="0" max="100" step="5" value="20" aria-label="수요 편중(고르게 ↔ 수도권 쏠림)">
+      <span class="cnt" id="lblT"></span>
+    </div>
+    <div class="ctl">운임 단가
+      <input type="range" id="knR" min="0" max="100" step="5" value="50" aria-label="운임 단가(쌈 ↔ 비쌈)">
+      <span class="cnt" id="lblR"></span>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="mapHost"><svg id="map" role="img" aria-label="한국 지도 위 후보 창고 6곳과 권역별 수요 비중, 배정 결과"></svg></div>
+  <p class="patn">사각형 = 계약한 창고(수요 상위 권역 자동 선택) · 선 = 각 권역 주문의 배정(가장 가까운 창고) · 점선 링 = 품절 위험 권역(창고가 하루 배달 반경 250km 밖) · 지형과 거리는 이해를 돕기 위한 시나리오 값</p>
+  <div id="chartHost"><svg id="chart" role="img" aria-label="창고 수별 월 총비용 비교"></svg></div>
+  <p class="patn" id="comp"></p>
+  <p class="patn">막대 아래쪽 = 창고 고정비(창고) · 위쪽 = 운송비(운송사) · 굵은 점선 테두리 = 지금 구성안 · "최저" = 이 조건에서 총비용이 가장 낮은 창고 수</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 후보 6노드 · 주문 1,000건/월, 고정비(창고당 월 24만원)·운임(건당 기본료 1,800원 + 거리 × km당 14~36원, 150km 안 1.0 · 300km 안 1.35 · 그 밖 2.2 배 할증)은 고정 시나리오, 재고는 창고 수에 따라 균등 배분으로 단순화했다.</p>
+<p class="takeaway">수요가 한곳에 몰려 있으면 창고 하나로 충분하지만, 수요가 고르게 퍼져 있고 운임이 비쌀수록 창고를 늘려 거리를 줄이는 쪽이 총비용에서 이깁니다 — 창고 수는 고정비와 운송비의 균형점에서 정하고, 위치는 수요가 많은 권역부터 잡습니다. 그래서 실무에서는 수요나 운임이 바뀔 때마다 창고 수별 총비용을 다시 계산해 균형점을 옮깁니다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 권역별 수요와 창고 후보의 고정비·운임을 받아 시나리오별 총비용·리드타임을 계산해 비교합니다. 비교 기준과 가중치는 운영사마다 다르게 설정합니다.</p>
+<div class="next">
+  <p>선행: <a href="hub-and-spoke.html">허브 앤 스포크 vs Point-to-Point</a> · <a href="order-routing.html">주문 라우팅</a> — 계약한 네트워크 위에서 건별 배정이 이뤄집니다</p>
+  <p>다음: <a href="routing-game.html">주문 배정 챌린지</a> — 직접 배정하며 비용과 납기를 함께 잡는 미니게임</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="network-design">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const $=x=>document.getElementById(x);
+  // 후보 노드 6곳 — 지도 좌표는 300×430 가상 좌표(단순화한 한반도)
+  const NODES=[{k:'S',n:'수도권',x:148,y:108,lx:-14,ly:-2,a:'end'},
+               {k:'G',n:'강원',x:222,y:96,lx:14,ly:-2,a:'start'},
+               {k:'C',n:'충청',x:168,y:192,lx:14,ly:-2,a:'start'},
+               {k:'Y',n:'영남',x:252,y:278,lx:0,ly:26,a:'middle'},
+               {k:'H',n:'호남',x:134,y:302,lx:14,ly:-4,a:'start'},
+               {k:'J',n:'제주',x:135,y:398,lx:38,ly:4,a:'start'}];
+  const D={CG:200,CH:200,CJ:380,CS:160,CY:230,GH:320,GJ:470,GS:170,GY:330,HJ:260,HS:380,HY:310,JS:440,JY:360,SY:380};
+  const SPREAD={S:22,G:12,C:17,Y:21,H:17,J:11},FOCUS={S:72,G:2.5,C:9,Y:10,H:5,J:1.5};
+  const ORDER=['S','G','C','Y','H','J']; // 동률 때의 고정 순서
+  const FX=24,BASE=1800,RISK_KM=250,MAPW=300,MAPH=440;
+  const LAND='M140,42 L172,36 L200,44 L222,58 L238,84 L248,118 L256,152 L264,190 L272,226 L280,258 L288,286 L282,306 L266,318 L248,312 L236,326 L220,332 L204,340 L188,344 L172,350 L158,340 L146,322 L132,306 L120,290 L108,272 L102,252 L112,240 L102,222 L96,200 L106,182 L98,162 L106,142 L116,124 L126,106 L134,88 L134,62 Z';
+  const dist=(a,b)=>a===b?0:D[[a,b].sort().join('')];
+  const tier=d=>d<=150?1:(d<=300?1.35:2.2);
+  const leadOf=d=>d<=150?1:(d<=300?2:3);
+  const fare=(d,rate)=>(BASE+d*rate)*tier(d);
+  const rateOf=r=>14+r*22/100;
+  const names=ks=>ks.map(k=>NODES.find(o=>o.k===k).n).join('·');
+
+  function calc(t,r){
+    const rate=rateOf(r),w={};
+    for(const o of NODES)w[o.k]=SPREAD[o.k]+(FOCUS[o.k]-SPREAD[o.k])*t/100;
+    const sc=[];
+    for(let n=1;n<=4;n++){
+      const sel=[...ORDER].sort((a,b)=>w[b]-w[a]).slice(0,n);
+      let trans=0,leadSum=0;const rows=[];
+      for(const o of NODES){
+        let bd=Infinity,bw=null;
+        for(const s of sel){const d=dist(o.k,s);if(d<bd){bd=d;bw=s;}}
+        trans+=w[o.k]*fare(bd,rate);leadSum+=w[o.k]*leadOf(bd);
+        rows.push({o,bd,bw,risky:bd>RISK_KM});
+      }
+      sc.push({n,sel,rows,fixed:FX*n,tr:Math.round(trans/10000),total:FX*n+Math.round(trans/10000),lead:leadSum/100,risky:rows.filter(x=>x.risky).map(x=>x.o.k)});
+    }
+    return {sc,min:sc.reduce((m,x,i)=>x.total<sc[m].total?i:m,0),w,rate};
+  }
+
+  let W=2,T=20,R=50,last=null;
+  const map=$('map'),chart=$('chart');
+
+  function drawMap(c,sc,hostW){
+    const wide=hostW>=620;
+    const mw=wide?Math.min(MAPW,Math.max(240,Math.round(hostW*0.42))):hostW;
+    const s=mw/MAPW,mh=Math.round(MAPH*s);
+    const px=(o,dx,dy)=>Math.round((o.x+(dx||0))*s);
+    const py=(o,dy)=>Math.round((o.y+(dy||0))*s);
+    let m=`<g><path class="land" d="${LAND}" transform="translate(0,0) scale(${s})"/>`+
+      `<ellipse class="land" cx="${135*s}" cy="${398*s}" rx="${30*s}" ry="${16*s}" transform="rotate(-12 ${135*s} ${398*s})"/></g>`;
+    for(const r of sc.rows)if(r.bw!==r.o.k){
+      const b=NODES.find(o=>o.k===r.bw);
+      m+=`<line class="asn" x1="${px(r.o,0,0)}" y1="${py(r.o,0)}" x2="${px(b,0,0)}" y2="${py(b,0)}" stroke-width="${(1+Math.min(4,last.w[r.o.k]/16)).toFixed(1)}"/>`;
+    }
+    for(const r of sc.rows)if(r.risky)
+      m+=`<circle class="ring" cx="${px(r.o,0,0)}" cy="${py(r.o,0)}" r="${Math.round(13*s)}"/>`;
+    for(const o of NODES){
+      const on=sc.sel.includes(o.k),X=px(o,0,0),Y=py(o,0);
+      m+=on?`<rect class="whbox" x="${X-Math.round(8.5*s)}" y="${Y-Math.round(8.5*s)}" width="${Math.round(17*s)}" height="${Math.round(17*s)}" rx="${Math.round(4.5*s)}"/>`
+           :`<circle class="node" cx="${X}" cy="${Y}" r="${Math.round(6.5*s)}"/>`;
+      const lx=X+o.lx*s,ly=Y+o.ly*s;
+      m+=`<text x="${Math.round(lx)}" y="${Math.round(ly)}" text-anchor="${o.a}" class="t12 txt${on?' w5':''}">${o.n}</text>`+
+         `<text x="${Math.round(lx)}" y="${Math.round(ly+13)}" text-anchor="${o.a}" class="t11 mut num">${Math.round(c.w[o.k])}%</text>`;
+    }
+    let H=mh+12;
+    if(wide){
+      const lx0=mw+34;
+      m+=`<text x="${lx0}" y="24" class="t11 mut">권역 수요 → 배정 창고 · 리드타임</text>`;
+      sc.rows.forEach((r,i)=>{
+        const b=NODES.find(o=>o.k===r.bw),y=48+i*30;
+        m+=`<text x="${lx0}" y="${y}" class="t12 txt">${r.o.n}</text>`+
+           `<text x="${lx0+52}" y="${y}" class="t11 mut num">${Math.round(c.w[r.o.k])}%</text>`+
+           `<text x="${lx0+92}" y="${y}" class="t11 wh">→ ${b.n} 창고</text>`+
+           `<text x="${lx0+180}" y="${y}" class="t11 mut num">· ${leadOf(r.bd)}일</text>`+
+           (r.risky?`<text x="${lx0+212}" y="${y}" class="t11 bad">· 품절 위험</text>`:'');
+      });
+    }else{
+      let y=mh+28;
+      m+=`<text x="4" y="${y}" class="t11 mut">권역 수요 → 배정 창고 · 리드타임</text>`;y+=24;
+      for(const r of sc.rows){
+        const b=NODES.find(o=>o.k===r.bw);
+        m+=`<text x="4" y="${y}" class="t12 txt">${r.o.n}</text>`+
+           `<text x="60" y="${y}" class="t11 mut num">${Math.round(c.w[r.o.k])}%</text>`+
+           (r.risky?`<text x="${mw-4}" y="${y}" text-anchor="end" class="t11 bad">품절 위험</text>`:'')+
+           `<text x="4" y="${y+15}" class="t11"><tspan class="wh">→ ${b.n} 창고</tspan><tspan class="mut num"> · ${leadOf(r.bd)}일</tspan></text>`;
+        y+=30;
+      }
+      H=y+4;
+    }
+    map.setAttribute('viewBox',`0 0 ${hostW} ${H}`);
+    map.innerHTML=m;
+    map.setAttribute('aria-label',`한국 지도 위 후보 창고 6곳(수도권·강원·충청·영남·호남·제주)과 권역별 수요 비중, 배정 결과. 계약 창고는 ${names(sc.sel)} ${sc.n}곳이고, 품절 위험 권역은 ${sc.risky.length?names(sc.risky):'없음'}입니다.`);
+    return H;
+  }
+
+  function drawChart(c,sc,hostW){
+    const max=Math.max(...c.sc.map(x=>x.total)),base=158,top=28,H=200;
+    const slot=hostW/4,bw=Math.min(86,Math.round(slot-18));
+    let m='';
+    c.sc.forEach((x,i)=>{
+      const cx=Math.round(slot*i+slot/2),h=Math.max(4,Math.round((x.total/max)*(base-top))),y=base-h;
+      const fh=Math.max(3,Math.round(x.fixed/x.total*h));
+      m+=`<rect class="seg4" x="${cx-Math.round(bw/2)}" y="${y}" width="${bw}" height="${h-fh}"/>`+
+         `<rect class="seg3" x="${cx-Math.round(bw/2)}" y="${y+h-fh}" width="${bw}" height="${fh}"/>`+
+         `<text x="${cx}" y="${y-8}" text-anchor="middle" class="t12 num${i===c.min?' w5':''}">${x.total}</text>`+
+         `<text x="${cx}" y="${base+20}" text-anchor="middle" class="t12 txt">${x.n}곳</text>`+
+         (i===c.min?`<text x="${cx}" y="${base+36}" text-anchor="middle" class="t11 txt w5">최저</text>`:'');
+    });
+    const cur=c.sc[W-1],cy0=Math.round((cur.total/max)*(base-top))+base-24;
+    m+=`<rect class="cur" x="${Math.round(slot*(W-1)+slot/2-bw/2-8)}" y="${Math.min(cy0,top-24)}" width="${bw+16}" height="${base+40-Math.min(cy0,top-24)}" rx="8"/>`;
+    chart.setAttribute('viewBox',`0 0 ${hostW} ${H}`);
+    chart.innerHTML=m;
+    chart.setAttribute('aria-label',`창고 수별 월 총비용: 1곳 ${c.sc[0].total}만원, 2곳 ${c.sc[1].total}만원, 3곳 ${c.sc[2].total}만원, 4곳 ${c.sc[3].total}만원. 이 조건에서 가장 싼 구성은 창고 ${c.sc[c.min].n}곳입니다.`);
+  }
+
+  function render(){
+    const hostW=$('mapHost').clientWidth,chW=$('chartHost').clientWidth;
+    if(!hostW||hostW<40||!chW||chW<40)return;
+    const c=calc(T,R);last=c;
+    const sc=c.sc[W-1];
+    drawMap(c,sc,hostW);drawChart(c,sc,chW);
+    $('comp').textContent=`지금 구성(창고 ${W}곳: ${names(sc.sel)}): 월 고정비 ${sc.fixed}만원 + 월 운송비 ${sc.tr}만원 = 총 ${sc.total}만원 · 운송비는 주문 1,000건 × (기본료 1,800원 + 거리 × km당 ${Math.round(c.rate)}원 × 구간 할증)`;
+    const mn=c.sc[c.min],leadBest=c.sc[3];
+    $('stats').innerHTML=
+      `<div class="stat"><b>${sc.total}만원</b><span>월 총비용 — 창고 고정비 ${sc.fixed} + 운송비 ${sc.tr} (만원), 낮을수록 좋음</span><span class="cmp">최저: 창고 <em>${mn.n}곳</em> · ${mn.total}만원 — ${mn.n===W?'지금 구성이 최저':`지금보다 ${sc.total-mn.total}만원 싼 구성`}</span></div>`+
+      `<div class="stat"><b>${sc.lead.toFixed(1)}일</b><span>평균 리드타임(주문 접수부터 배송 완료까지) — 거리 기반, 짧을수록 좋음</span><span class="cmp">가장 빠른 구성: 창고 <em>4곳</em> · ${leadBest.lead.toFixed(1)}일</span></div>`+
+      `<div class="stat"><b>${sc.risky.length}개</b><span>품절 위험 권역 — 창고가 하루 배달 반경(250km) 밖인 권역, 적을수록 좋음</span><span class="cmp">${sc.risky.length?names(sc.risky):'없음'}${sc.risky.includes('J')?' — 제주는 해상 구간이라 본토 어느 후보로도 반경 안에 들지 않습니다':''}</span></div>`;
+    $('status').textContent=`창고 ${W}곳(${names(sc.sel)}, 수요 상위 자동 선택) · 월 총비용 ${sc.total}만원(이 조건 최저: ${mn.n}곳) · 평균 리드타임 ${sc.lead.toFixed(1)}일 · 품절 위험 ${sc.risky.length}권역(${sc.risky.length?names(sc.risky):'없음'})`;
+  }
+
+  function labels(){
+    const c=last||calc(T,R);
+    $('lblT').textContent=`수도권 ${Math.round(c.w.S)}% · ${T<25?'고르게':T<60?'수도권으로 쏠리는 중':'수도권에 몰림'}`;
+    $('lblR').textContent=`km당 ${Math.round(c.rate)}원 · ${R<25?'쌈':R<70?'보통':'비쌈'}`;
+  }
+  function renderAll(){render();labels();}
+
+  $('segW').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    W=+b.dataset.v;document.querySelectorAll('#segW button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    renderAll();const nb=$('segW').querySelector(`[data-v="${W}"]`);if(nb)nb.focus();});
+  $('knT').addEventListener('input',()=>{T=+$('knT').value;renderAll();});
+  $('knR').addEventListener('input',()=>{R=+$('knR').value;renderAll();});
+  new ResizeObserver(renderAll).observe($('mapHost'));
+  renderAll();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운송사 선정 · 운임 비교 — 물류 개념 시각화</title>
+<meta name="description" content="오늘 출고 10건을 최저 운임·약속 납기 우선·지역 강점 맞춤 세 규칙으로 운송사 3곳에 배정해 보며, 운임 격차·마감 임박 주문 비중·목적지 분포에 따라 총 운임과 약속 납기 준수율·마감 미탑승이 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:500}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.opd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--viz-series-1);margin-right:5px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{accent-color:var(--primary)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+svg text.t12{font-size:12px}
+svg text.t11{font-size:11px}
+svg text.w5{font-weight:500}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.txt{fill:var(--foreground)}
+svg text.bad{fill:var(--bad)}
+svg text.car{fill:var(--viz-series-4)}
+svg text.num{font-variant-numeric:tabular-nums}
+svg .dot2{fill:var(--viz-series-2)}
+svg .cbox{fill:color-mix(in srgb,var(--viz-series-4) 10%,transparent);stroke:color-mix(in srgb,var(--viz-series-4) 40%,transparent);stroke-width:1}
+svg .ln{fill:none;stroke:color-mix(in srgb,var(--viz-series-4) 42%,transparent);stroke-width:1.2}
+svg .ln.d{stroke-dasharray:4 3}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.good{color:var(--viz-series-2)}
+.stat em{font-style:normal;font-weight:500;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">수송·네트워크</span>
+  <p class="q">이 출고를 어느 운송사에 실을 것인가</p>
+  <h1>운송사 선정 · 운임 비교</h1>
+  <p class="def">같은 출고라도 실을 <b>운송사</b>마다 <b>운임</b>·걸리는 날·집하 마감 시간이 다르다 — 어디에 실림을 정하는 규칙이 운송사 선정이다.</p>
+</header>
+
+<div class="terms">
+  <p><b>운임(freight rate)</b> — 화물을 한 구간 옮기는 데 내는 돈이다. 거리·무게·긴급도로 정해진다.</p>
+  <p><b>마감(cutoff)</b> — 창고가 그날 물건을 마지막으로 내보내기로 정한 시각이다. 이 페이지에서는 그 시각을 운송사 쪽에 두어 <b>집하 마감</b>이라 부른다 — 운송사가 그날 실어 갈 화물을 마지막으로 받아 가기로 정한 시각이다. 마감을 놓친 출고는 다음 날 집하(운송사가 차에 실으러 오는 일)로 밀린다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>주문 라우팅(order routing)</b> — 주문마다 어느 창고에서 내보낼지 정하는 규칙이다. 이 페이지는 그 다음 단계, 내보낼 출고를 어느 운송사에 실을지 다룬다. (<a href="order-routing.html">주문 라우팅</a>)</p>
+  <p><b>운송사(carrier)</b> — 물건을 한 곳에서 다른 곳으로 옮기는 일을 맡은 회사다. (<a href="logistics-players.html">물류의 등장인물</a>)</p>
+  <p><b>계약 창고(contract warehouse)</b> — 운영사가 미리 계약해 둔 창고로, 맡긴 화주의 물량을 받아 처리한다. <b>운영사</b> — 화주를 대신해 물량을 어느 창고·어느 운송사에 맡길지 정하고, 맡긴 일이 잘 되는지 지켜보는 주체다. (<a href="warehouse-assignment.html">계약 창고 물량 배정</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 배달 앱</b> · 배달 앱이 내 주문을 어느 라이더에 붙일지 정하는 것과 같습니다. 라이더마다 거리·수수료·시간이 다르듯 운송사마다 운임·걸리는 날·집하 마감이 다릅니다. 다만 라이더는 한 건씩 오지만, 운송사는 하루 수백 건을 묶어 가는 차량을 부르는 일이라 마감 시간이라는 제약이 붙습니다.</p>
+
+<div class="panel">
+  <h2><span class="opd" aria-hidden="true"></span>운영사가 오늘 출고 10건에 배정 규칙 하나를 적용합니다 — 규칙을 바꾸면 같은 출고의 배정이 바뀝니다</h2>
+  <div class="controls">
+    <div class="ctl">배정 규칙
+      <div class="seg" id="segPol" role="group" aria-label="배정 규칙">
+        <button type="button" data-v="0" aria-pressed="true">최저 운임</button>
+        <button type="button" data-v="1" aria-pressed="false">약속 납기 우선</button>
+        <button type="button" data-v="2" aria-pressed="false">지역 강점 맞춤</button>
+      </div>
+    </div>
+    <div class="ctl">운임 격차
+      <input type="range" id="knF" min="0" max="100" step="5" value="66" aria-label="운임 격차">
+      <span class="cnt" id="lblF"></span>
+    </div>
+    <div class="ctl">마감 임박 주문 비중
+      <input type="range" id="knC" min="0" max="100" step="5" value="10" aria-label="마감 임박 주문 비중">
+      <span class="cnt" id="lblC"></span>
+    </div>
+    <div class="ctl">목적지 분포
+      <input type="range" id="knD" min="0" max="100" step="5" value="45" aria-label="목적지 분포">
+      <span class="cnt" id="lblD"></span>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="오늘 출고 10건의 운송사 배정 판"></svg>
+  </div>
+  <p class="patn">선 = 배정된 운송사 · 점선 = 집하 마감 미탑승(익일 집하, 도착도 하루 밀림) · "납기 지연" = 희망일 이후 도착 · 빨간 접수 시각 = 마감 후에 접수됨</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 출고 10건·운송사 3곳, 운임·소요일은 고정 시나리오다. 접수 시각과 희망 도착일도 시나리오에 고정되어 있다. 종합 1위는 약속 납기 준수율이 기준(80%) 이상인 규칙 가운데 총 운임이 가장 낮은 규칙이고, 기준을 넘긴 규칙이 없으면 준수율이 가장 높은 규칙이다.</p>
+<p class="takeaway">여유가 있고 값이 중요하면 <b>싼 전국망에 몰아 실어도 되지만</b>, 마감에 걸리거나 납기가 빠듯하면 <b>지역·속도에 맞춰 나눠 실어야 한다</b> — 선정 규칙은 운임표와 마감 시간을 함께 본다.</p>
+<p class="sys"><b>시스템에서는</b> OMS(또는 TMS)에서는 운송사별 운임표·서비스 권역·집하 마감을 입력으로 받아 배정 규칙을 돌린다. 규칙과 우선순위는 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="order-routing.html">주문 라우팅</a> — 어느 창고에서 내보낼지 정한 뒤의 단계가 운송사 선정이다</p>
+  <p>다음: <a href="inventory-reconciliation.html">재고 대사</a> — 출고와 입고가 반복되는 동안 시스템 기록과 창고 실물을 어떻게 맞춰 보는지</p>
+  <p>같은 묶음: <a href="tl-ltl.html">TL vs LTL · 화물 묶음</a> · <a href="last-mile.html">라스트마일 배송</a></p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="carrier-selection">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const $=x=>document.getElementById(x);
+  /*MODEL-START*/
+  // 시드 고정 시나리오 — 같은 조건이면 항상 같은 결과
+  const ZONES=['수도권','충청·호남','영남'];
+  const DL={1:'다음 날',2:'모레',3:'3일 뒤'};
+  const CARS=[
+    {n:'전국 저가',tag:'①',cut:14,days:[3,3,3],prem:[300,300,300],serve:[1,1,1],sv:'전국 · 도착 사흘 · 마감 14시'},
+    {n:'수도권 특화',tag:'②',cut:18,days:[1],prem:[2000],serve:[1,0,0],sv:'수도권만 · 다음 날 · 마감 18시'},
+    {n:'지방 특화',tag:'③',cut:16,days:[3,1,1],prem:[2500,1300,1500],serve:[1,1,1],sv:'지방 다음 날 · 마감 16시'}
+  ];
+  // 출고 10건: [수도권축, 지방세부축, 접수시각축, 희망 도착일]
+  const ORDERS=[
+    [0.10,0.30,0.05,1],[0.25,0.70,0.15,2],[0.35,0.20,0.30,3],[0.45,0.90,0.40,3],[0.55,0.50,0.45,3],
+    [0.65,0.80,0.55,3],[0.75,0.10,0.60,3],[0.85,0.60,0.70,3],[0.97,0.40,0.80,3],[0.20,0.75,0.90,3]];
+  const POLN=['최저 운임','약속 납기 우선','지역 강점 맞춤'];
+  const THR=80; // 종합 1위 자격: 약속 납기 준수율 80% 이상
+
+  const fare=(c,r,kc)=>3000+CARS[c].prem[r]*(kc/100)*2;
+  const region=(i,dest)=>{const o=ORDERS[i],thr=0.95-dest/100*0.87;return o[0]<thr?0:(o[1]<0.5?1:2);};
+  const receipt=(i,cut)=>10+Math.floor(ORDERS[i][2]*(4+cut/100*7));
+
+  function assignOne(pol,i,kc,cut,dest){
+    const r=region(i,dest),t=receipt(i,cut),d=ORDERS[i][3];
+    const info=[];for(let c=0;c<3;c++)if(CARS[c].serve[r]){
+      const missed=t>CARS[c].cut,arr=(missed?1:0)+CARS[c].days[r];
+      info.push({c,f:fare(c,r,kc),arr,missed});}
+    let pick;
+    if(pol===0){info.sort((a,b)=>a.f-b.f||a.c-b.c);pick=info[0];}
+    else if(pol===1){const m=info.filter(x=>x.arr<=d).sort((a,b)=>a.f-b.f||a.arr-b.arr||a.c-b.c);
+      pick=m.length?m[0]:info.slice().sort((a,b)=>a.arr-b.arr||a.f-b.f||a.c-b.c)[0];}
+    else pick=info.find(x=>x.c===(r===0?1:2));
+    return {c:pick.c,f:pick.f,missed:pick.missed,late:pick.arr>d,r,t,d};
+  }
+  function run(pol,kc,cut,dest){
+    const rows=[];for(let i=0;i<10;i++)rows.push(assignOne(pol,i,kc,cut,dest));
+    const f=rows.reduce((a,x)=>a+x.f,0), late=rows.filter(x=>x.late).length,
+      miss=rows.filter(x=>x.missed).length, load=[0,0,0], cf=[0,0,0];
+    rows.forEach(x=>{load[x.c]++;cf[x.c]+=x.f;});
+    return {f,on:(10-late)*10,miss,rows,load,cf};
+  }
+  function verdict(res){
+    const qual=[0,1,2].filter(p=>res[p].on>=THR);
+    if(qual.length)return qual.sort((a,b)=>res[a].f-res[b].f||res[b].on-res[a].on||a-b)[0];
+    return [0,1,2].sort((a,b)=>res[b].on-res[a].on||res[a].f-res[b].f||a-b)[0];
+  }
+  /*MODEL-END*/
+
+  const fmt=v=>v.toLocaleString('ko-KR');
+  const fareLine=c=>c===0?'전국 '+fmt(fare(0,0,kc))+'원'
+    :c===1?'수도권 '+fmt(fare(1,0,kc))+'원 · 밖은 운송 불가'
+    :'충청·호남·영남 '+fmt(fare(2,1,kc))+'~'+fmt(fare(2,2,kc))+'원';
+  const line4=c=>c===0?'당일 발송 없음':c===1?'지방은 운송 불가':'수도권 '+fmt(fare(2,0,kc))+'원 · 사흘';
+
+  let pol=0,kc=66,cut=10,dest=45,last=null;
+  const NS='http://www.w3.org/2000/svg';
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  const cardY=ci=>30+ci*90;
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const a in at)e.setAttribute(a,at[a]);svg.appendChild(e);return e;}
+  function txt(x,y,cls,s){const e=el('text',{x,y,'class':cls});e.textContent=s;return e;}
+  function sp(t,cls,s){const e=t.ownerDocument.createElementNS(NS,'tspan');e.setAttribute('class',cls);e.textContent=s;t.appendChild(e);}
+
+  function drawWide(W){const r=last.res[pol],CX=W-244;
+    el('circle',{cx:9,cy:9,r:3.5,'class':'dot2'});
+    txt(18,13,'t11 mut','화주의 오늘 출고 10건 — 권역 · 희망 도착 · 접수 시각');
+    r.rows.forEach((row,i)=>{const Y=40+i*26;
+      txt(6,Y,'t11 num mut',String(i+1));
+      txt(26,Y,'t12 txt',ZONES[row.r]);
+      txt(104,Y,'t11 txt','희망 '+DL[row.d]);
+      txt(182,Y,'t11 num '+(row.missed?'bad':'mut'),row.t+'시 접수');
+      if(row.late)txt(256,Y,'t11 bad','납기 지연');
+      const wy=cardY(row.c)+40;
+      el('path',{d:'M312,'+(Y-4)+' C352,'+(Y-4)+' '+(CX-40)+','+wy+' '+CX+','+wy,'class':'ln'+(row.missed?' d':'')});});
+    CARS.forEach((c,ci)=>{const by=cardY(ci);
+      el('rect',{x:CX,y:by,width:232,height:80,rx:10,'class':'cbox'});
+      txt(CX+12,by+18,'t12 w5 car',c.tag+' '+c.n);
+      const ld=txt(CX+220,by+18,'t12 num txt','오늘 '+r.load[ci]+'건');ld.setAttribute('text-anchor','end');
+      txt(CX+12,by+35,'t11 mut',c.sv);
+      txt(CX+12,by+51,'t11 num mut',fareLine(ci));
+      txt(CX+12,by+67,'t11 num mut',line4(ci));});
+    return 300;}
+
+  function drawNarrow(){const r=last.res[pol];let y=6;
+    r.rows.forEach((row,i)=>{const t1=el('text',{x:8,y:y+12,'class':'t11'});
+      sp(t1,'num mut',(i+1)+' ');
+      sp(t1,'txt',ZONES[row.r]);
+      sp(t1,'mut',' · 희망 '+DL[row.d]);
+      sp(t1,'num '+((row.missed)?'bad':'mut'),' · '+row.t+'시 접수');
+      if(row.late)sp(t1,'bad',' · 납기 지연');
+      const t2=el('text',{x:8,y:y+27,'class':'t11'});
+      sp(t2,'mut','→ '+CARS[row.c].tag+' '+CARS[row.c].n);
+      if(row.missed)sp(t2,'bad',' · 마감 미탑승(익일 집하)');
+      y+=38;});
+    y+=4;
+    CARS.forEach((c,ci)=>{const t=el('text',{x:8,y:y+12,'class':'t11'});
+      sp(t,'car',c.tag+' '+c.n);sp(t,'mut',' · 마감 '+c.cut+'시 · 오늘 '+r.load[ci]+'건');
+      txt(20,y+28,'t11 num mut',fareLine(ci));
+      y+=36;});
+    return y+6;}
+
+  function draw(){const W=host.clientWidth;if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const H=W>=620?drawWide(W):drawNarrow();
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    const r=last.res[pol];
+    svg.setAttribute('aria-label','오늘 출고 10건을 '+POLN[pol]+' 규칙으로 운송사 3곳(전국 저가·수도권 특화·지방 특화)에 배정한 판. 총 운임 '+fmt(r.f)+'원, 약속 납기 준수율 '+r.on+'%, 마감 미탑승 '+r.miss+'건.');}
+
+  function renderStats(){const r=last.res,cur=r[pol];
+    const win=(vals,mn)=>{const t=mn?Math.min(...vals):Math.max(...vals);return vals.map(v=>v===t);};
+    const wf=win(r.map(x=>x.f),true),wo=win(r.map(x=>x.on),false),wm=win(r.map(x=>x.miss),true);
+    const cmp=(marks,val)=>marks[pol]
+      ?'<span class="cmp good">이 정책이 1위</span>'
+      :'<span class="cmp">1위 <em>'+POLN.filter((_,i)=>marks[i]).join(' · ')+'</em> · '+val+'</span>';
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+fmt(cur.f)+'원</b><span>총 운임 — 오늘 출고 10건의 운임 합계, 낮을수록 좋음</span>'+cmp(wf,fmt(r[wf.indexOf(true)].f)+'원')+'</div>'+
+      '<div class="stat"><b>'+cur.on+'%</b><span>약속 납기 준수율 — 희망일까지 도착한 출고 비율, 높을수록 좋음</span>'+cmp(wo,r[wo.indexOf(true)].on+'%')+'</div>'+
+      '<div class="stat"><b>'+cur.miss+'건</b><span>마감 미탑승 — 집하 마감을 놓쳐 익일 집하로 밀린 출고, 0건이 좋음</span>'+cmp(wm,r[wm.indexOf(true)].miss+'건')+'</div>';}
+
+  function labels(){
+    $('lblF').textContent=kc<35?'비슷':kc<65?'보통':'큼';
+    const lateN=last.res[0].rows.filter(x=>x.t>14).length;
+    $('lblC').textContent=(cut<30?'낮음':cut<65?'보통':'높음')+' · 14시 뒤 접수 '+lateN+'건';
+    let nm=0;for(let i=0;i<10;i++)if(region(i,dest)===0)nm++;
+    $('lblD').textContent=(dest<30?'수도권 쪽':dest<70?'섞임':'지방 쪽')+' · 수도권 '+nm+' · 지방 '+(10-nm)+'건';}
+
+  function render(){const res=[0,1,2].map(p=>run(p,kc,cut,dest));last={res};
+    document.querySelectorAll('#segPol button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.v===pol)));
+    labels();draw();renderStats();
+    const vi=verdict(res),cur=res[pol];
+    const rule=res.some(x=>x.on>=80)?'납기 준수율이 기준 80% 이상인 규칙 가운데 총 운임이 가장 낮은 규칙':'기준(80%)을 넘긴 규칙이 없어 준수율이 가장 높은 규칙';
+    status.textContent=POLN[pol]+' 적용 · 종합 1위는 '+POLN[vi]+'('+rule+') · 이 규칙은 총 운임 '+fmt(cur.f)+'원, 약속 납기 준수율 '+cur.on+'%, 마감 미탑승 '+cur.miss+'건';}
+
+  $('segPol').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    pol=+b.dataset.v;render();
+    const nb=$('segPol').querySelector('[data-v="'+pol+'"]');if(nb)nb.focus();});
+  $('knF').addEventListener('input',()=>{kc=+$('knF').value;render();});
+  $('knC').addEventListener('input',()=>{cut=+$('knC').value;render();});
+  $('knD').addEventListener('input',()=>{dest=+$('knD').value;render();});
+  new ResizeObserver(()=>{if(last)draw();}).observe(host);
+  render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

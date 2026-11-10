@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>라스트마일 — 마지막 구간의 비용 — 물류 개념 시각화</title>
+<meta name="description" content="기사 한 명이 같은 20건을 개별 배달과 권역 묶음으로 나눠 돌려 보며, 수령지 밀도와 부재율에 따라 건당 배송 비용·하루 처리·재배송이 어떻게 달라지는지 확인하는 라스트마일 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:500}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 12px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;min-width:112px}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+.cnt{font-size:12.5px;color:var(--foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{accent-color:var(--primary);width:120px}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#diaHost{width:100%}
+#dia{display:block;width:100%;height:auto}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+svg text.t12{font-size:12px}
+svg text.t11{font-size:11px}
+svg text.w6{font-weight:600}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.txt{fill:var(--foreground)}
+svg .zone{fill:color-mix(in srgb,var(--muted-foreground) 6%,transparent);stroke:color-mix(in srgb,var(--muted-foreground) 26%,transparent);stroke-width:1;stroke-dasharray:3 3}
+svg .depot{fill:var(--foreground)}
+svg .pl{fill:none;stroke:color-mix(in srgb,var(--viz-series-4) 28%,transparent);stroke-width:1.2}
+svg .pg{fill:none;stroke:var(--viz-series-4);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg .p2d{fill:none;stroke:color-mix(in srgb,var(--muted-foreground) 50%,transparent);stroke-width:1.2;stroke-dasharray:3 3}
+svg .pg2{fill:none;stroke:color-mix(in srgb,var(--viz-series-4) 72%,transparent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg .van{fill:var(--viz-series-4);stroke:var(--card);stroke-width:1.5}
+svg .stop circle.dot{fill:var(--card);stroke:color-mix(in srgb,var(--muted-foreground) 60%,transparent);stroke-width:1;transition:fill .15s ease-out}
+svg .stop circle.ring{display:none}
+svg .stop path{display:none;fill:none;stroke-width:1.6}
+svg .stop.done circle.dot{fill:var(--viz-series-4);stroke:none}
+svg .stop.abs circle.dot{display:none}
+svg .stop.abs path{display:block;stroke:var(--bad)}
+svg .stop.miss circle.dot{fill:none;stroke-dasharray:2.5 2.5}
+svg .stop.red circle.dot{fill:var(--viz-series-4);stroke:none}
+svg .stop.red circle.ring{display:block;fill:none;stroke:color-mix(in srgb,var(--viz-series-4) 55%,transparent);stroke-width:1.4}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat b i{font-style:normal;font-size:12px;font-weight:500;color:var(--muted-foreground);padding:0 3px}
+.stat em{font-style:normal;font-weight:650;color:var(--primary)}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.takeaway b{font-weight:600}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">수송·네트워크</span>
+  <p class="q">마지막 구간이 왜 가장 비싼가</p>
+  <h1>라스트마일 — 마지막 구간의 비용</h1>
+  <p class="def">물류 거점에서 받는 사람의 문 앞까지 가는 마지막 구간이 <b>라스트마일</b>이다 — 한 건 한 건이 다 다른 주소라, 묶을 수 없어 건당 비용이 가장 크다.</p>
+</header>
+
+<div class="terms">
+  <p><b>라스트마일(last mile)</b> — 물류 거점에서 받는 사람의 문 앞까지 가는 마지막 구간이다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>배송 권역(service area)</b> — 하루 안에 배달하기로 나눠 둔 지역 구획이다. (<a href="order-routing.html">주문 라우팅</a>)</p>
+  <p><b>운송사(carrier)</b> — 물건을 한 곳에서 다른 곳으로 옮기는 일을 맡은 회사다. (<a href="carrier-selection.html">운송사 선정 · 운임 비교</a>)</p>
+  <p><b>주문 상태(order status)</b> — 주문이 접수된 뒤 배송이 끝날 때까지 어디까지 진행됐는지 나타내는 표시다. (<a href="order-status.html">주문 상태</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 아파트 단지 우편 배달</b> · 기사가 같은 단지의 여러 집을 한 바퀴에 돌면 저렴하고, 흩어진 주소를 하나씩 찾아가면 발품이 배로 듭니다. 다만 이 비유가 맞지 않는 지점이 있습니다 — 우편은 실패해도 다시 오지만, 화물은 부재 재배송 비용이 고객에게 돌아갑니다.</p>
+
+<div class="panel">
+  <h2>기사(운송사) 1명의 하루 — 같은 주문 20건을 두 방식으로 돌려 봅니다</h2>
+  <div class="controls">
+    <button type="button" class="act" id="play">▶ 재생</button>
+    <button type="button" class="ghostb" id="reset">초기화</button>
+    <div class="ctl">수령지 밀도
+      <input type="range" id="knD" min="0" max="100" step="5" value="65" aria-label="수령지 밀도">
+      <span class="cnt" id="outD"></span>
+    </div>
+    <div class="ctl">부재율
+      <input type="range" id="knA" min="0" max="30" step="5" value="10" aria-label="부재율">
+      <span class="cnt" id="outA"></span>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="기사 하루 루트 비교 지도: 물류 거점에서 출발해 동네 6개에 흩어진 20가구를 배달합니다. 두 패널이 같은 조건에서 개별 배달과 권역 묶음의 동선을 나란히 보여 줍니다."></svg>
+  </div>
+  <p class="patn">연한 점선 원 = 동네(배송 권역) · ■ = 물류 거점 · ● = 배달 완료 · ✕ = 부재(다음 날 재배송) · 점선 ○ = 미처리(마감까지 못 간 집) · 이중 ● = 다음 날 재배송 완료 · 진한 선 = 지나온 동선 · 연한 선 = 계획 동선(점선 = 다음 날)</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 하루 20건·기사 1명·거점 1곳, 이동 비용은 거리에 비례, 부재 시 다음 날 1회 재배송으로 단순화했다. 기사의 하루는 09:00~18:00(정차 1건당 3분, 시내 평균 속도)이고, 개별 배달은 주문이 도착한 순서대로, 권역 묶음은 이웃한 동네부터 한 바퀴로 돈다. 미처리 건은 다음 날 같은 방식으로 다시 가며, 지도의 칸·킬로미터·원화는 이해를 돕는 예시 숫자다.</p>
+<p class="takeaway">받는 곳이 <b>몰려 있고 부재가 적으면 묶어 돌리는 쪽이 건당 비용을 크게 낮추지만</b>, <b>흩어져 있고 부재가 잦으면 그만큼 비용이 배로 뜁니다</b> — 라스트마일이 비싼 까닭은 묶을 수 없는 주소와 되돌아오는 실패입니다. 그래서 실무에서는 주소를 권역으로 묶어 동선을 짜고, 부재 재배송 규칙을 미리 정해 둡니다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 배송 완료와 부재 재배송이 주문 상태로 기록되고, TMS(운송 관리 시스템)에서는 주소를 권역·동선으로 묶어 기사에게 순서를 내리며 부재 시 재배송 규칙(횟수·보관)을 정합니다. 동선 묶음 규칙은 운영사·권역마다 다르게 설정합니다.</p>
+<div class="next">
+  <p>선행: <a href="hub-and-spoke.html">허브 앤 스포크 vs Point-to-Point</a> — 물건이 거점에 모이는 앞 구간</p>
+  <p>다음: <a href="returns-flow.html">반품 · 역물류</a> — 반대 방향의 마지막 구간</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="last-mile">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const NS='http://www.w3.org/2000/svg';
+  const $=x=>document.getElementById(x);
+  /* ── 순수 모델: 시드 고정(rng 42·7·11), 같은 조건이면 항상 같은 결과 ── */
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  const N=20, ZN=6;
+  const ZX=[[16,20],[50,17],[84,20],[16,52],[50,55],[84,52]]; // 동네 A~F 중심
+  const DEPOT=[50,72]; // 물류 거점
+  const KM=0.25, RATE=530, MPK=2.6, STOP=3, BUDGET=540, GAP=90; // km/칸 · 원/km · 분/km · 정차 분 · 하루 540분(09~18시) · 날 넘김
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const ZCOUNT=[4,3,3,4,3,3]; // 동네별 배송지 수
+  const JOFF=[[-6,-5],[5,-6],[-5,6],[6,5],[-6,0],[6,-5],[0,6],[-6,-4],[5,4],[-4,6],[7,5]];
+  const SPREAD=(()=>{const r=rng(42),a=[];for(let i=0;i<N;i++){const col=i%5,row=(i/5)|0;
+    a.push([clamp(9+col*20.5+(r()-.5)*10,4,96),clamp(12+row*15+(r()-.5)*9,12,58)])}return a})();
+  const SCN=(()=>{const a=[];let z=0,k=0;
+    for(let i=0;i<N;i++){while(k>=ZCOUNT[z]){z++;k=0}
+      const o=JOFF[i%JOFF.length];
+      a.push({z,cx:ZX[z][0]+o[0],cy:ZX[z][1]+o[1],sx:SPREAD[i][0],sy:SPREAD[i][1]});k++}
+    return a})();
+  const makeStops=dens=>{const t=dens/100;return SCN.map(s=>[clamp(s.sx+(s.cx-s.sx)*t,4,96),clamp(s.sy+(s.cy-s.sy)*t,12,58)])};
+  const zoneOf=pt=>{let b=0,bd=1e9;for(let z=0;z<ZN;z++){const d=dist(pt,ZX[z]);if(d<bd){bd=d;b=z}}return b};
+  const makeOrder=()=>{const r=rng(7),a=[];for(let i=0;i<N;i++)a.push(i);
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a};
+  const makeAbsent=a=>{const k=Math.round(N*a/100),r=rng(11),s=new Set();
+    while(s.size<k)s.add(Math.floor(r()*N));return [...s]};
+  function bundleOrder(p,idxs){ // 권역 묶음: 이웃한 동네부터 한 바퀴, 동네 안은 최근접 체인
+    const g=[];for(let z=0;z<ZN;z++)g.push([]);
+    idxs.forEach(i=>g[zoneOf(p[i])].push(i));
+    const cent=z=>{const l=g[z];return [l.reduce((s,i)=>s+p[i][0],0)/l.length,l.reduce((s,i)=>s+p[i][1],0)/l.length]};
+    const out=[],rem=[];for(let z=0;z<ZN;z++)if(g[z].length)rem.push(z);
+    let cur=DEPOT;
+    while(rem.length){
+      let bi=0,bd=1e9;
+      rem.forEach((z,k)=>{const d=dist(cur,cent(z));if(d<bd){bd=d;bi=k}});
+      const z=rem.splice(bi,1)[0],list=g[z].slice();let c=cur;
+      while(list.length){let bj=0,bb=1e9;list.forEach((i,j)=>{const dd=dist(c,p[i]);if(dd<bb){bb=dd;bj=j}});
+        c=p[list[bj]];out.push(list.splice(bj,1)[0])}
+      cur=c;
+    }
+    return out;
+  }
+  function buildTL(p,route,absent){ // 하루 동선: 마감(복귀 포함)까지 들어가는 만큼만 간다
+    let t=0,km=0,cur=DEPOT;
+    const ev=[],segs=[],visited=[];
+    for(const i of route){
+      const leg=dist(cur,p[i]),back=dist(p[i],DEPOT),at=t+leg*KM*MPK;
+      if(at+STOP+back*KM*MPK>BUDGET)break;
+      segs.push({x0:cur[0],y0:cur[1],x1:p[i][0],y1:p[i][1],t0:t,t1:at});
+      t=at+STOP;km+=leg;cur=p[i];
+      ev.push({i,x:p[i][0],y:p[i][1],at,lv:t});
+      visited.push(i);
+    }
+    const bk=dist(cur,DEPOT),et=t+bk*KM*MPK;
+    segs.push({x0:cur[0],y0:cur[1],x1:DEPOT[0],y1:DEPOT[1],t0:t,t1:et});
+    km+=bk;
+    return {ev,segs,tEnd:et,km,visited,
+      missed:route.filter(i=>!visited.includes(i)),
+      delivered:visited.filter(i=>!absent.includes(i)).length};
+  }
+  const posIn=(tl,t)=>{if(t>=tl.tEnd)return DEPOT;
+    for(const s of tl.segs)if(t<s.t1){const k=(t-s.t0)/(s.t1-s.t0);
+      return [s.x0+(s.x1-s.x0)*k,s.y0+(s.y1-s.y0)*k]}
+    return DEPOT};
+  function progD(tl,t){let d='M'+DEPOT[0]+' '+DEPOT[1];
+    for(const s of tl.segs){
+      if(t>=s.t1)d+=' L'+s.x1.toFixed(1)+' '+s.y1.toFixed(1);
+      else{const k=Math.max(0,(t-s.t0)/(s.t1-s.t0));
+        d+=' L'+(s.x0+(s.x1-s.x0)*k).toFixed(1)+' '+(s.y0+(s.y1-s.y0)*k).toFixed(1);break}}
+    return d}
+  const fullD=tl=>progD(tl,Infinity);
+
+  /* ── 상태 ── */
+  let dens=65, absPct=10, M=null, PH1=0, PH2=0;
+  let clock=0, playing=false, raf=0, lastT=0, geo=null;
+  const ann={m1:false,m2:false,d2:false,fin:false};
+  const END=()=>PH1+GAP+PH2;
+  const svg=$('dia'), host=$('diaHost'), status=$('status'), playBtn=$('play');
+  const R=[{},{}];
+  const fmt=v=>Math.round(v).toLocaleString('ko-KR');
+  const fmtT=min=>{const tt=Math.min(540,Math.round(min))+540;
+    return String(Math.floor(tt/60)).padStart(2,'0')+':'+String(tt%60).padStart(2,'0')};
+
+  function compute(){
+    const p=makeStops(dens),order=makeOrder(),absent=makeAbsent(absPct);
+    const all=[];for(let i=0;i<N;i++)all.push(i);
+    const I1=buildTL(p,order,absent);
+    const B1=buildTL(p,bundleOrder(p,all),absent);
+    const set2I=[...new Set(absent.filter(i=>I1.visited.includes(i)).concat(I1.missed))];
+    const I2=set2I.length?buildTL(p,order.filter(i=>set2I.includes(i)),[]):null;
+    const B2=absent.length?buildTL(p,bundleOrder(p,absent),[]):null;
+    const cI=(I1.km+(I2?I2.km:0))*KM*RATE, cB=(B1.km+(B2?B2.km:0))*KM*RATE;
+    M={p,order,absent,I1,B1,I2,B2,cI,cB,pI:Math.round(cI/N),pB:Math.round(cB/N)};
+    PH1=Math.max(I1.tEnd,B1.tEnd);
+    PH2=Math.max(I2?I2.tEnd:0,B2?B2.tEnd:0);
+    ann.m1=ann.m2=ann.d2=ann.fin=false;
+  }
+
+  /* ── 그리기 ── */
+  function layout(){
+    const W=host.clientWidth;if(!W||W<40)return;
+    const side=W>=620,pw=side?(W-16)/2:W,s=pw/108,mapH=82*s,panelH=44+mapH;
+    const H=side?panelH:panelH*2+14;
+    geo={W,H,side,pw,s,mapH,panelH,
+      P:[{px:0,py:0},{px:side?pw+16:0,py:side?0:panelH+14}]};
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  }
+  const mx=(P,x)=>P.px+(4+x)*geo.s, my=(P,y)=>P.py+26+y*geo.s;
+  function mk(n,at,parent){const e=document.createElementNS(NS,n);
+    for(const a in at)e.setAttribute(a,at[a]);svg.appendChild(e);return e}
+  function txt(x,y,cls,s,anchor){const e=mk('text',{x:x.toFixed(1),y:y.toFixed(1),'class':cls});
+    if(anchor)e.setAttribute('text-anchor',anchor);e.textContent=s;return e}
+
+  function buildStatic(){
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    if(!geo||!M)return;
+    for(let m=0;m<2;m++){
+      const P=geo.P[m],d=m===0?M.I1:M.B1,dd=m===0?M.I2:M.B2;
+      txt(P.px+2,P.py+15,'t12 w6 txt',m===0?'① 개별 배달 — 주문 도착 순서대로':'② 권역 묶음 — 이웃한 동네부터 한 바퀴');
+      M.p.forEach((pt,z)=>{if(z>=ZN)return;
+        mk('circle',{'class':'zone',cx:mx(P,ZX[z][0]).toFixed(1),cy:my(P,ZX[z][1]).toFixed(1),r:(13*geo.s).toFixed(1)})});
+      mk('rect',{'class':'depot',x:(mx(P,DEPOT[0])-4).toFixed(1),y:(my(P,DEPOT[1])-4).toFixed(1),width:8,height:8,rx:1.5});
+      txt(mx(P,DEPOT[0]),my(P,DEPOT[1])+18,'t11 mut','물류 거점','middle');
+      mk('path',{'class':'pl',d:fullD(d)});
+      if(dd)mk('path',{'class':'p2d',d:fullD(dd)});
+      const pg1=mk('path',{'class':'pg',d:'M0 0'}),pg2=dd?mk('path',{'class':'pg2',d:'M0 0'}):null;
+      const stops=M.p.map((pt,i)=>{
+        const g=mk('g',{'class':'stop'});
+        const ring=document.createElementNS(NS,'circle');
+        ring.setAttribute('class','ring');ring.setAttribute('r','5.6');
+        ring.setAttribute('cx',mx(P,pt[0]).toFixed(1));ring.setAttribute('cy',my(P,pt[1]).toFixed(1));
+        g.appendChild(ring);
+        const dot=document.createElementNS(NS,'circle');
+        dot.setAttribute('class','dot');dot.setAttribute('r','3.1');
+        dot.setAttribute('cx',mx(P,pt[0]).toFixed(1));dot.setAttribute('cy',my(P,pt[1]).toFixed(1));
+        g.appendChild(dot);
+        const cr=document.createElementNS(NS,'path');
+        const x=mx(P,pt[0]),y=my(P,pt[1]);
+        cr.setAttribute('d','M'+(x-2.8).toFixed(1)+' '+(y-2.8).toFixed(1)+' L'+(x+2.8).toFixed(1)+' '+(y+2.8).toFixed(1)+' M'+(x+2.8).toFixed(1)+' '+(y-2.8).toFixed(1)+' L'+(x-2.8).toFixed(1)+' '+(y+2.8).toFixed(1));
+        g.appendChild(cr);
+        return g});
+      const van=mk('circle',{'class':'van',r:4.6,cx:mx(P,DEPOT[0]).toFixed(1),cy:my(P,DEPOT[1]).toFixed(1)});
+      const foot=txt(P.px+2,P.py+26+geo.mapH+14,'t11 mut','');
+      R[m]={stops,pg1,pg2,van,foot,lastStates:'',lastFoot:''};
+    }
+  }
+
+  function states(m,t){ // 0 미방문 · 1 완료 · 2 부재 · 3 미처리 · 4~5 다음 날 완료
+    const d=m===0?M.I1:M.B1,dd=m===0?M.I2:M.B2;
+    const ab=new Set(M.absent);
+    const st=new Array(N).fill(0);
+    d.ev.forEach(e=>{if(t>=e.lv)st[e.i]=ab.has(e.i)?2:1});
+    if(t>=d.tEnd)d.missed.forEach(i=>st[i]=3);
+    const tc=t-PH1-GAP;
+    if(dd&&tc>=0)dd.ev.forEach(e=>{if(tc>=e.lv)st[e.i]=ab.has(e.i)?4:5});
+    return st;
+  }
+  const SCLS=['','done','abs','miss','red','red'];
+
+  function footText(m,t){
+    const d=m===0?M.I1:M.B1,dd=m===0?M.I2:M.B2;
+    const kmNow=tl=>{let km=0;
+      for(const s of tl.segs){if(t>=s.t1)km+=dist([s.x0,s.y0],[s.x1,s.y1]);
+        else if(t>s.t0){const k=(t-s.t0)/(s.t1-s.t0);km+=dist([s.x0,s.y0],[s.x1,s.y1])*k}
+        else break}
+      return km};
+    if(t<d.tEnd){const dn=d.ev.filter(e=>t>=e.lv&&!M.absent.includes(e.i)).length;
+      return fmtT(t)+' · 완료 '+dn+'/20 · 이동 '+fmt(kmNow(d)*KM)+'km'}
+    if(t<PH1+GAP){const miss=d.missed.length;
+      return fmtT(d.tEnd)+(miss?' 마감 · 완료 '+d.delivered+'/20 · 미처리 '+miss+'건 다음 날':' 완주 · 완료 '+d.delivered+'/20 · 이동 '+fmt(d.km*KM)+'km')}
+    const tc=t-PH1-GAP;
+    if(!dd)return '다음 날 갈 일 없음 — 종료';
+    const tot=d.km+(tc>=dd.tEnd?dd.km:kmNow(dd));
+    const dn=dd.ev.filter(e=>tc>=e.lv).length;
+    return tc>=dd.tEnd?'종료 · 다음 날 '+dn+'건 재배송 완료 · 총 이동 '+fmt(tot*KM)+'km'
+      :'다음 날 '+fmtT(tc)+' · 재배송 '+dn+'/'+dd.ev.length+' · 총 이동 '+fmt(tot*KM)+'km';
+  }
+
+  function tickRender(){
+    if(!geo||!M)return;
+    const t=clock;
+    for(let m=0;m<2;m++){
+      const d=m===0?M.I1:M.B1,dd=m===0?M.I2:M.B2,E=R[m];
+      const t1=Math.min(t,d.tEnd);
+      E.pg1.setAttribute('d',progD(d,t1));
+      let pos=posIn(d,t1);
+      const tc=t-PH1-GAP;
+      if(dd){
+        const on=t>=PH1+GAP;
+        E.pg2.setAttribute('d',on?progD(dd,Math.min(tc,dd.tEnd)):'M0 0');
+        if(on)pos=posIn(dd,Math.min(tc,dd.tEnd));
+      }
+      E.van.setAttribute('cx',mx(geo.P[m],pos[0]).toFixed(1));
+      E.van.setAttribute('cy',my(geo.P[m],pos[1]).toFixed(1));
+      const st=states(m,t).map(x=>SCLS[x]).join(',');
+      if(st!==E.lastStates){E.lastStates=st;
+        const arr=st.split(',');
+        E.stops.forEach((g,i)=>{g.setAttribute('class','stop '+arr[i])})}
+      const ft=footText(m,t);
+      if(ft!==E.lastFoot){E.lastFoot=ft;E.foot.textContent=ft}
+    }
+  }
+
+  function announce(){
+    const loc=geo.side?['왼쪽','오른쪽']:['위','아래'];
+    if(!ann.m1&&clock>=M.I1.tEnd){ann.m1=true;
+      status.textContent='① 개별 배달('+loc[0]+') 마감 — 하루에 완료 '+M.I1.delivered+'/20건'+(M.I1.missed.length?' · 미처리 '+M.I1.missed.length+'건은 다음 날로 밀립니다':'')}
+    if(!ann.m2&&clock>=M.B1.tEnd){ann.m2=true;
+      status.textContent='② 권역 묶음('+loc[1]+') 완주 — '+fmtT(M.B1.tEnd)+'에 종료'+(M.absent.length?' · 부재 '+M.absent.length+'건은 다음 날 재배송':' · 다음 날 갈 일 없음')}
+    if(!ann.d2&&clock>=PH1+GAP&&(M.I2||M.B2)){ann.d2=true;
+      status.textContent='다음 날 — 부재 재배송 '+M.absent.length+'건'+(M.I1.missed.length?'에 개별 배달의 미처리 '+M.I1.missed.length+'건이 더해집니다':'을 다시 돕니다')}
+    if(!ann.fin&&clock>=END()){ann.fin=true;playing=false;cancelAnimationFrame(raf);
+      playBtn.textContent='▶ 재생';
+      status.textContent='결과 — 권역 묶음이 개별보다 건당 '+fmt(M.pI-M.pB)+'원 저렴('+Math.round((1-M.cB/M.cI)*100)+'% 절감) · 하루 처리 '+M.I1.delivered+' vs '+M.B1.delivered+'건 · 재배송 '+M.absent.length+'건은 두 방식 모두 같음 (밀도 '+dens+'% · 부재 '+absPct+'%)'}
+  }
+
+  function renderStats(){
+    const tie=M.I1.delivered===M.B1.delivered;
+    const save=Math.round((1-M.cB/M.cI)*100);
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+fmt(M.pI)+'원<i>vs</i><em>'+fmt(M.pB)+'원</em></b>'+
+      '<span>건당 배송 비용(원) — 개별 vs 권역 묶음 · 낮을수록 좋음</span>'+
+      '<span class="cmp good"><em>권역 묶음</em>이 1위 — '+save+'% 저렴</span></div>'+
+      '<div class="stat"><b>'+(tie?M.B1.delivered:M.I1.delivered)+'건<i>vs</i>'+(tie?'':'<em>')+M.B1.delivered+(tie?'건':'건</em>')+'</b>'+
+      '<span>하루 처리(건) — 마감 18:00까지 문 앞 전달 · 많을수록 좋음</span>'+
+      '<span class="cmp'+(tie?'':' good')+'">'+(tie?'동률 — 부재는 방식과 무관하게 깎입니다':'<em>권역 묶음</em>이 '+(M.B1.delivered-M.I1.delivered)+'건 더 처리 — 1위')+'</span></div>'+
+      '<div class="stat"><b>'+M.absent.length+'건</b>'+
+      '<span>재배송(건) — 부재로 다음 날 다시 가는 건수 · 두 방식 모두 같음 · 적을수록 좋음</span>'+
+      '<span class="cmp">'+(M.absent.length?'부재율 '+absPct+'% — 재배송이 늘면 두 방식 모두 건당 비용이 급증합니다':'부재 0% — 재배송 없음')+'</span></div>';
+  }
+
+  function labels(){
+    $('outD').textContent=dens+'% · '+(dens<25?'흩어짐':dens<75?'보통':'밀집');
+    $('outA').textContent=absPct+'% · 재배송 '+Math.round(N*absPct/100)+'건';
+  }
+
+  function rebuild(){
+    stop();clock=0;
+    compute();layout();buildStatic();tickRender();renderStats();labels();
+    svg.setAttribute('aria-label','기사 하루 루트 비교 지도: 밀도 '+dens+'% · 부재율 '+absPct+'% 조건. 개별 배달('+fmt(M.pI)+'원/건)과 권역 묶음('+fmt(M.pB)+'원/건)의 동선을 나란히 보여 줍니다.');
+    if(!playing)status.textContent='재생을 누르세요 — 같은 20건을 두 방식으로 돌려 봅니다. 밀도 '+dens+'% · 부재 '+absPct+'% · 건당 '+fmt(M.pI)+'원 vs '+fmt(M.pB)+'원';
+  }
+
+  function tick(ts){
+    if(!playing)return;
+    const dt=Math.min(50,lastT?ts-lastT:16);lastT=ts;
+    clock=Math.min(END(),clock+dt*0.045);
+    tickRender();announce();
+    if(playing)raf=requestAnimationFrame(tick);
+  }
+  function start(){
+    if(playing)return;
+    if(clock>=END()){clock=0;ann.m1=ann.m2=ann.d2=ann.fin=false}
+    playing=true;lastT=0;playBtn.textContent='⏸ 일시정지';
+    status.textContent='재생 중 — 기사(운송사) 한 명의 하루가 두 패널에서 같은 시간으로 흐릅니다.';
+    raf=requestAnimationFrame(tick);
+  }
+  function stop(){
+    playing=false;cancelAnimationFrame(raf);playBtn.textContent='▶ 재생';
+  }
+
+  playBtn.addEventListener('click',()=>playing?stop():start());
+  $('reset').addEventListener('click',()=>{stop();clock=0;
+    ann.m1=ann.m2=ann.d2=ann.fin=false;tickRender();
+    status.textContent='초기화 — 재생을 누르세요.'});
+  $('knD').addEventListener('input',e=>{dens=+e.target.value;rebuild()});
+  $('knA').addEventListener('input',e=>{absPct=+e.target.value;rebuild()});
+  new ResizeObserver(()=>{const w=host.clientWidth;
+    if(geo&&Math.abs(w-geo.W)<=1)return;
+    layout();buildStatic();tickRender()}).observe(host);
+
+  rebuild();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cost-to-serve · 물류비 정산 — 물류 개념 시각화</title>
+<meta name="description" content="고정된 한 달 실적을 기본 요금만 셀 때와 건별 원가·반품까지 전부 셀 때로 나눠 화주 3곳의 물류비·건당 원가·마진을 다시 계산해 보며, 세는 기준에 따라 화주별 마진 순위가 어떻게 뒤집히는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.stock{margin:0 0 12px;font-size:12.5px;color:var(--muted-foreground);max-width:74ch}
+.stock b{color:var(--foreground);font-weight:500}
+#dia{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+svg text.t12{font-size:12px}
+svg text.t11{font-size:11px}
+svg text.w5{font-weight:500}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.ship{fill:var(--viz-series-2)}
+svg text.chg{fill:var(--viz-series-2)}
+svg text.good{fill:var(--primary)}
+svg text.bad{fill:var(--bad)}
+svg text.num{font-variant-numeric:tabular-nums}
+svg .gsep{stroke:var(--border);stroke-width:1}
+svg .chgline{stroke:var(--viz-series-2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .r-work{fill:color-mix(in srgb,var(--viz-series-3) 62%,transparent)}
+svg .r-store{fill:color-mix(in srgb,var(--viz-series-3) 30%,transparent)}
+svg .r-ship{fill:color-mix(in srgb,var(--viz-series-4) 55%,transparent)}
+svg .r-def{fill:color-mix(in srgb,var(--bad) 18%,transparent)}
+svg .ghost{fill:color-mix(in srgb,var(--muted-foreground) 7%,transparent);stroke:var(--muted-foreground);stroke-width:1;stroke-dasharray:4 3}
+svg .hbg{fill:color-mix(in srgb,var(--viz-series-3) 22%,transparent)}
+svg .hln{stroke:color-mix(in srgb,var(--viz-series-3) 80%,transparent);stroke-width:1.5}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted-foreground);margin:8px 0 14px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:12px;height:10px;border-radius:2px}
+.w-work{background:color-mix(in srgb,var(--viz-series-3) 62%,transparent)}
+.w-store{background:color-mix(in srgb,var(--viz-series-3) 30%,transparent)}
+.w-ret{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--viz-series-3) 75%,transparent) 0 2px,color-mix(in srgb,var(--viz-series-3) 20%,transparent) 2px 5px)}
+.w-ship{background:color-mix(in srgb,var(--viz-series-4) 55%,transparent)}
+.w-chg{background:transparent;border-bottom:2px dashed var(--viz-series-2)}
+.w-def{background:color-mix(in srgb,var(--bad) 18%,transparent)}
+.w-ghost{background:color-mix(in srgb,var(--muted-foreground) 7%,transparent);border:1px dashed var(--muted-foreground)}
+.tscroll{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin:2px 0 0;min-width:560px}
+.tbl th{font-weight:500;color:var(--muted-foreground);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:4px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tbody th{font-weight:500;color:var(--foreground);white-space:normal}
+.tbl .sub{display:block;font-size:11.5px;font-weight:400;color:var(--muted-foreground)}
+.tbl .off{opacity:.45;text-decoration:line-through}
+.tbl .hc3{color:var(--viz-series-3)}
+.tbl .hc4{color:var(--viz-series-4)}
+.tbl .hc2{color:var(--viz-series-2)}
+.tbl td.chg{color:var(--viz-series-2)}
+.tbl td.good{color:var(--primary)}
+.tbl td.bad{color:var(--bad)}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block;margin-top:2px}
+.stat em{font-style:normal;font-weight:500;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (max-width:560px){.tbl .hide-s,.tbl .sub{display:none}.tbl{min-width:480px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">전략</span>
+  <p class="q">화주에게 받을 돈과 창고·운송사에 줄 돈은 어떻게 맞추는가</p>
+  <h1>Cost-to-serve · 물류비 정산</h1>
+  <p class="def"><b>정산(settlement)</b> — 기간 동안의 일을 집계해 서로 주고받을 돈을 확정하는 일이다. <b>Cost-to-serve(고객별 서비스 비용)</b> — 화주·주문별로 그 물건을 다루는 데 든 비용을 따져 계산한 값이다. 이 값을 계산해야 받을 돈이 남는지 잃는지가 보인다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>요율(rate)</b> — 보관·작업·운송 같은 단위별로 매기는 단가다. 정산은 이 요율표로 청구액을 계산한다. (<a href="contract-rates.html">계약과 요율</a>)</p>
+  <p><b>스코어카드(scorecard)</b> — 약속(SLA, 서비스 수준 합의)을 지켰는지 창고·운송사별로 점수를 매겨 비교하는 표다. 점수는 요율 깎음으로 정산에 이어진다. (<a href="sla-scorecard.html">SLA · 스코어카드</a>)</p>
+  <p><b>완료 보고</b> — 일을 실행한 쪽이 끝났다고 시스템에 알리는 기록이다. 이 기록이 한 달 동안 모여야 정산할 수 있다. (<a href="order-handoff.html">OMS → WMS → TMS 연계</a>)</p>
+</details>
+
+<p class="cause"><b>비유 — 모임 공용 경비 정산</b> · 여럿이 함께 쓴 돈은 영수증을 다 모아야 누가 얼마를 더 내야 하는지 정해진다. 물류 정산도 같다 — 창고·운송사에 줄 돈의 영수증(건별 원가)을 모아야 화주에게 받을 금액이 맞는지 보인다. 다만 맞지 않는 지점이 하나 있다. 모임 회비는 끝나면 한 번 정산하지만, 물류 정산은 매달 반복되고 얼마를 받을지는 계약 요율로 미리 정해져 있어, 요율이 실제 원가를 따라 잡지 못하면 매달 같은 곳에서 돈이 새어 나간다.</p>
+
+<div class="panel">
+  <h2>같은 한 달, 세는 기준을 바꿔 다시 셈합니다</h2>
+  <p class="stock">운영사 장부 — 한 달간 줄 돈(작업비·보관비·운임·반품 처리비)을 건별로 모아 원가를 만들고, 계약 요율로 받을 돈(청구액)을 계산해 마진 = 청구 − 원가를 확정합니다. 실적은 고정: <b>화주 A</b> 생활용품(출고 2,400건 · 평균 20km · 반품 3%) · <b>화주 B</b> 패션(출고 3,600건 · 반품 30% · 당일 발송) · <b>화주 C</b> 부품·소모품(출고 1,600건 · 원거리 36km · 소량 다빈도). 반품은 고객이 돌려보낸 물건을 받아 다시 정리하는 일입니다.</p>
+  <div class="controls">
+    <div class="ctl">원가 반영 범위
+      <div class="seg" id="segScope" role="group" aria-label="원가 반영 범위">
+        <button type="button" data-v="base" aria-pressed="true">기본 요금만</button>
+        <button type="button" data-v="full" aria-pressed="false">전부 반영</button>
+      </div>
+    </div>
+    <div class="ctl">반품 비용
+      <div class="seg" id="segRet" role="group" aria-label="반품 비용 반영 여부">
+        <button type="button" data-v="off" aria-pressed="true">제외</button>
+        <button type="button" data-v="on" aria-pressed="false">포함</button>
+      </div>
+    </div>
+    <button type="button" class="ghostb" id="reset">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="화주 3곳의 한 달 원가 막대와 청구액 점선 비교"></svg>
+  </div>
+  <p class="legend" id="legend"></p>
+  <div class="tscroll">
+  <table class="tbl" id="tbl" aria-label="화주별 비용 원장 — 작업비·보관비·운임·반품 처리비와 청구액·마진">
+    <thead><tr><th scope="col">화주</th><th scope="col" class="hc3">작업비</th><th scope="col" class="hc3 hide-s">보관비</th><th scope="col" class="hc4">운임</th><th scope="col" class="hc3">반품 처리비</th><th scope="col">원가 계</th><th scope="col" class="hc2">청구액</th><th scope="col">마진</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  </div>
+  <p class="patn" id="note"></p>
+  <p class="patn">단위 만원 · 청구액 = 출고 건수 × 건당 4,200원 + 보관 팔레트일(팔레트 하나를 하루 보관하는 단위) × 300원 — 계약 요율표에 담긴 기본 요금만 청구됩니다. 작업 추가분·거리 초과 운임·반품 처리비는 요율표에 없어 청구에 잡히지 않습니다.</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 화주 3곳의 한 달 실적(출고 건수·평균 거리·반품 건수·특이 요청)은 고정된 예시이고, 요율과 단가는 일반적인 3PL(제3자 물류) 계약을 단순화한 것이다. 보관은 팔레트일로, 나머지 비용은 출고 건별로 센다.</p>
+<p class="takeaway"><b>기본 요금만 세면 어느 화주나 남는 것처럼 보이지만, 건별 원가와 반품까지 세면 화주마다 남는 폭이 크게 갈린다</b> — 그래서 정산은 받을 돈과 줄 돈을 같은 기준으로 다 세어 확정해야 한다. 요율이 실제 원가(Cost-to-serve)를 따라 잡지 못한 화주에서는 매달 같은 자리에서 돈이 새어 나가므로, 실무에서는 정산 결과를 보고 그 화주의 요율을 다시 잡는다.</p>
+<p class="sys"><b>시스템에서는</b> OMS(주문 관리 시스템)에서는 주문·작업·운송·반품 실적을 건별로 집계해 화주별 원가와 청구를 만든다. 집계 항목과 반영 범위는 운영사·계약마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="contract-rates.html">계약과 요율</a> — 정산에 곱해지는 단가표 · <a href="sla-scorecard.html">SLA · 스코어카드</a> — 정산에 함께 다니는 성적표</p>
+  <p>다음: <a href="network-design.html">네트워크 설계 (창고 수 · 위치)</a> — 정산 결과를 보고 줄·키울 네트워크를 정하는 다음 단계</p>
+  <p>같은 묶음: <a href="returns-flow.html">반품 · 역물류</a> — 정산에서 빠지기 쉬운 반품 원가를 만드는 되돌아오는 흐름</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="cost-to-serve">✓ 학습 완료</button>
+</div>
+
+<script>
+// ── 모델: 고정된 한 달 실적과 요율 (무작위 값 없음 — 같은 조건이면 항상 같은 결과) ──
+const CTS_RATE={bill:4200,store:300};                    // 청구 요율: 출고 건당 · 보관 팔레트일당
+const CTS_STD={work:1100,ship:2600,store:210,ret:3750};  // 표준(기본) 원가 단가: 작업 · 운임 · 보관 · 반품
+const CTS_SHIP=[
+  {n:'화주 A',kind:'생활용품',ord:2400,km:20,ret:72,retPct:'3%',sp:'표준 작업',work:1150,shipR:2700,pd:3000},
+  {n:'화주 B',kind:'패션',ord:3600,km:18,ret:1080,retPct:'30%',sp:'당일 발송',work:1850,shipR:2850,pd:2400},
+  {n:'화주 C',kind:'부품·소모품',ord:1600,km:36,ret:48,retPct:'3%',sp:'소량 다빈도',work:2050,shipR:3600,pd:5000}
+];
+// scope: 'base'=기본 요금만 | 'full'=전부 반영, retIn: 반품 처리비 포함 여부
+function ctsCompute(scope,retIn){
+  return CTS_SHIP.map(s=>{
+    const charge=s.ord*CTS_RATE.bill+s.pd*CTS_RATE.store;
+    const workB=s.ord*CTS_STD.work,workR=s.ord*s.work;
+    const shipB=s.ord*CTS_STD.ship,shipR=s.ord*s.shipR;
+    const store=s.pd*CTS_STD.store,ret=s.ret*CTS_STD.ret;
+    const work=scope==='full'?workR:workB;
+    const ship=scope==='full'?shipR:shipB;
+    const extra=scope==='full'?0:(workR-workB)+(shipR-shipB); // 요율표에 안 담긴 추가분
+    const cost=work+ship+store+(retIn?ret:0);
+    return {s,charge,work,ship,store,ret,extra,cost,
+      perOrder:Math.round(cost/s.ord),
+      margin:charge-cost,
+      pct:(charge-cost)/charge*100};
+  });
+}
+function ctsRank(vals,dir){return vals.map((v,i)=>[v,i]).sort((a,b)=>dir==='min'?a[0]-b[0]:b[0]-a[0]).map(x=>x[1]);}
+</script>
+
+<script>
+(() => {
+  const NS='http://www.w3.org/2000/svg';
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  let scope='base',retIn=false;
+  let cur=ctsCompute(scope,retIn);
+  const MAXM=2400; // 눈금 최대(만원) — 기준을 바꿔도 자가 같게 유지
+  const SEG=[['work','work'],['store','store'],['ship','ship'],['ret','ret']];
+
+  const man=v=>v/1e4;
+  const f1=v=>man(v).toLocaleString('ko-KR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const f0=v=>Math.round(man(v)).toLocaleString('ko-KR');
+  const pctf=v=>(v<0?'\u2212':'+')+Math.abs(v).toFixed(1);
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const a in at)e.setAttribute(a,at[a]);svg.appendChild(e);return e;}
+  function txt(x,y,cls,s){const e=el('text',{x,y,'class':cls});e.textContent=s;return e;}
+  function patDefs(){
+    const d=document.createElementNS(NS,'defs'),p=document.createElementNS(NS,'pattern');
+    p.setAttribute('id','hatch');p.setAttribute('width','6');p.setAttribute('height','6');p.setAttribute('patternUnits','userSpaceOnUse');
+    const r=document.createElementNS(NS,'rect');r.setAttribute('width','6');r.setAttribute('height','6');r.setAttribute('class','hbg');
+    const l=document.createElementNS(NS,'path');l.setAttribute('d','M0 6L6 0');l.setAttribute('class','hln');
+    p.appendChild(r);p.appendChild(l);d.appendChild(p);svg.appendChild(d);
+  }
+  function stack(d,px){ // 막대 세로(넓은 화면): 작업 → 보관 → 운임 → 반품, 위에 안 셈 추가분
+    let cum=0;
+    SEG.forEach(([k])=>{const v=man(d[k]);if(v<=0)return;const h=v/MAXM*px;
+      el('rect',{x:d._bx,y:d._base-cum-h,width:d._bw,height:h,'class':'r-'+k});cum+=h;});
+    if(d.extra>0){const h=man(d.extra)/MAXM*px;
+      el('rect',{x:d._bx,y:d._base-cum-h,width:d._bw,height:h,'class':'ghost'});cum+=h;}
+    return cum;
+  }
+  function rowStack(d,px){ // 막대 가로(좁은 화면)
+    let cx=d._bx;
+    SEG.forEach(([k])=>{const v=man(d[k]);if(v<=0)return;const w=v/MAXM*px;
+      el('rect',{x:cx,y:d._by,width:w,height:d._bh,'class':'r-'+k});cx+=w;});
+    if(d.extra>0){const w=man(d.extra)/MAXM*px;
+      el('rect',{x:cx,y:d._by,width:w,height:d._bh,'class':'ghost'});cx+=w;}
+    return cx;
+  }
+
+  function drawWide(W){
+    const padL=48,padR=6,top=80,ph=160,base=top+ph,gw=(W-padL-padR)/3;
+    txt(10,16,'t11 mut','막대 = 줄 돈(원가) · 점선 = 받을 돈(청구액) · 세로 눈금 만원');
+    [0,600,1200,1800,2400].forEach(v=>{const y=base-v/2400*ph;
+      el('line',{x1:padL,y1:y,x2:W-padR,y2:y,'class':'gsep'});
+      const t=txt(padL-6,y+4,'t11 mut num',v.toLocaleString('ko-KR'));t.setAttribute('text-anchor','end');});
+    cur.forEach((d,i)=>{const s=d.s,gx=padL+i*gw;
+      txt(gx+6,36,'t12 w5 ship',s.n+' · '+s.kind);
+      txt(gx+6,52,'t11 mut num','출고 '+s.ord.toLocaleString('ko-KR')+'건 · 평균 '+s.km+'km');
+      txt(gx+6,66,'t11 mut num','반품 '+s.ret.toLocaleString('ko-KR')+'건('+s.retPct+') · '+s.sp);
+      d._bx=gx+10;d._bw=50;d._base=base;
+      const topY=base-stack(d,ph);
+      const chY=base-man(d.charge)/2400*ph;
+      if(d.cost>d.charge){const h=man(d.cost-d.charge)/2400*ph;
+        el('rect',{x:d._bx,y:base-man(d.cost)/2400*ph,width:d._bw,height:h,'class':'r-def'});}
+      el('line',{x1:gx+2,y1:chY,x2:gx+gw-2,y2:chY,'class':'chgline'});
+      const ct=txt(gx+gw-4,chY-4,'t11 chg num','청구 '+f0(d.charge));ct.setAttribute('text-anchor','end');
+      txt(gx+6,base+20,'t12 num '+(d.margin>=0?'good':'bad'),'마진 '+pctf(d.pct)+'%');
+      d._topY=topY;
+    });
+    return base+30;
+  }
+
+  function drawNarrow(W){
+    const rowH=68,top=6,bx=10,bw=W-10-92,by0=34,bh=14;
+    cur.forEach((d,i)=>{const s=d.s,y=top+i*rowH;
+      txt(bx,y+12,'t12 w5 ship',s.n+' · '+s.kind+' — 출고 '+s.ord.toLocaleString('ko-KR')+'건');
+      txt(bx,y+26,'t11 mut num','반품 '+s.ret.toLocaleString('ko-KR')+'건('+s.retPct+') · '+s.sp+' · '+s.km+'km');
+      d._bx=bx;d._by=y+by0;d._bh=bh;
+      const end=rowStack(d,bw);
+      const chX=bx+man(d.charge)/2400*bw;
+      if(d.cost>d.charge){const x1=bx+man(d.charge)/2400*bw,x2=bx+man(d.cost)/2400*bw;
+        el('rect',{x:x1,y:y+by0,width:Math.max(1,x2-x1),height:bh,'class':'r-def'});}
+      el('line',{x1:chX,y1:y+by0-4,x2:chX,y2:y+by0+bh+4,'class':'chgline'});
+      const mt=txt(W-6,y+by0+12,'t12 num '+(d.margin>=0?'good':'bad'),pctf(d.pct));mt.setAttribute('text-anchor','end');
+    });
+    const ay=top+cur.length*rowH+16;
+    [0,600,1200,1800,2400].forEach(v=>{const t=txt(bx+v/2400*bw,ay,'t11 mut num',v.toLocaleString('ko-KR'));
+      t.setAttribute('text-anchor',v===0?'start':(v===2400?'end':'middle'));});
+    const u=txt(W-6,ay,'t11 mut','만원');u.setAttribute('text-anchor','end');
+    return ay+6;
+  }
+
+  function draw(){
+    const W=host.clientWidth;if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    patDefs();
+    const H=W>=620?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    const ord=ctsRank(cur.map(d=>d.pct),'max');
+    svg.setAttribute('aria-label','화주 A·B·C의 한 달 원가 막대와 청구액 점선 비교. 기준: '+(scope==='base'?'기본 요금만':'전부 반영')+' · 반품 '+(retIn?'포함':'제외')+'. 마진 1위 '+cur[ord[0]].s.n+' '+pctf(cur[ord[0]].pct)+'%, 최하위 '+cur[ord[2]].s.n+' '+pctf(cur[ord[2]].pct)+'%.');
+  }
+
+  function renderLegend(){
+    $('legend').innerHTML=
+      '<span><i class="w-work"></i>작업비</span>'+
+      '<span><i class="w-store"></i>보관비</span>'+
+      '<span><i class="w-ret"></i>반품 처리비 — 창고에 줄 돈</span>'+
+      '<span><i class="w-ship"></i>운임 — 운송사에 줄 돈</span>'+
+      '<span><i class="w-chg"></i>청구액 — 화주에게 받을 돈</span>'+
+      '<span><i class="w-def"></i>청구선 위의 원가 = 잃는 돈</span>'+
+      (scope==='base'?'<span><i class="w-ghost"></i>요율표에 안 담긴 추가분(지금은 안 셈)</span>':'')+
+      '<span>숫자 = 마진(청구 − 원가) — 남는 돈 파랑 · 잃는 돈 빨강</span>';
+  }
+
+  function renderTable(){
+    $('tbl').tBodies[0].innerHTML=cur.map(d=>{const s=d.s;
+      return '<tr><th scope="row">'+s.n+' · '+s.kind+
+        '<span class="sub">출고 '+s.ord.toLocaleString('ko-KR')+'건 · 평균 '+s.km+'km · 반품 '+s.ret.toLocaleString('ko-KR')+'건('+s.retPct+') · '+s.sp+'</span></th>'+
+        '<td class="num">'+f1(d.work)+'</td>'+
+        '<td class="num hide-s">'+f1(d.store)+'</td>'+
+        '<td class="num">'+f1(d.ship)+'</td>'+
+        '<td class="num'+(retIn?'':' off')+'">'+f1(d.ret)+'</td>'+
+        '<td class="num"><b>'+f1(d.cost)+'</b></td>'+
+        '<td class="num chg">'+f1(d.charge)+'</td>'+
+        '<td class="num '+(d.margin>=0?'good':'bad')+'">'+pctf(d.pct)+'%</td></tr>';}).join('');
+    $('note').textContent=
+      scope==='base'
+        ?(retIn?'지금 기준 — 표준 작업·기본 운임만 셈 · 반품 처리비 포함: 반품 많은 화주 B의 원가가 커진다.'
+               :'지금 기준 — 표준 작업·기본 운임만 셈 · 반품 처리비 제외: 실제로 든 돈보다 적게 잡혀 모두 남아 보인다.')
+        :(retIn?'지금 기준 — 당일 발송·소량 다빈도·거리 초과까지 전부 셈 · 반품 처리비 포함: 청구액은 그대로, 실제 원가만 늘었다 — 마진이 실제가 된다.'
+               :'지금 기준 — 당일 발송·소량 다빈도·거리 초과까지 전부 셈 · 반품 처리비 제외: 소량 다빈도 화주 C의 실제 원가가 드러난다.');
+  }
+
+  function renderStats(){
+    const cfg=[
+      {get:d=>d.cost,fmt:v=>f0(v)+'만원',dir:'min',name:'한 달 물류비(원가)',desc:'창고·운송사에 줄 돈을 화주별로 모은 값',dirT:'적을수록 부담이 적음',win:'1위(가장 적음)'},
+      {get:d=>d.perOrder,fmt:v=>v.toLocaleString('ko-KR')+'원',dir:'min',name:'건당 원가',desc:'한 건을 처리하려고 실제로 든 돈',dirT:'낮을수록 좋음',win:'1위(가장 낮음)'},
+      {get:d=>d.pct,fmt:v=>pctf(v)+'%',dir:'max',name:'마진',desc:'청구(받을 돈) − 원가(줄 돈)를 청구로 나눈 비율',dirT:'높을수록 좋음',win:'1위(가장 높음)'}
+    ];
+    $('stats').innerHTML=cfg.map(k=>{
+      const vals=cur.map(k.get),ord=ctsRank(vals,k.dir),w=ord[0];
+      const others=ord.slice(1).map((i,j)=>(j+2)+'위 '+cur[i].s.n+' '+k.fmt(vals[i])).join(' · ');
+      return '<div class="stat"><b>'+k.fmt(vals[w])+'</b><span>'+k.name+' — '+k.desc+' · '+k.dirT+' · <em>'+cur[w].s.n+'</em> '+k.win+'</span><span class="cmp">'+others+'</span></div>';
+    }).join('');
+  }
+
+  function announce(){
+    const ord=ctsRank(cur.map(d=>d.pct),'max'),last=ord[2];
+    let t='기준: '+(scope==='base'?'기본 요금만':'전부 반영')+' · 반품 '+(retIn?'포함':'제외')+
+      ' — 마진 1위 '+cur[ord[0]].s.n+' '+pctf(cur[ord[0]].pct)+'%, 최하위 '+cur[last].s.n+' '+pctf(cur[last].pct)+'%'+(cur[last].pct<0?'(잃는 중)':'');
+    if(scope==='base'&&!retIn)t+=' · 지금은 세 곳 모두 남는 것처럼 보입니다 — 기준을 바꿔 보세요';
+    if(scope==='full'&&retIn)t+=' · 요율표에 없던 돈까지 셈한 결과입니다';
+    status.textContent=t;
+  }
+
+  function setPressed(id,val){document.querySelectorAll('#'+id+' button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===val)));}
+  function render(){cur=ctsCompute(scope,retIn);renderLegend();draw();renderTable();renderStats();announce();}
+
+  $('segScope').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    scope=b.dataset.v;setPressed('segScope',scope);render();});
+  $('segRet').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    retIn=b.dataset.v==='on';setPressed('segRet',retIn?'on':'off');render();});
+  $('reset').addEventListener('click',()=>{scope='base';retIn=false;
+    setPressed('segScope',scope);setPressed('segRet','off');render();});
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+})();
+</script>
+
+<script>
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

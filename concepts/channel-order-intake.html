@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>판매 채널 연동 · 주문 수집 — 물류 개념 시각화</title>
+<meta name="description" content="자사몰·마켓·매장 등 판매 채널마다 다른 주문 서식을 OMS의 주문 수집과 필드 매핑, 필수 항목 검증으로 한 형식의 표준 주문서로 모으는 과정을, 수집 방식과 검증 강도를 바꿔 가며 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+#dia text{font-variant-numeric:tabular-nums}
+#dia .t12{font-size:12px;font-weight:600}
+#dia .t11{font-size:11px}
+#dia .txt{fill:var(--foreground)}
+#dia .mut{fill:var(--muted-foreground)}
+#dia .c-oms{fill:var(--viz-series-1)}
+#dia .c-ok{fill:var(--viz-series-2)}
+#dia .c-hold{fill:var(--viz-series-3)}
+#dia .c-fail{fill:var(--bad)}
+#dia .c-late{fill:var(--muted-foreground)}
+#dia .b-ch{fill:color-mix(in srgb,var(--viz-series-2) 10%,transparent);stroke:color-mix(in srgb,var(--viz-series-2) 45%,transparent)}
+#dia .b-oms{fill:color-mix(in srgb,var(--viz-series-1) 10%,transparent);stroke:color-mix(in srgb,var(--viz-series-1) 45%,transparent)}
+#dia .b-std{fill:color-mix(in srgb,var(--muted-foreground) 7%,transparent);stroke:var(--border)}
+#dia .ar{fill:none;stroke:var(--foreground);stroke-width:1.5}
+#dia .ar.man{stroke:color-mix(in srgb,var(--muted-foreground) 70%,transparent);stroke-dasharray:4 3}
+#dia .ah{fill:var(--foreground)}
+#dia .ah.man{fill:color-mix(in srgb,var(--muted-foreground) 70%,transparent)}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 14px}
+.patn b{color:var(--foreground);font-weight:600}
+.cols{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:780px){.cols{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}}
+/* 채널 주문 카드 */
+.chb{margin:0 0 12px}
+.chh{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin:0 0 6px}
+.chh b{font-size:13.5px;font-weight:600}
+.chh .how{font-size:11.5px;line-height:1.6;padding:0 8px;border-radius:999px;border:1px solid currentColor;color:var(--viz-series-2)}
+.chh .fnote{font-size:11.5px;color:var(--muted-foreground)}
+.oc{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:5px 9px;margin:0 0 5px;font-size:12px;line-height:1.5}
+.oc>b{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.oc .f{font-size:11.5px;padding:0 7px;border-radius:6px;border:1px dashed var(--border);color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.oc .f.miss{border-style:solid;border-color:var(--bad);color:var(--bad)}
+/* 표준 주문서 목록 */
+.so{list-style:none;margin:0;padding:0}
+.so li{display:grid;grid-template-columns:minmax(0,auto) minmax(0,auto) minmax(0,1fr);gap:3px 8px;align-items:baseline;border:1px solid var(--border);border-radius:10px;padding:5px 9px;margin:0 0 5px;font-size:12.5px;line-height:1.5}
+.so .oid{font-weight:600;font-variant-numeric:tabular-nums}
+.so .chn{font-size:11.5px;color:var(--muted-foreground);white-space:nowrap}
+.so .tag{font-size:11.5px;line-height:1.6;padding:0 7px;border-radius:999px;white-space:nowrap}
+.so li.k-ok .tag{background:color-mix(in srgb,var(--viz-series-2) 14%,transparent);color:var(--viz-series-2)}
+.so li.k-hold .tag{background:color-mix(in srgb,var(--viz-series-3) 15%,transparent);color:var(--viz-series-3)}
+.so li.k-fail .tag{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad)}
+.so li.k-late .tag{background:color-mix(in srgb,var(--muted-foreground) 13%,transparent);color:var(--muted-foreground)}
+.so .t{grid-column:1/-1;font-size:12px;color:var(--muted-foreground)}
+.so li.k-fail .t{color:var(--bad)}
+/* 매핑 규칙표 */
+.tblwrap{overflow-x:auto;margin:14px 0 0}
+.mt{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.mt th,.mt td{border-bottom:1px solid var(--border);padding:5px 8px;text-align:left;white-space:nowrap}
+.mt th{font-size:12px;color:var(--muted-foreground);font-weight:500}
+.mt td:first-child{font-weight:600}
+/* 숫자 카드 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0 8px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.good{color:var(--viz-series-2)}
+.stat .cmp.bad{color:var(--bad)}
+.win{font-size:13px;color:var(--muted-foreground);margin:0 0 16px}
+em{font-style:normal;font-weight:650}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">주문·이행</span>
+  <p class="q">쇼핑몰마다 다른 주문을 어떻게 한 형식으로 받는가</p>
+  <h1>판매 채널 연동 · 주문 수집</h1>
+  <p class="def">상품을 파는 창구가 <b>판매 채널</b>이다 — 자사몰, 마켓, 매장. 채널마다 주문 서식이 달라, 모아서 한 형식으로 만드는 <b>주문 수집</b>이 없으면 채널마다 주문을 하나씩 옮겨 적어야 한다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>API·EDI(외부 연동)</b> — API(Application Programming Interface)는 프로그램끼리 정해진 규칙으로 데이터를 주고받는 연결 창구다. EDI(Electronic Data Interchange, 전자 문서 교환)는 회사 사이에 주문·통지 같은 문서를 정해진 서식으로 주고받는 방식이다. → <a href="external-integration.html">외부 시스템 연동 (EDI · API)</a></p>
+  <p><b>주문 상태</b> — 주문이 접수된 뒤 배송이 끝날 때까지 어디까지 진행됐는지 나타내는 표시다. 이 페이지에서 모은 주문이 이 상태로 여정을 시작한다. → <a href="order-status.html">주문 한 건의 여정 (주문 상태 라이프사이클)</a></p>
+  <p><b>상태 매핑</b> — 창고의 세부 작업 상태를 화주에게 보여 주는 주문 상태로 옮겨 놓은 대응표다. 매핑은 한 체계의 코드를 다른 체계의 코드로 이어 주는 대응표다. → <a href="status-normalization.html">상태 매핑 (창고 작업 상태 → 화주용 주문 상태)</a></p>
+</details>
+
+<div class="terms">
+  <p><b>판매 채널(sales channel)</b> — 상품을 파는 창구다. 자사몰, 마켓, 오프라인 매장이 각각 채널이다.</p>
+  <p><b>주문 수집(order intake)</b> — 여러 채널에서 들어온 주문을 한 시스템에 모아 한 형식으로 만드는 일이다.</p>
+</div>
+
+<p class="cause"><b>비유 — 멀티 채널 메신저</b> · 카톡·문자·메일로 흩어진 약속을 캘린더 하나에 옮겨 적는다. 어디서 왔든 캘린더 칸 형식은 하나라 다음 일정을 볼 수 있다. 맞지 않는 지점이 하나 있다 — 메신저는 답장만 하면 되지만 주문은 재고까지 묶어야 한다.</p>
+
+<div class="panel">
+  <h2>하루 15건 — 세 채널에서 OMS 표준 주문서까지</h2>
+  <div class="controls">
+    <div class="ctl">수집 방식
+      <div class="seg" id="segMode" role="group" aria-label="수집 방식">
+        <button type="button" data-v="auto" aria-pressed="true">채널별 자동 수집</button>
+        <button type="button" data-v="man" aria-pressed="false">전부 수기 등록</button>
+      </div>
+    </div>
+    <div class="ctl">필수 항목 검증
+      <div class="seg" id="segVal" role="group" aria-label="필수 항목 검증">
+        <button type="button" data-v="strict" aria-pressed="true">빈 칸은 보류</button>
+        <button type="button" data-v="off" aria-pressed="false">그냥 통과</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label=""></svg>
+  </div>
+  <p class="patn">왼쪽 세 상자 = <b>판매 채널</b>(화주색 — 상품을 파는 주체의 색). 가운데 = <b>OMS</b>(운영사색)의 주문 수집 · 매핑 · 필수 검증. 오른쪽 = 만들어진 <b>표준 주문서</b>. 화살표 라벨 = 채널 접속 방식이고, "전부 수기 등록"을 고르면 사람이 점선 화살표로 옮겨 적는다.</p>
+  <div class="cols">
+    <section aria-labelledby="hCh">
+      <h2 id="hCh">채널 주문 카드 — 하루 15건 도착</h2>
+      <div id="chs"></div>
+    </section>
+    <section aria-labelledby="hSo">
+      <h2 id="hSo">표준 주문서 15건</h2>
+      <ol class="so" id="so"></ol>
+    </section>
+  </div>
+  <div class="tblwrap">
+    <table class="mt">
+      <thead><tr><th>표준 필드</th><th>자사몰 · API</th><th>마켓 A · EDI</th><th>마켓 B · 엑셀</th></tr></thead>
+      <tbody>
+        <tr><td>주문번호</td><td>주문번호</td><td>ORD_NO</td><td>주문 ID</td></tr>
+        <tr><td>SKU</td><td>SKU</td><td>SKU_CD</td><td>상품 번호</td></tr>
+        <tr><td>수량</td><td>수량</td><td>QTY</td><td>갯수</td></tr>
+        <tr><td>수취인 전화번호 (필수)</td><td>수취인 전화</td><td>RCV_TEL</td><td>휴대폰</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="patn">같은 값이 채널마다 다른 이름으로 온다 — OMS는 이 대응표(매핑 규칙표)를 채널마다 설정해 표준 형식으로 바꾼다. 단, 매핑은 <b>이름을 바꿔 줄 뿐 빈 값을 채워 주지는 않는다</b> — 마켓 B의 빈 전화번호 칸은 매핑으로도 못 채우고, 필수 항목 검증이 걸러 낸다. 현실에서는 채널이 API·EDI를 열어 주지 않으면 수기 등록이 유일한 방법이라, 수집 방식은 선택이 아니라 채널의 조건이 되기도 한다.</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="win" id="win"></p>
+<p class="foot">전제: 하루 주문 15건 · 채널 3개, 서식 차이는 대표적인 경우(표준 필드 · 코드형 EDI · 이름 제각각인 엑셀)로 단순화했다. 수기 등록의 오류·지연은 "옮겨 적다 1건(MA-3302)의 SKU를 잘못 적고, 마감(14시)에 3건을 놓친다"는 고정 시나리오(같은 조건이면 결과가 항상 같다)로 두었다.</p>
+<p class="takeaway">채널이 자동으로 연결돼 있으면 주문이 저절로 한 형식으로 모이지만, 필수 항목 검증이 없으면 빠진 주문이 배송 단계에서 터진다 — 수집과 검증은 세트로 움직인다. 그래서 실무에서는 채널 연동을 열 때 필수 항목 규칙을 함께 설정하고, 빈 칸은 배송 전에 보류로 걸러 낸다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 채널별 접속 방식(API·EDI·업로드)과 필드 매핑, 필수 항목 규칙을 채널마다 설정해 주문을 표준 형식으로 만든다. 규칙은 운영사·채널마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="external-integration.html">외부 시스템 연동 (EDI · API)</a> — 채널·창고·운송사와 문서를 주고받는 연결 방식</p>
+  <p>다음: <a href="carrier-selection.html">운송사 선정 · 운임 비교</a> — 모은 주문을 어느 운송사에 실어 보낼지 정하는 단계</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="channel-order-intake">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  /*MV-DATA-START*/
+  const CH=[
+    {id:'mall',n:'자사몰',how:'API',fnote:'표준 필드 그대로 온다',f:{sku:'SKU',qty:'수량',tel:'수취인 전화'},ords:[
+      {no:'S-2401',sku:'MUG-001',q:1,tel:'010-1234-5678'},
+      {no:'S-2402',sku:'MUG-002',q:2,tel:'010-2345-6789'},
+      {no:'S-2403',sku:'TEE-WHT-L',q:1,tel:'010-3456-7890'},
+      {no:'S-2404',sku:'CAP-NVY',q:1,tel:'010-4567-8901'},
+      {no:'S-2405',sku:'SOCK-3P',q:3,tel:'010-5678-9012'}]},
+    {id:'mktA',n:'마켓 A',how:'EDI',fnote:'코드형 필드 — 매핑으로 이름만 바꾼다',f:{sku:'SKU_CD',qty:'QTY',tel:'RCV_TEL'},ords:[
+      {no:'MA-3301',sku:'MUG-001',q:1,tel:'010-6789-0123'},
+      {no:'MA-3302',sku:'MUG-002',q:1,tel:'010-7890-1234',typo:'A-0374'},
+      {no:'MA-3303',sku:'TEE-WHT-L',q:1,tel:'010-8901-2345'},
+      {no:'MA-3304',sku:'CAP-NVY',q:2,tel:'010-9012-3456'},
+      {no:'MA-3305',sku:'MUG-002',q:1,tel:'010-0123-4567'}]},
+    {id:'mktB',n:'마켓 B',how:'엑셀 수기',fnote:'필드 이름 제각각 — 사람이 매핑표를 관리한다',f:{sku:'상품 번호',qty:'갯수',tel:'휴대폰'},ords:[
+      {no:'MB-1011',sku:'SOCK-3P',q:2,tel:'010-1122-3344',late:true},
+      {no:'MB-1012',sku:'CAP-NVY',q:1,tel:'010-2233-4455',late:true},
+      {no:'MB-1013',sku:'MUG-001',q:1,tel:null},
+      {no:'MB-1014',sku:'TEE-WHT-L',q:2,tel:'010-3344-5566',late:true},
+      {no:'MB-1015',sku:'SOCK-3P',q:1,tel:null}]}
+  ];
+  const KL={ok:'정상',hold:'보류',fail:'실패',late:'지연'};
+  // 한 주문의 결과: 수집(자동/수기) → 필수 검증 → 출고·배송 순서로 판정한다 (전부 고정 규칙, 무작위 없음)
+  function judge(o,mode,val){
+    const late=mode==='man'&&o.late;
+    if(val==='strict'&&!o.tel) return {k:'hold',t:'수취인 전화번호가 빈 칸이라 필수 검증에서 걸려 보류 — 채워 등록하기 전엔 출고 안 됨'};
+    if(mode==='man'&&o.typo) return {k:'fail',t:'옮겨 적다 SKU를 '+o.typo+'로 잘 적어 창고에 없는 상품으로 접수 — 출고 불가'};
+    if(!o.tel) return {k:'fail',t:'수취인 전화번호가 없어 운송사가 받는 사람에게 연락할 수 없음 — 배송 불가'};
+    return late?{k:'late',t:'수집 마감(14시)을 놓쳐 다음 날 등록 — 배송이 하루 늦음'}:{k:'ok',t:'표준 주문서 완성 → 창고 출고 · 배송'};
+  }
+  /*MV-DATA-END*/
+  const $=x=>document.getElementById(x);
+  const status=$('status');
+  let M='auto', V='strict';
+  const all=()=>CH.flatMap(c=>c.ords.map(o=>({c,o})));
+  const results=()=>all().map(({c,o})=>({c,o,r:judge(o,M,V)}));
+
+  function draw(){
+    const host=$('diaHost'), svg=$('dia');
+    const w=host.clientWidth; if(!w)return;
+    const R=results(), cnt=k=>R.filter(x=>x.r.k===k).length;
+    const ok=cnt('ok'),hold=cnt('hold'),fail=cnt('fail'),late=cnt('late');
+    const man=M==='man';
+    const hArrow=(x1,y1,x2,y2,cls,lab,ly)=>{
+      const hd=`<path class="ah ${cls}" d="M${x2},${y2} l-7,-3.5 l0,7 z"/>`;
+      return `<line class="ar ${cls}" x1="${x1}" y1="${y1}" x2="${x2-6}" y2="${y2}"/>${hd}`+
+        (lab?`<text class="t11 mut" x="${(x1+x2)/2}" y="${ly!==undefined?ly:y1-5}" text-anchor="middle">${lab}</text>`:'');
+    };
+    const vArrow=(x,y1,y2,cls,lab)=>{
+      const hd=`<path class="ah ${cls}" d="M${x},${y2} l-3.5,-7 l7,0 z"/>`;
+      return `<line class="ar ${cls}" x1="${x}" y1="${y1}" x2="${x}" y2="${y2-6}"/>${hd}`+
+        (lab?`<text class="t11 mut" x="${x+8}" y="${(y1+y2)/2+4}">${lab}</text>`:'');
+    };
+    const counts=`<text class="t11" x="0" y="0" text-anchor="middle"><tspan class="c-ok">정상 ${ok}건</tspan><tspan class="mut"> · </tspan><tspan class="c-hold">보류 ${hold}건</tspan><tspan class="mut"> · </tspan><tspan class="c-fail">실패 ${fail}건</tspan><tspan class="mut"> · </tspan><tspan class="c-late">지연 ${late}건</tspan></text>`;
+    let H, s='';
+    if(w<560){
+      H=196;
+      const bw=(w-12)/3, hows=['API · 5건','EDI · 5건','엑셀 · 5건'];
+      CH.forEach((c,i)=>{const x=i*(bw+6);
+        s+=`<rect class="b-ch" x="${x}" y="0" width="${bw}" height="40" rx="8"/>`;
+        s+=`<text class="t12 txt" x="${x+bw/2}" y="16" text-anchor="middle">${c.n}</text>`;
+        s+=`<text class="t11 mut" x="${x+bw/2}" y="31" text-anchor="middle">${hows[i]}</text>`;
+      });
+      s+=vArrow(w/2,40,60,man?'man':'',man?'사람이 옮겨 적음':'채널별 자동 전송');
+      s+=`<rect class="b-oms" x="${w*0.06}" y="60" width="${w*0.88}" height="46" rx="8"/>`;
+      s+=`<text class="t12 c-oms" x="${w/2}" y="78" text-anchor="middle">OMS · 주문 수집</text>`;
+      s+=`<text class="t11 mut" x="${w/2}" y="94" text-anchor="middle">매핑 · 필수 항목 검증</text>`;
+      s+=vArrow(w/2,106,126,'','표준 형식으로 변환');
+      s+=`<rect class="b-std" x="${w*0.06}" y="126" width="${w*0.88}" height="64" rx="8"/>`;
+      s+=`<text class="t12 txt" x="${w/2}" y="144" text-anchor="middle">표준 주문서 15건</text>`;
+      s+=counts.replace('x="0" y="0"',`x="${w/2}" y="160"`);
+    }else{
+      H=168;
+      const cw=w*0.26, ox=w*0.42, ow=w*0.24, sx=w*0.74, sw=w*0.25;
+      const ys=[18,66,114], hows=['API','EDI','엑셀 업로드'];
+      CH.forEach((c,i)=>{const y=ys[i];
+        s+=`<rect class="b-ch" x="0" y="${y}" width="${cw}" height="40" rx="8"/>`;
+        s+=`<text class="t12 txt" x="${cw/2}" y="${y+17}" text-anchor="middle">${c.n} ${c.how}</text>`;
+        s+=`<text class="t11 mut" x="${cw/2}" y="${y+32}" text-anchor="middle">5건</text>`;
+        s+=hArrow(cw+2,y+20,ox-2,y+20,man?'man':'',man?'수기 등록':hows[i]);
+      });
+      s+=`<rect class="b-oms" x="${ox}" y="44" width="${ow}" height="80" rx="8"/>`;
+      s+=`<text class="t12 c-oms" x="${ox+ow/2}" y="76" text-anchor="middle">OMS · 주문 수집</text>`;
+      s+=`<text class="t11 mut" x="${ox+ow/2}" y="93" text-anchor="middle">매핑 · 필수</text>`;
+      s+=`<text class="t11 mut" x="${ox+ow/2}" y="108" text-anchor="middle">항목 검증</text>`;
+      s+=hArrow(ox+ow+2,84,sx-2,84,'','표준 형식으로 변환');
+      s+=`<rect class="b-std" x="${sx}" y="44" width="${sw}" height="80" rx="8"/>`;
+      s+=`<text class="t12 txt" x="${sx+sw/2}" y="64" text-anchor="middle">표준 주문서 15건</text>`;
+      s+=counts.replace('x="0" y="0"',`x="${sx+sw/2}" y="84"`);
+    }
+    svg.setAttribute('viewBox',`0 0 ${w} ${H}`);
+    svg.setAttribute('width',w);svg.setAttribute('height',H);
+    svg.innerHTML=s;
+    svg.setAttribute('aria-label',`세 판매 채널(자사몰 API · 마켓 A EDI · 마켓 B 엑셀)에서 하루 15건이 OMS의 주문 수집·매핑·필수 검증을 지나 표준 주문서 15건이 되었다. 정상 ${ok}건 · 보류 ${hold}건 · 실패 ${fail}건 · 지연 ${late}건. 수집 방식: ${man?'전부 수기 등록':'채널별 자동 수집'}, 필수 항목 검증: ${V==='strict'?'빈 칸은 보류':'그냥 통과'}.`);
+  }
+
+  function renderChs(){
+    $('chs').innerHTML=CH.map(c=>`<div class="chb"><div class="chh"><b>${c.n}</b><span class="how">${c.how}</span><span class="fnote">${c.fnote}</span></div>`+
+      c.ords.map(o=>`<div class="oc"><b>${o.no}</b><span class="f">${c.f.sku} ${o.sku}</span><span class="f">${c.f.qty} ${o.q}</span><span class="f${o.tel?'':' miss'}">${c.f.tel} ${o.tel||'(빈 칸)'}</span></div>`).join('')+'</div>').join('');
+  }
+
+  function renderSo(){
+    $('so').innerHTML=results().map(({c,o,r})=>
+      `<li class="k-${r.k}"><span class="oid">${o.no}</span><span class="chn">${c.n}</span><span class="tag">${KL[r.k]}</span><span class="t">${r.t}</span></li>`).join('');
+  }
+
+  function renderStats(){
+    const R=results(), cnt=k=>R.filter(x=>x.r.k===k).length;
+    const hold=cnt('hold'),fail=cnt('fail'),late=cnt('late'),fd=fail+late;
+    const rate=M==='auto'?'100%':'0%';
+    $('stats').innerHTML=
+      `<div class="stat"><b>${rate}</b><span>자동 수집률 (높을수록 좋음)</span><span class="cmp ${M==='auto'?'good':'bad'}">${M==='auto'?'15건 전부 채널에서 자동으로 들어온다':'수기 등록이면 0% — 사람이 15건을 하나씩 옮겨 적는다'}</span></div>`+
+      `<div class="stat"><b>${hold}건</b><span>보류 주문 (적을수록 좋음)</span><span class="cmp ${V==='strict'?'':'good'}">${V==='strict'?'수취인 전화번호가 빈 2건을 수집 단계에서 잡아 둔다':'검증이 없어 빈 칸 주문도 그대로 다음 단계로 통과한다'}</span></div>`+
+      `<div class="stat"><b>${fd}건</b><span>배송 실패·지연 (0이 좋음)</span><span>실패 ${fail}건 · 지연 ${late}건</span><span class="cmp ${fd===0?'good':fail>0?'bad':''}">${fail>0?'빈 칸·오타 주문이 창고·배송 단계에서 터졌다':late>0?'실패는 없지만 수집이 늦어 배송이 밀렸다':'실패·지연 없이 15건 전부 배송된다'}</span></div>`;
+    $('win').innerHTML=(M==='auto'&&V==='strict')
+      ?'지금 고른 <em>자동 수집 · 필수 항목 검증</em>이 네 조합 중 가장 깨끗하다 — 실패·지연 0건, 보류 2건.'
+      :'네 조합 중 가장 깨끗한 것은 <em>자동 수집 · 필수 항목 검증</em>(실패·지연 0건)이고, 지금 고른 조합은 실패·지연 '+fd+'건이다.';
+  }
+
+  function announce(){
+    const R=results(), cnt=k=>R.filter(x=>x.r.k===k).length;
+    status.textContent=`${M==='auto'?'채널별 자동 수집':'전부 수기 등록'} · ${V==='strict'?'빈 칸은 보류':'그냥 통과'} — 정상 ${cnt('ok')} · 보류 ${cnt('hold')} · 실패 ${cnt('fail')} · 지연 ${cnt('late')} (단위: 건)`;
+  }
+
+  function renderAll(){draw();renderSo();renderStats();announce();}
+
+  $('segMode').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    M=b.dataset.v;
+    document.querySelectorAll('#segMode button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    renderAll();
+  });
+  $('segVal').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    V=b.dataset.v;
+    document.querySelectorAll('#segVal button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    renderAll();
+  });
+  new ResizeObserver(renderAll).observe($('diaHost'));
+  renderChs();renderAll();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>
