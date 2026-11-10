@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물류의 등장인물 — 물류 개념 시각화</title>
+<meta name="description" content="물건 하나가 오는 동안 화주·운영사·창고·운송사 네 주체가 각각 무슨 일을 맡는지, 의뢰→계약→입고→주문→출고 지시→배송 완료 8단계 릴레이를 단계별로 옮겨 가며 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+/* 주체 칩 (레인 범례) */
+.lanes{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.a-ctr{color:var(--viz-series-1)}.a-own{color:var(--viz-series-2)}.a-wh{color:var(--viz-series-3)}.a-car{color:var(--viz-series-4)}
+.lanes .chip{opacity:.4;transition:opacity .15s ease-out}
+.lanes .chip.on{opacity:1}
+#dia{display:block;width:100%;height:auto}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 12px}
+/* 릴레이 단계 목록 */
+.relay{list-style:none;margin:0;padding:0}
+.rs{display:grid;grid-template-columns:22px minmax(0,1fr);gap:0 10px;padding:8px 10px;margin:0 0 6px;border-radius:10px;border:1px solid var(--border);transition:opacity .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+.rs .n{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;line-height:1.9}
+.rs .hd{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.rs .t{grid-column:2;font-size:13.5px;line-height:1.5;margin-top:3px}
+.rs .tag{font-size:11.5px;line-height:1.6;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--muted-foreground) 12%,transparent);color:var(--muted-foreground)}
+.rs .tag.r-own{background:color-mix(in srgb,var(--viz-series-2) 13%,transparent);color:var(--viz-series-2)}
+.rs .tag.r-ctr{background:color-mix(in srgb,var(--viz-series-1) 13%,transparent);color:var(--viz-series-1)}
+.rs .tag.r-wh{background:color-mix(in srgb,var(--viz-series-3) 13%,transparent);color:var(--viz-series-3)}
+.rs .tag.r-car{background:color-mix(in srgb,var(--viz-series-4) 13%,transparent);color:var(--viz-series-4)}
+.rs.fut{opacity:.35}
+.rs.cur{border-color:var(--foreground);border-width:2px;background:var(--soft);padding:7px 9px;margin-bottom:5px}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+/* SVG 안의 텍스트·도형 */
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.txt{fill:var(--foreground)}
+svg text.num{fill:var(--muted-foreground);font-variant-numeric:tabular-nums}
+svg text.num.on{fill:var(--foreground);font-weight:600}
+svg text.albl{fill:var(--muted-foreground);stroke:var(--card);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+svg text.albl.on{fill:var(--foreground)}
+svg text.a-own{fill:var(--viz-series-2)}
+svg text.a-ctr{fill:var(--viz-series-1)}
+svg text.a-wh{fill:var(--viz-series-3)}
+svg text.a-car{fill:var(--viz-series-4)}
+svg .sep{stroke:var(--border);stroke-width:1}
+svg .ghost{fill:none;stroke:var(--border);stroke-dasharray:4 3}
+svg .aline{stroke:color-mix(in srgb,var(--muted-foreground) 55%,transparent);stroke-width:1.5}
+svg .aline.on{stroke:var(--foreground)}
+svg path.hd{stroke:none;fill:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg path.hd.on{fill:var(--foreground)}
+svg .ring{fill:var(--card);stroke:color-mix(in srgb,var(--muted-foreground) 55%,transparent);stroke-width:1.5}
+svg .ring.on{stroke:var(--foreground)}
+svg .sdot{fill:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg .sdot.on{fill:var(--foreground)}
+svg .c-own{fill:var(--viz-series-2)}
+svg .c-ctr{fill:var(--viz-series-1)}
+svg .c-wh{fill:var(--viz-series-3)}
+svg .c-car{fill:var(--viz-series-4)}
+svg .fcard{stroke-width:1}
+svg .f-own{fill:color-mix(in srgb,var(--viz-series-2) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-2) 42%,transparent)}
+svg .f-own.on{fill:color-mix(in srgb,var(--viz-series-2) 17%,transparent);stroke:var(--viz-series-2);stroke-width:2}
+svg .f-ctr{fill:color-mix(in srgb,var(--viz-series-1) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-1) 42%,transparent)}
+svg .f-ctr.on{fill:color-mix(in srgb,var(--viz-series-1) 17%,transparent);stroke:var(--viz-series-1);stroke-width:2}
+svg .f-wh{fill:color-mix(in srgb,var(--viz-series-3) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 42%,transparent)}
+svg .f-wh.on{fill:color-mix(in srgb,var(--viz-series-3) 17%,transparent);stroke:var(--viz-series-3);stroke-width:2}
+svg .f-car{fill:color-mix(in srgb,var(--viz-series-4) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-4) 42%,transparent)}
+svg .f-car.on{fill:color-mix(in srgb,var(--viz-series-4) 17%,transparent);stroke:var(--viz-series-4);stroke-width:2}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">전략</span>
+  <p class="q">물건 하나가 오는 동안 누가 무슨 일을 맡는가</p>
+  <h1>물류의 등장인물 — 화주 · 운영사 · 창고 · 운송사</h1>
+  <p class="def">물류의 일은 네 주체가 나눠 맡는다 — 물건의 주인인 <b>화주</b>, 맡길 곳을 정하는 <b>운영사</b>, 보관과 출고를 실행하는 <b>창고</b>, 옮기는 일을 맡은 <b>운송사</b>.</p>
+</header>
+
+<div class="terms">
+  <p><b>화주(shipper)</b> — 물건의 주인으로, 물건을 옮기고 보관해 달라고 의뢰하는 주체다.</p>
+  <p><b>운영사</b> — 화주를 대신해 물량을 어느 창고·어느 운송사에 맡길지 정하고, 맡긴 일이 잘 되는지 지켜보는 주체다. 자사 운영일 수도, 자체 운영 고객일 수도 있다.</p>
+  <p><b>창고(warehouse)</b> — 물건을 받아 보관하다가, 주문이 들어오면 다시 내보내는 곳이다.</p>
+  <p><b>운송사(carrier)</b> — 물건을 한 곳에서 다른 곳으로 옮기는 일을 맡은 회사다.</p>
+</div>
+
+<p class="cause"><b>비유 — 영화 제작</b> · 화주는 이야기와 예산의 주인인 제작자, 운영사는 팀을 모아 일을 나누는 총괄 프로듀서, 창고와 운송사는 맡은 일을 실행하는 촬영·미술팀입니다. 다만 영화는 한 편으로 끝나지만 물류는 주문이 계속 들어옵니다.</p>
+
+<div class="panel">
+  <h2>네 주체 레인에서 단계를 옮겨 보세요</h2>
+  <div class="lanes" id="lanes"></div>
+  <div class="controls">
+    <div class="ctl">단계
+      <button type="button" class="ghostb" id="first">◀◀ 처음</button>
+      <button type="button" class="ghostb" id="prev">◀ 이전</button>
+      <button type="button" class="ghostb" id="next">다음 ▶</button>
+      <button type="button" class="ghostb" id="last">끝 ▶▶</button>
+    </div>
+    <span class="cnt" id="cnt">1 / 8</span>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="물류 네 주체(화주·운영사·창고·운송사) 레인의 8단계 릴레이"></svg>
+  </div>
+  <p class="patn">화살표는 주체 사이에 넘기는 것(의뢰 · 계약 · 물건 · 주문 · 출고 지시 · 완료)을, 점선 칸은 아직 진행하지 않은 단계를 나타냅니다.</p>
+  <ol class="relay" id="relay"></ol>
+</div>
+
+<p class="foot">전제: 화주 1곳, 운영사 1곳, 창고 1곳, 운송사 1곳으로 단순화했습니다. 실제로는 한 창고가 여러 화주의 물건을 함께 다루기도 합니다.</p>
+<p class="takeaway">물건의 주인인 <b>화주</b>가 일을 맡기면, 정하는 사람인 <b>운영사</b>가 어디에 맡길지 정하고 실행하는 사람들인 <b>창고</b>·<b>운송사</b>가 구간을 나눠 책임집니다 — 물건이 오는 동안의 일은 전부 이 넷의 몫이고, 뒤의 모든 페이지에서 이 넷이 계속 등장합니다.</p>
+<div class="next">
+  <p>선행: <a href="logistics-basics.html">물류의 큰 흐름</a></p>
+  <p>다음: <a href="warehouse-basics.html">창고의 하루</a> — 넷 중 창고 안으로 들어가 본다</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="logistics-players">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const VAR={own:'--viz-series-2',ctr:'--viz-series-1',wh:'--viz-series-3',car:'--viz-series-4'};
+  const ACT={
+    own:{n:'화주',role:'맡기는 쪽',cls:'a-own'},
+    ctr:{n:'운영사',role:'정하는 쪽',cls:'a-ctr'},
+    wh:{n:'창고',role:'실행하는 쪽',cls:'a-wh'},
+    car:{n:'운송사',role:'실행하는 쪽',cls:'a-car'}
+  };
+  const ORDER=['own','ctr','wh','car'];
+  const STEPS=[
+    {a:'own',t:'물류 의뢰',txt:'팔 상품의 물류를 운영사에게 의뢰한다',hand:{from:'own',to:'ctr',lb:'의뢰'},
+     st:'물건의 주인인 화주가 팔 상품의 물류를 운영사에게 맡깁니다. 이 단계에서 오가는 것은 물건이 아니라 "맡겨 달라"는 의뢰입니다.'},
+    {a:'ctr',t:'창고와 계약',txt:'어느 창고에 맡길지 정하고 창고와 계약한다',hand:{from:'ctr',to:'wh',lb:'계약'},
+     st:'운영사는 상품과 판매 규모에 맞는 창고를 골라 계약합니다. 어디에 맡길지 정하는 일은 운영사의 몫입니다.'},
+    {a:'ctr',t:'운송사와 계약',txt:'운송 구간을 맡길 운송사와 계약한다',hand:{from:'ctr',to:'car',lb:'계약'},
+     st:'운영사는 창고에서 고객까지의 운송 구간을 맡길 운송사와도 계약합니다. 이것도 정하는 일입니다.'},
+    {a:'wh',t:'입고·보관',txt:'공장에서 온 상품을 받아 자리에 둔다',hand:{from:'own',to:'wh',lb:'물건'},
+     st:'공장에서 만들어진 화주의 상품이 창고에 도착합니다. 창고는 상품을 받아 확인하고 자리에 둡니다 — 이것이 실행하는 일입니다.'},
+    {a:'own',t:'주문 접수',txt:'고객 주문이 들어와 운영사의 시스템에 쌓인다',hand:{from:'own',to:'ctr',lb:'주문'},
+     st:'고객의 주문이 들어와 운영사의 시스템에 쌓입니다. 주문은 화주의 판매를 통해 생깁니다.'},
+    {a:'ctr',t:'출고 지시',txt:'주문을 어느 창고에서 낼지 정해 창고로 넘긴다',hand:{from:'ctr',to:'wh',lb:'출고 지시'},
+     st:'운영사가 이 주문을 어느 창고에서 내보낼지 정해 창고에 출고 지시를 넘깁니다.'},
+    {a:'wh',t:'골라 싸서 출고',txt:'상품을 골라 싸서 출고하고, 운송사가 문 앞까지 나른다',hand:{from:'wh',to:'car',lb:'물건'},
+     st:'창고가 주문에 맞는 상품을 골라 싸서 내보내고 운송사에 물건을 넘깁니다. 운송사가 고객의 문 앞까지 나릅니다.'},
+    {a:'car',t:'배송 완료',txt:'배송을 마치고 완료를 알리고, 화주의 고객이 물건을 받는다',hand:{from:'car',to:'own',lb:'완료'},
+     st:'운송사가 배송을 마쳐 완료를 알립니다. 화주의 고객이 물건을 받으면 물건 하나가 도착한 것입니다.'}
+  ];
+  const NS='http://www.w3.org/2000/svg';
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  let cur=0;
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+
+  function units(s){let u=0;for(const ch of s){const c=ch.codePointAt(0);
+    u+=((c>=0xAC00&&c<=0xD7A3)||(c>=0x3000&&c<=0x9FFF)||(c>=0xFF00&&c<=0xFF60))?1
+      :(ch===' '?0.34:(ch==='·'?0.58:((c>=48&&c<=57)||(c>=65&&c<=90)||(c>=97&&c<=122))?0.58:1));}
+    return u;}
+  function wrap(s,maxU){
+    const out=[];let line='';
+    const add=ch=>{if(line&&units(line+ch)>maxU){out.push(line);line=ch;}else line+=ch;};
+    for(const tok of s.split(' ')){
+      if(!line){for(const ch of tok)add(ch);continue;}
+      if(units(line+' '+tok)<=maxU){line+=' '+tok;continue;}
+      out.push(line);line='';
+      for(const ch of tok)add(ch);
+    }
+    if(line)out.push(line);
+    return out;
+  }
+  function head(x,y,ang,cls){
+    const s=7,a1=ang+2.58,a2=ang-2.58;
+    el('path',{d:'M'+x+','+y+' L'+(x+Math.cos(a1)*s).toFixed(2)+','+(y+Math.sin(a1)*s).toFixed(2)+' L'+(x+Math.cos(a2)*s).toFixed(2)+','+(y+Math.sin(a2)*s).toFixed(2)+' Z',class:cls});
+  }
+
+  function drawWide(W){
+    const PAD=10,LW=82,AXH=20,LH=86,GAP=8;
+    const x0=LW+6,x1=W-PAD,sw=(x1-x0)/8,H=AXH+LH*4+10;
+    for(let i=0;i<=4;i++)el('line',{x1:0,y1:AXH+i*LH,x2:x1,y2:AXH+i*LH,class:'sep'});
+    el('line',{x1:LW,y1:AXH,x2:LW,y2:AXH+LH*4,class:'sep'});
+    ORDER.forEach((k,li)=>{
+      const cy=AXH+li*LH+LH/2,A=ACT[k];
+      el('circle',{cx:13,cy:cy-10,r:4,class:'c-'+k});
+      el('text',{x:22,y:cy-6,class:'t12 w6 '+A.cls}).textContent=A.n;
+      el('text',{x:10,y:cy+15,class:'t11 mut'}).textContent=A.role;
+    });
+    for(let i=0;i<8;i++){
+      el('text',{x:x0+i*sw+sw/2,y:AXH-7,'text-anchor':'middle',class:'t11 num'+(i===cur?' on':'')}).textContent=String(i+1);
+    }
+    const cardW=sw-GAP,maxU=(cardW-14)/12;
+    for(let i=cur+1;i<8;i++){
+      const li=ORDER.indexOf(STEPS[i].a);
+      el('rect',{x:x0+i*sw+GAP/2,y:AXH+li*LH+(LH-44)/2,width:cardW,height:44,rx:9,class:'ghost'});
+    }
+    for(let i=0;i<=cur;i++){
+      const s=STEPS[i],A=ACT[s.a],li=ORDER.indexOf(s.a);
+      const lines=wrap(s.t,maxU),chh=44+15*lines.length;
+      const cx=x0+i*sw+GAP/2,y0=AXH+li*LH+(LH-chh)/2;
+      el('rect',{x:cx,y:y0,width:cardW,height:chh,rx:9,class:'fcard f-'+s.a+(i===cur?' on':'')});
+      const ccx=cx+cardW/2;
+      el('text',{x:ccx,y:y0+18,'text-anchor':'middle',class:'t11 w6 '+A.cls}).textContent=A.n;
+      el('text',{x:ccx,y:y0+32,'text-anchor':'middle',class:'t11 mut'}).textContent=A.role;
+      lines.forEach((ln,k)=>{el('text',{x:ccx,y:y0+47+15*k,'text-anchor':'middle',class:'t12 txt'}).textContent=ln;});
+      const h=s.hand,fli=ORDER.indexOf(h.from),tli=ORDER.indexOf(h.to);
+      const fx=ccx,cls='aline'+(i===cur?' on':'');
+      if(h.from===s.a){
+        const down=tli>fli,tcy=AXH+tli*LH+LH/2;
+        const sy=down?y0+chh+2:y0-2;
+        const ey=down?tcy-11:tcy+11;
+        el('line',{x1:fx,y1:sy,x2:fx,y2:ey,class:cls});
+        head(fx,ey,down?Math.PI/2:-Math.PI/2,cls+' hd');
+        el('circle',{cx:fx,cy:tcy,r:4.5,class:'ring'+(i===cur?' on':'')});
+        const adj=Math.abs(tli-fli)===1,bY=AXH+Math.max(fli,tli)*LH;
+        el('text',{x:fx,y:adj?bY+4:(sy+ey)/2+4,'text-anchor':'middle',class:'t11 albl'+(i===cur?' on':'')}).textContent=h.lb;
+      }else{
+        const fcy=AXH+fli*LH+LH/2,up=fli<li;
+        const sy=up?fcy+11:fcy-11;
+        const ey=up?y0-2:y0+chh+2;
+        el('circle',{cx:fx,cy:fcy,r:3,class:'sdot'+(i===cur?' on':'')});
+        el('line',{x1:fx,y1:sy,x2:fx,y2:ey,class:cls});
+        head(fx,ey,up?Math.PI/2:-Math.PI/2,cls+' hd');
+        const adj=Math.abs(fli-li)===1,bY=AXH+Math.max(fli,li)*LH;
+        el('text',{x:fx,y:adj?bY+4:(sy+ey)/2+4,'text-anchor':'middle',class:'t11 albl'+(i===cur?' on':'')}).textContent=h.lb;
+      }
+    }
+    return H;
+  }
+
+  function drawNarrow(W){
+    const PAD=10,RH=48,AH=22;
+    const x=PAD,cw=W-2*PAD;let y=PAD;
+    for(let i=0;i<=cur;i++){
+      const s=STEPS[i],A=ACT[s.a];
+      el('rect',{x,y,width:cw,height:RH,rx:9,class:'fcard f-'+s.a+(i===cur?' on':'')});
+      el('circle',{cx:x+13,cy:y+14,r:3.5,class:'c-'+s.a});
+      const l1=el('text',{x:x+22,y:y+18,class:'t11 w6 '+A.cls});
+      const t1=document.createElementNS(NS,'tspan');t1.textContent=A.n;l1.appendChild(t1);
+      const t2=document.createElementNS(NS,'tspan');t2.setAttribute('class','mut');t2.textContent=' · '+A.role;l1.appendChild(t2);
+      el('text',{x:x+12,y:y+38,class:'t12 txt'}).textContent=s.t;
+      y+=RH;
+      if(i<cur){
+        const n=STEPS[i+1];
+        el('line',{x1:x+16,y1:y+4,x2:x+16,y2:y+14,class:'aline'+(i+1===cur?' on':'')});
+        head(x+16,y+14,Math.PI/2,'aline'+(i+1===cur?' on':'')+' hd');
+        el('text',{x:x+30,y:y+13,class:'t11 mut'}).textContent=n.hand.lb+' · '+ACT[n.hand.from].n+' → '+ACT[n.hand.to].n;
+        y+=AH;
+      }
+    }
+    return y+PAD;
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const H=W>=780?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    const s=STEPS[cur],A=ACT[s.a];
+    svg.setAttribute('aria-label','네 주체 레인(화주·운영사·창고·운송사)의 8단계 릴레이 — '+(cur+1)+'단계까지 진행, 현재 '+(cur+1)+'단계 '+A.n+'('+A.role+'): '+s.t);
+  }
+
+  function renderLanes(){
+    const used=new Set();
+    for(let i=0;i<=cur;i++){const s=STEPS[i];used.add(s.a);used.add(s.hand.from);used.add(s.hand.to);}
+    $('lanes').innerHTML=ORDER.map(k=>'<span class="chip '+ACT[k].cls+(used.has(k)?' on':'')+'">'+ACT[k].n+' · '+ACT[k].role+'</span>').join('');
+  }
+
+  function renderRelay(){
+    $('relay').innerHTML=STEPS.map((s,i)=>{
+      const st=i===cur?' cur':(i>cur?' fut':'');
+      const A=ACT[s.a],h=s.hand;
+      return '<li class="rs'+st+'"><span class="n">'+(i+1)+'</span><div class="hd"><span class="chip '+A.cls+'">'+A.n+'</span><span class="tag r-'+s.a+'">'+A.role+'</span><span class="tag">'+h.lb+' · '+ACT[h.from].n+' → '+ACT[h.to].n+'</span></div><div class="t">'+s.txt+'</div></li>';
+    }).join('');
+  }
+
+  function render(){
+    renderLanes();renderRelay();draw();
+    $('cnt').textContent=(cur+1)+' / 8';
+    status.textContent=STEPS[cur].st;
+    $('first').disabled=cur===0;$('prev').disabled=cur===0;
+    $('next').disabled=cur===7;$('last').disabled=cur===7;
+  }
+
+  $('first').addEventListener('click',()=>{cur=0;render();});
+  $('prev').addEventListener('click',()=>{cur=Math.max(0,cur-1);render();});
+  $('next').addEventListener('click',()=>{cur=Math.min(7,cur+1);render();});
+  $('last').addEventListener('click',()=>{cur=7;render();});
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

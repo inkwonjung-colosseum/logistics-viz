@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주문 한 건의 여정 — 주문 상태 — 물류 개념 시각화</title>
+<meta name="description" content="주문 한 건이 주문 접수부터 결제 확인·상품 준비·출고·배송을 거쳐 배송 완료가 되기까지 여섯 단계 상태를 단계별로 넘겨 보고, 각 상태를 어떤 주체가 바꾸는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s1:light-dark(#2c5ce5,#7aa5ff);--s3:light-dark(#c47a2a,#e0a35c);
+  --s4:light-dark(#7a55c4,#b49ae8);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 6px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.ana{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:66ch}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#viz{margin:2px 0 0}
+#tl{display:block;width:100%;height:auto}
+#tl .card{fill:transparent;stroke:var(--border);stroke-width:1}
+#tl .card.cur{stroke:var(--foreground);stroke-width:2}
+#tl .f1{fill:color-mix(in srgb,var(--s1) 12%,transparent)}
+#tl .f3{fill:color-mix(in srgb,var(--s3) 12%,transparent)}
+#tl .f4{fill:color-mix(in srgb,var(--s4) 12%,transparent)}
+#tl .fut{opacity:.5}
+#tl .numf{fill:transparent;stroke:var(--muted-foreground);stroke-width:1}
+#tl .numt{fill:var(--card);font-size:11px;text-anchor:middle;dominant-baseline:central;font-variant-numeric:tabular-nums}
+#tl .dur{fill:var(--muted-foreground);font-size:11px;font-variant-numeric:tabular-nums}
+#tl .ph{fill:var(--foreground);font-size:12px;font-weight:600}
+#tl .ds{fill:var(--muted-foreground);font-size:11px}
+#tl .d1{fill:var(--s1)}#tl .d3{fill:var(--s3)}#tl .d4{fill:var(--s4)}
+#tl .who{font-size:11px}
+#tl .w1{fill:var(--s1)}#tl .w3{fill:var(--s3)}#tl .w4{fill:var(--s4)}
+#tl .nowt{fill:var(--foreground);font-size:11px;font-weight:600}
+#tl .ln{stroke:var(--border);stroke-width:1.5}
+#tl .ln.on{stroke:var(--muted-foreground)}
+#tl .ar{fill:var(--border)}
+#tl .ar.on{fill:var(--muted-foreground)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted-foreground);margin:10px 0 12px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:12px;height:10px;border-radius:2px}
+.lg1{background:var(--s1)}.lg3{background:var(--s3)}.lg4{background:var(--s4)}
+.inote{font-size:13.5px;margin:0;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.inote b{font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px;font-variant-numeric:tabular-nums}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">주문·이행</span>
+  <p class="q">주문 버튼을 누른 뒤 배송이 끝날 때까지 주문은 어떤 단계를 거치는가</p>
+  <h1>주문 한 건의 여정 — 주문 상태</h1>
+  <p class="def">주문 상태(order status)는 주문이 접수되어 배송이 끝날 때까지 <b>어디까지 진행됐는지</b> 나타내는 표시다.</p>
+  <p class="ana">비유: 택배 배송 조회 화면 — '상품 준비중'이 '배송 출발'로 바뀌는, 그 문구 하나로 진행을 알려 주는 표시다. 다만 실제 조회 화면은 물건이 출고된 뒤부터 보일 때가 많지만, 주문 상태는 주문 접수 순간부터 여섯 단계 전부를 보여 준다.</p>
+</header>
+
+<div class="panel">
+  <div id="viz"><svg id="tl" role="img" aria-label="주문 한 건의 여정 타임라인"></svg></div>
+  <p class="legend"><span><i class="lg1"></i>운영사</span><span><i class="lg3"></i>창고</span><span><i class="lg4"></i>운송사</span><span>채움 = 지나온 단계 · 굵은 테두리 2px = 현재 단계</span></p>
+  <div class="controls">
+    <div class="ctl">단계 이동
+      <button type="button" class="ghostb" id="first">⏮ 처음</button>
+      <button type="button" class="ghostb" id="prev">◀ 이전</button>
+      <button type="button" class="ghostb" id="next">다음 ▶</button>
+      <button type="button" class="ghostb" id="last">끝 ⏭</button>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <p class="inote"><b>같은 순간, 창고 안에서는</b> — 고객에게 '상품 준비중'으로 보이는 동안 창고에서는 '피킹 중'(피킹: 주문에 맞는 물건을 자리에서 골라 내는 일)이라고 부른다(같은 일의 다른 이름).</p>
+</div>
+
+<div class="stats" id="kpi"></div>
+<p class="foot">전제: 주문 1건, 창고 1곳, 운송사 1곳. 각 단계의 소요시간(즉시 · 10분 · 4시간 · 1시간 · 20시간)은 일반적인 온라인 쇼핑 주문을 단순화한 값입니다.</p>
+<p class="takeaway">주문은 <b>주문 접수 → 결제 확인 → 상품 준비중 → 출고 완료 → 배송 중 → 배송 완료</b>의 여섯 단계를 거칩니다. 주문은 지나가는 손마다 상태가 바뀌고 그 상태를 바꾸는 주체가 저마다 다르다 — 같은 순간도 보는 사람에 따라 다른 이름으로 불린다.</p>
+<div class="next">
+  <p>선행: <a href="logistics-players.html">물류의 등장인물</a></p>
+  <p>다음: <a href="system-landscape.html">물류 시스템 지도</a> — 이 상태들을 어떤 프로그램이 관리하는지 본다</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="order-status">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const WHO={1:{n:'운영사'},3:{n:'창고'},4:{n:'운송사'}};
+  const V={1:'--s1',3:'--s3',4:'--s4'};
+  const STAGES=[
+    {s:'주문 접수',w:1,dur:'즉시',min:0,d:'고객의 주문이 운영사의 시스템에 쌓인다'},
+    {s:'결제 확인',w:1,dur:'10분',min:10,d:'결제가 제대로 됐는지 확인한다'},
+    {s:'상품 준비중',w:3,dur:'4시간',min:240,d:'창고에서 피킹(골라 담기)과 포장을 한다'},
+    {s:'출고 완료',w:3,dur:'1시간',min:60,d:'창고가 상자를 운송사에 넘긴다'},
+    {s:'배송 중',w:4,dur:'20시간',min:1200,d:'운송사가 물건을 받는 곳으로 옮긴다'},
+    {s:'배송 완료',w:4,dur:'도착',min:0,d:'고객이 받고, 운송사가 완료를 보고한다'}
+  ];
+  const N=STAGES.length;
+  const TOTAL=STAGES.reduce((a,s)=>a+s.min,0);
+  const fmt=m=>{const h=Math.floor(m/60),r=m%60;return h&&r?`${h}시간 ${r}분`:h?`${h}시간`:r?`${r}분`:'즉시';};
+  const elapsed=i=>STAGES.slice(0,i+1).reduce((a,s)=>a+s.min,0);
+  let cur=0;
+  const $=x=>document.getElementById(x);
+  const host=$('viz'),svg=$('tl'),status=$('status');
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  function wrap(t,maxW,fs){
+    const out=[];let line='',lw=0;
+    for(const ch of t){
+      const cw=ch.charCodeAt(0)>=0x2e80?fs:fs*.52;
+      if(lw+cw>maxW&&line){out.push(line);line='';lw=0;}
+      if(line===''&&ch===' '&&out.length)continue;
+      line+=ch;lw+=cw;
+    }
+    if(line)out.push(line);
+    return out;
+  }
+
+  function render(){
+    const w=host.clientWidth||600;
+    const vert=w<620;
+    const P=[];
+    let H=0;
+    if(!vert){
+      const M=6,G=10,cy=26,cw=(w-2*M-(N-1)*G)/N,dw=cw-18;
+      const lines=STAGES.map(st=>wrap(st.d,dw,11));
+      const ch=96+Math.max(...lines.map(l=>l.length))*15;
+      H=cy+ch+10;
+      STAGES.forEach((st,i)=>{
+        const x=M+i*(cw+G),r=st.w,now=i===cur,fut=i>cur;
+        P.push(`<rect class="card${now?' cur':''}${fut?'':' f'+r}" x="${x.toFixed(1)}" y="${cy}" width="${cw.toFixed(1)}" height="${ch}" rx="10"/>`);
+        P.push(fut?'<g class="fut">':'<g>');
+        if(fut)P.push(`<circle class="numf" cx="${(x+15).toFixed(1)}" cy="${cy+22}" r="10"/>`);
+        else P.push(`<circle cx="${(x+15).toFixed(1)}" cy="${cy+22}" r="10" fill="var(${V[r]})"/>`);
+        P.push(`<text class="numt" x="${(x+15).toFixed(1)}" y="${cy+22}">${i+1}</text>`);
+        P.push(`<text class="dur" x="${(x+cw-9).toFixed(1)}" y="${cy+26}" text-anchor="end">${st.dur}</text>`);
+        P.push(`<text class="ph" x="${(x+9).toFixed(1)}" y="${cy+54}">${esc(st.s)}</text>`);
+        P.push(`<circle class="d${r}" cx="${(x+13).toFixed(1)}" cy="${cy+68}" r="3.5"/>`);
+        P.push(`<text class="who w${r}" x="${(x+21).toFixed(1)}" y="${cy+72}">${WHO[r].n}</text>`);
+        lines[i].forEach((ln,j)=>P.push(`<text class="ds" x="${(x+9).toFixed(1)}" y="${cy+90+j*15}">${esc(ln)}</text>`));
+        P.push('</g>');
+        if(now)P.push(`<text class="nowt" x="${x.toFixed(1)}" y="${cy-8}">현재</text>`);
+        if(i<N-1){
+          const y1=cy+22,x1=x+cw+1,x2=x+cw+G-1,on=i+1<=cur;
+          P.push(`<line class="ln${on?' on':''}" x1="${x1.toFixed(1)}" y1="${y1}" x2="${(x2-4).toFixed(1)}" y2="${y1}"/>`);
+          P.push(`<path class="ar${on?' on':''}" d="M${(x2-4).toFixed(1)} ${y1-4} L${x2.toFixed(1)} ${y1} L${(x2-4).toFixed(1)} ${y1+4} Z"/>`);
+        }
+      });
+    }else{
+      const x=2,cw=w-4;
+      const lines=STAGES.map(st=>wrap(st.d,cw-78,11));
+      let y=18;
+      STAGES.forEach((st,i)=>{
+        const r=st.w,now=i===cur,fut=i>cur,n=lines[i].length,h=64+n*15;
+        P.push(`<rect class="card${now?' cur':''}${fut?'':' f'+r}" x="${x}" y="${y}" width="${cw.toFixed(1)}" height="${h}" rx="10"/>`);
+        P.push(fut?'<g class="fut">':'<g>');
+        if(fut)P.push(`<circle class="numf" cx="${x+20}" cy="${y+21}" r="10"/>`);
+        else P.push(`<circle cx="${x+20}" cy="${y+21}" r="10" fill="var(${V[r]})"/>`);
+        P.push(`<text class="numt" x="${x+20}" y="${y+21}">${i+1}</text>`);
+        P.push(`<text class="ph" x="${x+36}" y="${y+25}">${esc(st.s)}</text>`);
+        P.push(`<text class="dur" x="${(x+cw-10).toFixed(1)}" y="${y+25}" text-anchor="end">${st.dur}</text>`);
+        P.push(`<circle class="d${r}" cx="${x+39}" cy="${y+41}" r="3.5"/>`);
+        P.push(`<text class="who w${r}" x="${x+47}" y="${y+45}">${WHO[r].n}</text>`);
+        lines[i].forEach((ln,j)=>P.push(`<text class="ds" x="${x+36}" y="${y+63+j*15}">${esc(ln)}</text>`));
+        P.push('</g>');
+        if(now)P.push(`<text class="nowt" x="${(x+cw-2).toFixed(1)}" y="${y-6}" text-anchor="end">현재</text>`);
+        if(i<N-1){
+          const yb=y+h,on=i+1<=cur;
+          P.push(`<line class="ln${on?' on':''}" x1="${x+20}" y1="${yb+4}" x2="${x+20}" y2="${yb+17}"/>`);
+          P.push(`<path class="ar${on?' on':''}" d="M${x+16} ${yb+17} L${x+20} ${yb+21} L${x+24} ${yb+17} Z"/>`);
+        }
+        H=y+h;
+        y+=h+22;
+      });
+      H+=6;
+    }
+    svg.setAttribute('viewBox',`0 0 ${Math.round(w)} ${Math.round(H)}`);
+    svg.setAttribute('aria-label',`주문 한 건의 여정 타임라인 — 접수부터 완료까지 6단계 중 현재 ${cur+1}단계(${STAGES[cur].s}). 지나온 단계는 채워지고 현재 단계는 굵은 테두리로 표시.`);
+    svg.innerHTML=P.join('');
+    const e=elapsed(cur);
+    $('kpi').innerHTML=
+      `<div class="stat"><b>${fmt(TOTAL)}</b><span>주문 접수부터 배송 완료까지 — 여섯 단계 소요시간의 합 (짧을수록 좋음)</span>`+
+      `<span class="cmp">${cur===N-1?`마지막 단계(배송 완료) 도달 — 총 경과 ${fmt(e)}`:`지금 단계(${cur+1}·${STAGES[cur].s})까지 경과: ${fmt(e)}`}</span></div>`;
+    $('first').disabled=$('prev').disabled=cur===0;
+    $('next').disabled=$('last').disabled=cur===N-1;
+  }
+
+  function announce(){
+    const st=STAGES[cur];
+    const du=(st.dur==='즉시'||st.dur==='도착')?` (${st.dur})`:` (소요 ${st.dur})`;
+    status.textContent=`${cur+1}/${N} · ${st.s} — 상태를 바꾸는 주체: ${WHO[st.w].n}${du} · ${st.d}`;
+  }
+
+  $('first').addEventListener('click',()=>{cur=0;render();announce();});
+  $('prev').addEventListener('click',()=>{cur=Math.max(0,cur-1);render();announce();});
+  $('next').addEventListener('click',()=>{cur=Math.min(N-1,cur+1);render();announce();});
+  $('last').addEventListener('click',()=>{cur=N-1;render();announce();});
+  if('ResizeObserver' in window)new ResizeObserver(()=>render()).observe(host);
+  else window.addEventListener('resize',render);
+  render();announce();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

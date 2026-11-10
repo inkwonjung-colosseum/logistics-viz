@@ -67,7 +67,7 @@ table.ct{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric
 <header>
   <span class="cat">재고</span>
   <h1>FIFO · LIFO · FEFO — 폐기율 대결</h1>
-  <p class="def">재고를 꺼내는 순서의 3가지 규칙: <b>FIFO</b>(먼저 들어온 것부터) · <b>LIFO</b>(나중에 들어온 것부터) · <b>FEFO</b>(유통기한 임박부터).</p>
+  <p class="def"><b>재고</b>(팔거나 쓰려고 갖춰 둔 물건)를 꺼내는 순서의 3가지 규칙: <b>FIFO</b>(먼저 들어온 물건부터 먼저 꺼내기) · <b>LIFO</b>(나중에 들어온 물건부터 먼저 꺼내기) · <b>FEFO</b>(유통기한 임박부터 먼저 꺼내기).</p>
 </header>
 
 <div class="panel">
@@ -94,7 +94,7 @@ table.ct{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric
 </table>
 </div>
 <p class="takeaway">같은 수요, 같은 입고인데 꺼내는 순서만으로 폐기가 갈린다 — <b>기한 편차가 클수록 FEFO의 위력이 커진다.</b></p>
-<button class="done" id="done">✓ 학습 완료</button>
+<button class="done" id="mv-done-btn" data-slug="fifo-lifo-fefo">✓ 학습 완료</button>
 <p class="fn">단순화 모델 — 실제로는 리드타임·발주 정책·수요 예측이 함께 작동한다.</p>
 </div>
 
@@ -285,7 +285,7 @@ table.ct{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric
   new ResizeObserver(()=>render()).observe(svg.parentElement);
 
   // 진도
-  const db=document.getElementById('done');
+  const db=document.getElementById('mv-done-btn');
   const key='mv-done:'+SLUG;
   try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
   db.addEventListener('click',()=>{

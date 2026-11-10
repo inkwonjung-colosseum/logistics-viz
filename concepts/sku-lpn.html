@@ -63,7 +63,7 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
 <header>
   <span class="cat">식별·단위</span>
   <h1>SKU vs SKU Instance vs LPN</h1>
-  <p class="def"><b>SKU</b>는 '무엇'(품목 정의) · <b>인스턴스</b>는 '그 하나'(개별 실물) · <b>LPN</b>은 '어느 묶음'(물리 묶음의 번호판). 입고 검수를 직접 스캔해 보면 차이가 체감됩니다.</p>
+  <p class="def"><b>SKU</b>는 '무엇'인지를 나타내는 상품의 최소 단위 · <b>인스턴스</b>는 '그 하나'(실제 한 덩어리) · <b>LPN</b>은 '어느 묶음'인지 식별하는 물건 묶음의 고유 번호판. 입고 검수(도착한 물건이 주문 내용과 같은지 확인하는 일)를 직접 스캔해 보면 차이가 체감됩니다.</p>
 </header>
 
 <div class="panel">
@@ -81,8 +81,8 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
 </div>
 
 <div class="stats" id="stats"></div>
-<p class="takeaway">EA <span id="tkEA">24</span>개를 하나씩 스캔하던 검수가 팔레트 번호판 <b>2번</b>으로 끝납니다 — WMS가 재고 추적 단위로 LPN을 쓰는 이유.</p>
-<button class="done" id="done">✓ 학습 완료</button>
+<p class="takeaway">낱개(EA) <span id="tkEA">24</span>개를 하나씩 스캔하던 검수가 팔레트 번호판 <b>2번</b>으로 끝납니다 — 창고 관리 시스템(WMS)이 재고 추적 단위로 LPN을 쓰는 이유.</p>
+<button class="done" id="mv-done-btn" data-slug="sku-lpn">✓ 학습 완료</button>
 </div>
 
 <script>
@@ -193,7 +193,7 @@ output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums
   document.getElementById('reset').addEventListener('click',reset);
   new ResizeObserver(()=>{const s=p;render();p=s;}).observe(svg.parentElement);
   // 진도
-  const db=document.getElementById('done');
+  const db=document.getElementById('mv-done-btn');
   const key='mv-done:'+SLUG;
   try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
   db.addEventListener('click',()=>{

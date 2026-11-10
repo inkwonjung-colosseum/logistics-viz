@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물류 시스템 지도 — OMS · WMS · TMS — 물류 개념 시각화</title>
+<meta name="description" content="주문·창고·운송을 각각 맡는 OMS·WMS·TMS가 왜 따로 있는지, 주문 한 건이 시스템 사이를 건너는 8단계 메시지 흐름을 시스템 자동 전달과 사람 수기 전달로 비교해 보는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --s4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 10px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{list-style:none;margin:0 0 12px;padding:0;max-width:72ch}
+.terms li{font-size:13.5px;color:var(--muted-foreground);margin:0 0 4px;line-height:1.55}
+.terms b{color:var(--foreground);font-weight:600}
+.ana{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:66ch}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#viz{margin:0 0 8px}
+.patn{font-size:12px;color:var(--muted-foreground);margin:0}
+.missword{color:var(--bad);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">시스템</span>
+  <p class="q">주문, 창고, 운송을 왜 서로 다른 프로그램이 맡는가</p>
+  <h1>물류 시스템 지도 — OMS · WMS · TMS</h1>
+  <p class="def">일의 성격이 달라 각각의 프로그램이 맡는다 — 주문을 총괄하는 <b>OMS(주문 관리 시스템)</b>, 창고 작업을 지시하는 <b>WMS(창고 관리 시스템)</b>, 운송을 맡는 <b>TMS(운송 관리 시스템)</b>.</p>
+  <ul class="terms">
+    <li><b>OMS(Order Management System, 주문 관리 시스템)</b> — 주문을 받아 어느 창고에서 내보낼지 정하고, 주문의 상태를 끝까지 지켜보는 프로그램이다.</li>
+    <li><b>WMS(Warehouse Management System, 창고 관리 시스템)</b> — 창고 안의 입고·보관·피킹·출고 작업을 지시하고 기록하는 프로그램이다.</li>
+    <li><b>TMS(Transportation Management System, 운송 관리 시스템)</b> — 어느 운송사가 어느 길로 옮길지 정하고 운송 상황을 지켜보는 프로그램이다.</li>
+  </ul>
+  <p class="ana">비유: 병원 — 접수창구가 차트를 만들고 전체 진행을 총괄하는 것이 OMS, 진료실이 치료를 실행하고 기록하는 것이 WMS, 외부 검사센터에 검사를 맡기고 결과를 받는 것이 TMS에 해당합니다. 다만 병원은 환자가 직접 이동하지만, 물류는 정보와 물건이 나뉘어 움직인다는 점은 다릅니다.</p>
+</header>
+
+<div class="panel">
+  <h2>주문 한 건이 시스템 사이를 건너는 8단계</h2>
+  <div class="controls">
+    <div class="ctl">단계
+      <button type="button" class="ghostb" id="first">« 처음</button>
+      <button type="button" class="ghostb" id="prev">◀ 이전</button>
+      <button type="button" class="ghostb" id="next">다음 ▶</button>
+      <button type="button" class="ghostb" id="last">끝 »</button>
+    </div>
+    <div class="ctl">넘기는 방식
+      <div class="seg" id="segMode" role="group" aria-label="넘기는 방식">
+        <button type="button" data-v="auto" aria-pressed="true">시스템끼리 자동</button>
+        <button type="button" data-v="hand" aria-pressed="false">사람이 전달(전화·수기)</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="viz"><svg id="relay" role="img" aria-label="물류 시스템 릴레이 지도 — OMS·WMS·TMS가 주문 한 건을 주고받는 8단계"></svg></div>
+  <p class="patn" id="legendNote"></p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 주문 1건, 시스템 3종(OMS·WMS·TMS). 실제로는 창고가 자기 WMS를 따로 쓰는 등 회사마다 연결 방식이 다르므로, 여기서는 가장 단순한 한 줄 흐름으로 단순화했다.</p>
+<p class="takeaway">주문·창고·운송은 <b>일의 성격이 달라</b> 각자의 시스템이 맡고, 그 사이를 <b>출고 지시·완료 보고 같은 메시지</b>로 잇는다 — 사람 손으로 넘기면 그만큼 느리고 놓치기도 쉽다.</p>
+<div class="next">
+  <p>선행: <a href="order-status.html">주문 한 건의 여정</a></p>
+  <p>다음: <a href="crossdock.html">크로스독 — 핵심 5개념 트랙</a> — 창고가 실제로 돌아가는 모습을 본다.</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="system-landscape">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const $=x=>document.getElementById(x);
+  const NS='http://www.w3.org/2000/svg';
+  const LANES=[
+    {k:'oms',n:'OMS',r:'주문 총괄',c:'var(--primary)',sys:1},
+    {k:'wms',n:'WMS',r:'창고 작업',c:'var(--s3)',sys:1},
+    {k:'wrk',n:'창고 작업자',r:'',c:'var(--s3)'},
+    {k:'tms',n:'TMS',r:'운송',c:'var(--s4)',sys:1},
+    {k:'drv',n:'운송 기사',r:'',c:'var(--s4)'}
+  ];
+  const LI={oms:0,wms:1,wrk:2,tms:3,drv:4};
+  // s: 보내는 레인 / t: 받는 레인(빈 값=자기 레인에서 하는 일) / b: 기본 소요(시간)
+  // miss: 수기 모드에서 이 화살표의 전달이 누락 / fix: 다음 단계에서 누락을 복구(+1시간)
+  const STEPS=[
+    {s:'oms',t:'',l:'주문 접수',b:2,d:'OMS가 주문을 접수해 주문 카드를 만든다.',cards:[{k:'oms',t:'주문 카드',cap:'주문 접수'}]},
+    {s:'oms',t:'wms',l:'출고 지시',b:1,d:'OMS가 WMS에 주문을 내려 준다(출고 지시).'},
+    {s:'wms',t:'wrk',l:'작업 지시',b:1,d:'WMS가 창고 작업자에게 골라 싸는 작업(피킹·포장)을 지시한다.',cards:[{k:'wrk',t:'피킹·포장'}]},
+    {s:'wrk',t:'wms',l:'출고 완료 보고',b:6,d:'창고 작업자가 피킹·포장을 마치고 WMS에 출고 완료를 보고한다.',cards:[{k:'wrk',t:'출고 완료'}]},
+    {s:'wms',t:'oms',l:'출고 완료 전달',b:1,miss:1,d:'WMS가 OMS에 출고 완료를 전달한다.'},
+    {s:'oms',t:'tms',l:'운송 의뢰',b:1,fix:1,d:'OMS가 TMS에 운송을 의뢰한다.'},
+    {s:'tms',t:'drv',l:'배송 배정',b:12,d:'TMS가 운송 기사에게 배송을 배정하고 배송 상황을 추적한다.',cards:[{k:'drv',t:'배송 중'}]},
+    {s:'tms',t:'oms',l:'배송 완료 보고',b:2,d:'TMS가 OMS에 배송 완료를 보고하면 OMS가 주문을 종료로 표시한다.',cards:[{k:'drv',t:'배송 완료'},{k:'oms',t:'주문 종료',hi:1}]}
+  ];
+  const N=STEPS.length;
+  const AUTO=STEPS.reduce((a,s)=>a+s.b,0);
+  const ARROWS=STEPS.filter(s=>s.t).length;
+  const FIXES=STEPS.filter(s=>s.fix).length;
+  const HAND=AUTO+ARROWS+FIXES;
+  let mode='auto',cur=0,roW=0;
+  const host=$('viz'),status=$('status');
+  const tw=(s,fs)=>{let x=0;for(const ch of s)x+=ch.charCodeAt(0)<256?fs*.62:fs;return Math.ceil(x);};
+  const cum=()=>{let t=0;return STEPS.map(s=>{t+=s.b+(mode==='hand'?(s.t?1:0)+(s.fix?1:0):0);return t;});};
+
+  function draw(){
+    const w=Math.max(host.clientWidth||0,240);
+    const narrow=w<620;
+    const pad=6,labelW=narrow?88:150,rowH=narrow?52:56,gap=narrow?8:10;
+    const laneL=pad+labelW+12,laneR=w-pad-2;
+    const H=Math.round(pad*2+5*rowH+4*gap+(narrow?0:26));
+    const laneW=laneR-laneL,slotW=laneW/N;
+    const sx=i=>Math.round(laneL+(i+.5)*slotW);
+    const ry=k=>pad+k*(rowH+gap),cy=k=>ry(k)+rowH/2;
+    const svg=$('relay');
+    svg.replaceChildren();
+    svg.setAttribute('viewBox','0 0 '+w+' '+H);
+    svg.setAttribute('width',w);svg.setAttribute('height',H);
+    svg.style.display='block';
+    const E=(n,a)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e;};
+    const T=(x,y,s,fs,fill,anc,wg)=>{const t=E('text',{x:x,y:y,'font-size':fs,'text-anchor':anc||'middle'});t.textContent=s;t.style.fill=fill;if(wg)t.setAttribute('font-weight',wg);return t;};
+    const cs=STEPS[cur],act=new Set([cs.s]);if(cs.t)act.add(cs.t);
+    for(let k=0;k<5;k++){
+      const L=LANES[k];
+      const b=E('rect',{x:pad,y:ry(k),width:laneR-pad,height:rowH,rx:12});
+      b.style.fill='color-mix(in srgb,'+L.c+' '+(L.sys?7:4)+'%,transparent)';
+      b.style.stroke='var(--border)';
+      const chw=labelW-8,chx=pad+4,chH=L.sys?(narrow?40:42):28;
+      const ch=E('rect',{x:chx,y:Math.round(cy(k)-chH/2),width:chw,height:chH,rx:10,'stroke-width':act.has(L.k)?2:1});
+      ch.style.fill='color-mix(in srgb,'+L.c+' '+(L.sys?15:10)+'%,transparent)';
+      ch.style.stroke=L.sys?L.c:'color-mix(in srgb,'+L.c+' 45%,transparent)';
+      if(L.sys){T(chx+chw/2,cy(k)-4,L.n,12,L.c,'middle',600);T(chx+chw/2,cy(k)+11,L.r,11,'var(--muted-foreground)');}
+      else{const t=T(chx+chw/2,cy(k)+8,L.n,12,L.c,'middle',600);t.style.opacity=.85;}
+    }
+    const arrow=(i,now)=>{
+      const s=STEPS[i];if(!s.t)return;
+      const x=sx(i),k1=LI[s.s],k2=LI[s.t],d=cy(k2)>cy(k1)?1:-1;
+      const y2=cy(k2)-d*6;
+      const col=(mode==='hand'&&s.miss)?'var(--bad)':LANES[k1].c;
+      const ln=E('line',{x1:x,y1:cy(k1)+d*4,x2:x,y2:y2,'stroke-width':now?2.5:1.5});
+      ln.style.stroke=col;if(!now)ln.style.opacity=.5;
+      if(mode==='hand'&&s.miss)ln.setAttribute('stroke-dasharray','5 4');
+      const hd=E('polygon',{points:(x-4.5)+','+y2+' '+(x+4.5)+','+y2+' '+x+','+(y2+d*5)});
+      hd.style.fill=col;if(!now)hd.style.opacity=.5;
+    };
+    const dot=(i,k)=>{const c=E('circle',{cx:sx(i),cy:cy(k)+6,r:3.5});c.style.fill=LANES[k].c;c.style.opacity=.5;};
+    const card=i=>{
+      const s=STEPS[i];if(!s.cards)return;
+      for(const c of s.cards){
+        const k=LI[c.k],cw=Math.max(tw(c.t,11)+16,44),x=sx(i);
+        if(i<cur&&(narrow||slotW<cw+10)){dot(i,k);continue;}
+        const r=E('rect',{x:x-Math.round(cw/2),y:Math.round(cy(k)-5),width:cw,height:22,rx:7,'stroke-width':(c.hi||(i===cur&&!s.t))?2:1});
+        r.style.fill='color-mix(in srgb,'+LANES[k].c+' '+(c.hi?22:15)+'%,transparent)';
+        r.style.stroke=LANES[k].c;
+        const t=T(x,cy(k)+9,c.t,11,LANES[k].c,'middle',500);
+        if(i<cur){r.style.opacity=.55;t.style.opacity=.55;}
+        if(i===cur&&c.cap)T(x,cy(k)-15,c.cap,11,'var(--muted-foreground)');
+      }
+    };
+    for(let i=0;i<N;i++)if(i<cur)arrow(i,false);
+    for(let i=0;i<=cur;i++)card(i);
+    arrow(cur,true);
+    if(cs.t){
+      const k1=LI[cs.s],k2=LI[cs.t],midY=(cy(k1)+cy(k2))/2;
+      let tg=null;
+      if(mode==='hand'){
+        if(cs.miss)tg={t:'전화했지만 누락 +1시간',c:'var(--bad)'};
+        else if(cs.fix)tg={t:'누락 복구 +1시간',c:'var(--s2)'};
+        else tg={t:'전화·기록 +1시간',c:'var(--muted-foreground)'};
+      }
+      const bw=Math.max(tw(cs.l,12),tg?tw(tg.t,11):0)+22,bh=tg?42:26;
+      const bx=Math.max(laneL,Math.min(sx(cur)-bw/2,laneR-bw));
+      const box=E('rect',{x:Math.round(bx),y:Math.round(midY-bh/2),width:bw,height:bh,rx:9,'stroke-width':(mode==='hand'&&cs.miss)?1.5:1.25});
+      box.style.fill='var(--card)';
+      box.style.stroke=(mode==='hand'&&cs.miss)?'var(--bad)':LANES[k1].c;
+      T(bx+bw/2,tg?midY-5:midY+4,cs.l,12,'var(--foreground)','middle',600);
+      if(tg)T(bx+bw/2,midY+12,tg.t,11,tg.c,'middle',500);
+    }
+    if(!narrow){
+      const ys=H-8,C=cum();
+      T(pad,ys,'누적',11,'var(--muted-foreground)','start');
+      for(let i=0;i<N;i++){
+        if(i>cur)continue;
+        const tk=E('line',{x1:sx(i),y1:ys-9,x2:sx(i),y2:ys-5});
+        tk.style.stroke='var(--border)';
+        const t=T(sx(i),ys,C[i]+'시간',11,i===cur?'var(--foreground)':'var(--muted-foreground)','middle',i===cur?600:400);
+        t.style.fontVariantNumeric='tabular-nums';
+      }
+    }
+    svg.setAttribute('aria-label','물류 시스템 릴레이 지도. '+(mode==='auto'?'시스템끼리 자동':'사람이 전달(전화·수기)')+' 모드, 단계 '+(cur+1)+'/'+N+': '+cs.d+' 누적 '+cum()[cur]+'시간.');
+    roW=w;
+    $('legendNote').innerHTML='화살표 = 시스템 사이에 넘기는 메시지 · 카드 = 그 레인에서 하는 일 · 아래 숫자 = 단계까지 누적 시간'+(mode==='hand'?' · <span class="missword">붉은 점선 = 전달 누락</span>(다음 단계에서 복구)':'');
+  }
+
+  function announce(){
+    const s=STEPS[cur],C=cum();
+    let m='단계 '+(cur+1)+'/'+N+' · '+LANES[LI[s.s]].n+(s.t?' → '+LANES[LI[s.t]].n:'')+': '+s.l;
+    if(mode==='hand'&&s.miss)m+=' · 전화로 전달했지만 누락(다음 단계에서 복구)';
+    if(mode==='hand'&&s.fix)m+=' · 앞 단계에 누락된 보고를 전화 확인으로 복구(+1시간)';
+    m+=' · 누적 '+C[cur]+'시간';
+    status.textContent=m;
+  }
+
+  function stats(){
+    $('stats').innerHTML=mode==='auto'
+      ?'<div class="stat"><b>'+AUTO+'시간</b><span>주문 종료까지 걸린 시간 (시간, 짧을수록 좋음)</span><span class="cmp">사람이 전달(전화·수기)하면 '+HAND+'시간 — '+(HAND-AUTO)+'시간 더 걸림</span></div>'
+      :'<div class="stat"><b>'+HAND+'시간</b><span>주문 종료까지 걸린 시간 (시간, 짧을수록 좋음)</span><span class="cmp bad">자동 '+AUTO+'시간보다 +'+(HAND-AUTO)+'시간 — 전화·기록 지연 '+ARROWS+' + 누락 복구 '+FIXES+'</span></div>';
+  }
+
+  function refresh(){
+    draw();announce();stats();
+    $('first').disabled=$('prev').disabled=cur<=0;
+    $('next').disabled=$('last').disabled=cur>=N-1;
+  }
+  const go=v=>{cur=Math.max(0,Math.min(N-1,v));refresh();};
+  $('first').addEventListener('click',()=>go(0));
+  $('prev').addEventListener('click',()=>go(cur-1));
+  $('next').addEventListener('click',()=>go(cur+1));
+  $('last').addEventListener('click',()=>go(N-1));
+  $('segMode').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    mode=b.dataset.v;
+    document.querySelectorAll('#segMode button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    refresh();
+  });
+  new ResizeObserver(()=>{const w=host.clientWidth;if(w&&w!==roW){draw();}}).observe(host);
+  refresh();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

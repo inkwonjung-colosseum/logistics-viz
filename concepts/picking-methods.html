@@ -66,7 +66,7 @@ table.cmp{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13.5px}
 <header>
   <span class="cat">창고 운영</span>
   <h1>피킹 방식 4종 — Discrete·Batch·Zone·Cluster</h1>
-  <p class="def">주문을 어떻게 묶고 누가 집는가의 4가지 방식. <b>같은 주문 더미</b>로 4전략이 경주한다.</p>
+  <p class="def"><b>피킹</b>(picking)은 주문에 맞는 물건을 창고 안의 자리에서 골라 내는 일이다 — 주문을 어떻게 묶고 누가 집는가의 4가지 방식을 <b>같은 주문 더미</b>로 경주시켜 본다.</p>
 </header>
 
 <div class="panel">
@@ -83,8 +83,8 @@ table.cmp{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13.5px}
 <div class="stats" id="stats"></div>
 <p class="tcap">같은 주문 더미 기준 4전략 비교 — t는 틱(60ms, 피커 1u/틱)이며 Batch·Zone·Cluster의 완료시각·리드타임에 후처리 +3u/주문이 포함됩니다.</p>
 <table class="cmp" id="cmp"></table>
-<p class="takeaway"><b>Batch·Cluster</b>는 이동거리를 크게 줄이지만 완료가 한꺼번에 몰리고, <b>Discrete</b>는 리드타임은 짧아도 발이 늘어난다 — 처리량과 응답성의 트레이드오프.</p>
-<button class="done" id="done">✓ 학습 완료</button>
+<p class="takeaway"><b>Batch·Cluster</b>는 이동거리를 크게 줄이지만 완료가 한꺼번에 몰리고, <b>Discrete</b>는 리드타임(맡긴 일이 끝날 때까지 걸리는 시간)은 짧아도 발이 늘어난다 — 처리량과 응답성의 트레이드오프.</p>
+<button class="done" id="mv-done-btn" data-slug="picking-methods">✓ 학습 완료</button>
 <p class="foot">단순화 모델 — 단일 통로에서는 Zone의 전체 완료가 Batch와 수학적으로 같아집니다(2×최원거리 식이 동일). 실제 다중 통로 창고에서는 존 분할이 완료를 앞당기고, 피커 수·분류 장비도 결과를 바꿉니다.</p>
 </div>
 
@@ -295,7 +295,7 @@ play.addEventListener('click',()=>timer?stop():start());
 document.getElementById('reset').addEventListener('click',reset);
 new ResizeObserver(()=>{renderStatic();paint();}).observe(svg.parentElement);
 // 진도
-const db=document.getElementById('done');
+const db=document.getElementById('mv-done-btn');
 const key='mv-done:'+SLUG;
 try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
 db.addEventListener('click',()=>{

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>재고의 기본 — 물류 개념 시각화</title>
+<meta name="description" content="같은 창고(기록 100개, 실물 92개)를 '기록만 믿기'와 '직접 세기(재고 실사)' 두 방식으로 세어 보고, 주문 60개 고른 날과 96개 들이닥치는 날에 약속이 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.cause{font-size:13.5px;margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.stage{width:100%}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+.t{fill:var(--foreground);font-size:12px;font-weight:600}
+.tm{fill:var(--muted-foreground);font-size:11px}
+.tb{fill:var(--bad);font-size:11px;font-weight:600}
+.rdc{fill:var(--soft);stroke:var(--primary);stroke-width:1.5}
+.o-ok{fill:color-mix(in srgb,var(--muted-foreground) 20%,transparent)}
+.o-bad{fill:color-mix(in srgb,var(--bad) 15%,transparent);stroke:var(--bad);stroke-width:1.2}
+.o-out{fill:transparent;stroke:var(--muted-foreground);stroke-width:1;stroke-dasharray:3 3}
+.ff{stroke-width:2}
+.on-ok{fill:var(--muted-foreground)}
+.on-bad{fill:var(--bad);font-weight:700}
+.on-out{fill:var(--muted-foreground)}
+.c-box{fill:color-mix(in srgb,var(--muted-foreground) 38%,transparent)}
+.c-gone{fill:color-mix(in srgb,var(--muted-foreground) 8%,transparent);stroke:var(--border);stroke-width:1;stroke-dasharray:3 3}
+.c-hole{fill:color-mix(in srgb,var(--bad) 6%,transparent);stroke:var(--bad);stroke-width:1.2;stroke-dasharray:4 3}
+.c-trace{fill:color-mix(in srgb,var(--muted-foreground) 45%,transparent)}
+.c-brk{fill:color-mix(in srgb,var(--bad) 16%,transparent);stroke:var(--bad);stroke-width:1.2}
+.c-crk{fill:none;stroke:var(--bad);stroke-width:1.2;stroke-linecap:round}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted-foreground);margin:8px 0 0}
+.legend span{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.legend span i{display:inline-block;width:12px;height:10px;border-radius:2px}
+.lg-box{background:color-mix(in srgb,var(--muted-foreground) 38%,transparent)}
+.lg-gone{background:color-mix(in srgb,var(--muted-foreground) 8%,transparent);outline:1px dashed var(--border);outline-offset:-1px}
+.lg-miss{background:transparent;outline:1.2px dashed var(--bad);outline-offset:-1px}
+.lg-brk{background:color-mix(in srgb,var(--bad) 16%,transparent);outline:1.2px solid var(--bad);outline-offset:-1px}
+.lg-ok{background:color-mix(in srgb,var(--muted-foreground) 20%,transparent)}
+.lg-bad{background:color-mix(in srgb,var(--bad) 15%,transparent);outline:1.2px solid var(--bad);outline-offset:-1px}
+.lg-out{background:transparent;outline:1px dashed var(--muted-foreground);outline-offset:-1px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--primary)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,color .15s ease-out,border-color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">재고</span>
+  <p class="q">재고는 왜 쌓아 두고, 몇 개 있는지는 어떻게 세는가</p>
+  <h1>재고의 기본 — 왜 쌓아 두고 어떻게 세는가</h1>
+  <p class="def">재고는 팔거나 쓰려고 <b>갖춰 둔</b> 물건이다 — 없으면 못 팔고, 많으면 돈이 잠긴다.</p>
+</header>
+<p class="cause">비유: <b>냉장고</b> — 냉장고에 뭘 갖춰 뒀는지 모르면 없는 재료로 저녁 메뉴를 약속했다가 무산된다. 창고의 재고(inventory)도 같다. 실제로 문을 열어 하나씩 세어 보는 것이 <b>재고 실사(physical count)</b>다 — 창고에 있는 물건을 직접 세어 시스템 기록과 맞춰 보는 일이다. 비유가 맞지 않는 지점: 냉장고는 며칠에 한 번 열지만, 창고 재고는 하루에도 수십 번 들어오고 나가므로 세는 사이에도 숫자가 움직인다.</p>
+
+<div class="panel">
+  <h2>같은 창고를 "믿는 방식"만 바꿔 세어 본다</h2>
+  <div class="controls">
+    <div class="ctl">믿는 방식
+      <div class="seg" id="segTrust" role="group" aria-label="믿는 방식">
+        <button type="button" data-v="record" aria-pressed="true">기록만 믿기</button>
+        <button type="button" data-v="count" aria-pressed="false">직접 세기(재고 실사)</button>
+      </div>
+    </div>
+    <div class="ctl">오늘 주문량
+      <div class="seg" id="segDay" role="group" aria-label="오늘 주문량">
+        <button type="button" data-v="calm" aria-pressed="false">고른 날(주문 60개)</button>
+        <button type="button" data-v="busy" aria-pressed="true">들이닥치는 날(주문 96개+)</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <p class="cause" id="note"></p>
+  <div class="stage" id="stage"><svg id="sim" role="img" aria-label=""></svg></div>
+  <p class="legend" id="legendShelf"></p>
+  <p class="legend" id="legendOrders"></p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 창고 1곳, 상품 1종, 실물 차이는 분실·파손만으로 단순화했고, 재고를 다시 채우는 데는 하루 이상 걸린다고 본다.</p>
+<p class="takeaway">재고는 변동에도 끊기지 않게 여유를 두는 것이고, 몇 개 있는지는 기록만 믿지 않고 직접 세어(<b>재고 실사</b>) 맞춰야 약속이 흔들리지 않는다.</p>
+<div class="next">
+  <p>선행: <a href="warehouse-basics.html">창고의 하루</a></p>
+  <p>다음: <a href="order-status.html">주문 한 건의 여정</a></p>
+  <p>심화: <a href="fifo-lifo-fefo.html">FIFO · LIFO · FEFO</a> — 꺼내는 순서에 따라 폐기가 달라진다</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="inventory-basics">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const SEL=92;
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  const rand=rng(42);
+  const pool=Array.from({length:100},(_,i)=>i);
+  for(let k=pool.length-1;k>0;k--){const j=Math.floor(rand()*(k+1));const tmp=pool[k];pool[k]=pool[j];pool[j]=tmp;}
+  const missArr=pool.slice(0,6), brkArr=pool.slice(6,8);
+  const MISS=new Set(missArr), BRK=new Set(brkArr);
+  const SELL=[];for(let i=0;i<100;i++)if(!MISS.has(i)&&!BRK.has(i))SELL.push(i);
+  function times(n,seed){const r=rng(seed);const a=[];for(let i=0;i<n;i++)a.push(r()*480);a.sort((x,y)=>x-y);return a.map(v=>Math.round(v))}
+  const T={calm:times(60,101),busy:times(96,202)};
+  const fmtT=t=>{const m=540+t;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+  const $=x=>document.getElementById(x);
+  const svg=$('sim'), stage=$('stage'), status=$('status');
+  let trust='record', day='busy', lastW=-1, lastKey='';
+
+  function compute(){
+    const N=day==='busy'?96:60;
+    const cap=trust==='record'?100:SEL;
+    const sold=Math.min(N,SEL);
+    const promised=Math.min(N,cap);
+    return {N:N,cap:cap,sold:sold,promised:promised,
+      broken:Math.max(0,promised-sold),
+      soldOut:Math.max(0,N-cap),
+      recEnd:cap-sold, physEnd:SEL-sold,
+      diff:cap-SEL, firstFail:Math.min(SEL,cap)+1};
+  }
+
+  function draw(c){
+    const soldSet=new Set(SELL.slice(0,c.sold));
+    const W=Math.max(240,Math.round(stage.clientWidth))-2;
+    const key=trust+'|'+day+'|'+W;
+    if(key===lastKey)return;
+    lastKey=key;
+    const narrow=W<620;
+    const P=[];
+    let y=4;
+    const rcW=narrow?W-4:200, rcH=narrow?96:104;
+    P.push(`<rect x="0" y="${y}" width="${rcW}" height="${rcH}" rx="10" class="rdc"/>`);
+    P.push(`<text x="12" y="${y+20}" class="t">시스템 기록</text>`);
+    P.push(`<text x="12" y="${y+44}" class="t" font-weight="700">재고 ${c.cap}개</text>`);
+    P.push(`<text x="12" y="${y+62}" class="tm">${trust==='record'?'판매 가능(서류 그대로)':'재고 실사로 바로잡음'}</text>`);
+    P.push(`<text x="12" y="${y+82}" class="tm">하루 끝에 믿는 수 ${c.recEnd}개</text>`);
+    let ox, oy;
+    if(narrow){ox=0; oy=y+rcH+16;} else {ox=rcW+22; oy=y+4;}
+    const availW=W-ox-4;
+    P.push(`<text x="${ox}" y="${oy+12}" class="t">오늘 들어온 주문 ${c.N}개 · 09:00~18:00 순서대로</text>`);
+    const sub=c.broken>0?`93번째 주문부터 판매 못 함(빨간 카드 ${c.broken}개)`:c.soldOut>0?`93번째 주문부터 품절 안내(점선 카드 ${c.soldOut}개)`:'오늘은 약속이 깨지지 않았다';
+    P.push(`<text x="${ox}" y="${oy+28}" class="${c.broken>0?'tb':'tm'}">${sub}</text>`);
+    const gy=oy+38;
+    const cols=Math.max(6,Math.floor(availW/34));
+    const cw=Math.floor((availW-(cols-1)*4)/cols);
+    const chh=18, vg=5;
+    const arr=T[day];
+    arr.forEach((t,i)=>{
+      const col=i%cols, row=Math.floor(i/cols);
+      const x=ox+col*(cw+4), yy=gy+row*(chh+vg);
+      const o=i+1<=c.sold?'ok':(i+1<=c.promised?'bad':'out');
+      const ff=(i+1)===c.firstFail&&(c.broken>0||c.soldOut>0);
+      const cls=o==='ok'?'o-ok':o==='bad'?'o-bad':'o-out';
+      const ncls=o==='ok'?'on-ok':o==='bad'?'on-bad':'on-out';
+      const msg=o==='ok'?`#${i+1} · ${fmtT(t)} · 판매 성공 — 실물에서 1개 출고`:o==='bad'?`#${i+1} · ${fmtT(t)} · 약속 파기 — 기록엔 있었지만 실물이 없어 판매 못 함`:`#${i+1} · ${fmtT(t)} · 품절 안내 — 처음부터 없다고 알려 줌`;
+      P.push(`<g><title>${msg}</title><rect x="${x}" y="${yy}" width="${cw}" height="${chh}" rx="3" class="${cls}${ff?' ff':''}"/><text x="${x+cw/2}" y="${yy+13}" text-anchor="middle" font-size="11" class="${ncls}">${i+1}</text></g>`);
+    });
+    const rows=Math.ceil(c.N/cols);
+    const ea=gy+rows*(chh+vg)-vg;
+    const sy=Math.max(y+rcH,ea)+30;
+    P.push(`<text x="0" y="${sy+12}" class="t">창고 선반 — 실제로 서 있는 물건(10줄 × 10칸)</text>`);
+    P.push(`<text x="0" y="${sy+28}" class="tm">${trust==='record'?'아직 세지 않았다 — 기록대로 100개가 서 있는 것처럼 보인다':'재고 실사로 셌다 — 빈 칸 6 · 파손 2가 드러났다(실물 92개)'}</text>`);
+    const sgy=sy+38;
+    const hgap=3, vgap=4;
+    const cw2=Math.min(84,Math.floor((W-4-9*hgap)/10));
+    const ch2=cw2>=60?20:cw2>=40?16:14;
+    const reveal=trust==='count';
+    for(let i=0;i<100;i++){
+      const r=Math.floor(i/10), col=i%10;
+      const x=col*(cw2+hgap), yy=sgy+r*(ch2+vgap);
+      const rect=(cls,extra)=>`<rect x="${x}" y="${yy}" width="${cw2}" height="${ch2}" rx="2" class="${cls}"${extra||''}/>`;
+      if(soldSet.has(i)){P.push(rect('c-gone'));continue;}
+      if(MISS.has(i)){
+        if(reveal){const r2=r+1, c2=col+1;
+          P.push(`<g><title>${r2}줄 ${c2}칸 — 분실: 기록엔 있지만 실물이 없다</title>${rect('c-hole')}<rect x="${(x+cw2*0.22).toFixed(1)}" y="${yy+ch2-5}" width="${(cw2*0.5).toFixed(1)}" height="3" rx="1.5" class="c-trace"/></g>`);
+        } else P.push(rect('c-box'));
+        continue;
+      }
+      if(BRK.has(i)){
+        if(reveal){const r2=r+1, c2=col+1;
+          P.push(`<g><title>${r2}줄 ${c2}칸 — 파손: 깨져서 팔 수 없다</title>${rect('c-brk')}<path d="M ${(x+cw2*0.25).toFixed(1)} ${yy+2} L ${(x+cw2*0.45).toFixed(1)} ${(yy+ch2*0.55).toFixed(1)} L ${(x+cw2*0.32).toFixed(1)} ${yy+ch2-2}" class="c-crk"/></g>`);
+        } else P.push(rect('c-box'));
+        continue;
+      }
+      P.push(rect('c-box'));
+    }
+    const shelfH=10*(ch2+vgap)-vgap;
+    const H=sgy+shelfH+6;
+    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+    svg.innerHTML=P.join('');
+  }
+
+  function render(){
+    const c=compute();
+    draw(c);
+    $('note').innerHTML=trust==='record'
+      ?'<b>기록만 믿기</b> — 서류의 100개를 그대로 믿는다. 셈에는 시간이 들지 않지만, 실물과 다를 수 있다.'
+      :'<b>직접 세기(재고 실사)</b> — 선반을 모두 세어 기록을 실물 92개로 바로잡는다. 대신 100칸을 세는 데 사람 2명이 약 3시간 든다 — 그래서 매일 전체를 세지는 않는다.';
+    $('legendShelf').innerHTML=trust==='record'
+      ?`<span><i class="lg-box"></i>서 있는 것으로 보이는 칸 ${100-c.sold}개</span><span><i class="lg-gone"></i>출고된 자리 ${c.sold}개</span><span>아직 세지 않아 분실·파손이 보이지 않는다</span>`
+      :`<span><i class="lg-box"></i>정상 박스 ${c.physEnd}개</span><span><i class="lg-gone"></i>출고된 자리 ${c.sold}개</span><span><i class="lg-miss"></i>분실(빈 칸+흔적) 6</span><span><i class="lg-brk"></i>파손(깨진 박스) 2</span>`;
+    $('legendOrders').innerHTML='<span><i class="lg-ok"></i>판매 성공</span><span><i class="lg-bad"></i>판매 못 함(약속 파기)</span><span><i class="lg-out"></i>품절 안내</span><span>카드를 가리키면 시각과 결과가 보인다</span>';
+    $('stats').innerHTML=
+      `<div class="stat"><b>${c.diff}개</b><span>기록과 실물의 차이 — 0이 좋음</span><span class="cmp">믿는 기록 ${c.recEnd}개 · 실제 팔 수 있는 물건 ${c.physEnd}개</span></div>`+
+      `<div class="stat"><b>${c.broken}개</b><span>못 판 수량(약속 파기) — 0이 좋음</span><span class="cmp ${c.broken>0?'bad':'good'}">${c.broken>0?'93번째 주문부터 판매 못 함 — 실물 92개보다 많이 약속함':(c.soldOut>0?`대신 품절 안내 ${c.soldOut}개 — 처음부터 없다고 알려 약속은 안 깨짐`:'오늘의 약속은 모두 지켜짐')}</span></div>`;
+    const tl=trust==='record'?'기록만 믿기':'직접 세기(재고 실사)';
+    const dl=day==='busy'?'들이닥치는 날':'고른 날';
+    status.textContent=
+      trust==='record'&&day==='busy'
+        ?`기록만 믿기 · 들이닥치는 날 — 93번째 주문부터 약속이 깨진다(판매 못 함 4개). 실제 팔 수 있는 물건은 바닥났는데 기록은 8개가 남았다고 믿는다.`
+        :trust==='record'&&day==='calm'
+        ?`기록만 믿기 · 고른 날 — 주문 60개는 모두 판매했다. 겉으로는 문제없지만 기록과 실물은 8개 어긋난 채로 남는다.`
+        :trust==='count'&&day==='busy'
+        ?`직접 세기 · 들이닥치는 날 — 93번째 주문부터 품절 안내(4개)로 돌려보냈다. 약속은 깨지지 않았고, 재고는 내일 입고를 기다린다(채우는 데 하루 이상).`
+        :`직접 세기 · 고른 날 — 오전에 92개로 바로잡아 주문 60개를 모두 판매했다. 기록과 실물의 차이 0.`;
+    svg.setAttribute('aria-label',`같은 창고를 두 가지 방식으로 세는 측정 시뮬레이션. 현재 ${tl}, ${dl}: 주문 ${c.N}개 중 ${c.sold}개 판매, 약속 파기 ${c.broken}개, 품절 안내 ${c.soldOut}개, 기록과 실물의 차이 ${c.diff}개.`);
+  }
+
+  function setPressed(seg,btn){
+    seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===btn)));
+  }
+  $('segTrust').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    trust=b.dataset.v;setPressed($('segTrust'),b);render();
+  });
+  $('segDay').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    day=b.dataset.v;setPressed($('segDay'),b);render();
+  });
+  new ResizeObserver(()=>render()).observe(stage);
+  render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

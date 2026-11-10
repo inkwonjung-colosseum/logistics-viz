@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>창고의 하루 — 물류 개념 시각화</title>
+<meta name="description" content="창고 안의 다섯 걸음(입고·보관·피킹·포장·출고)이 하루에 어떻게 이어지는지, 주문량이 늘면 어디가 밀리는지 직접 돌려 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --s4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.gloss{margin:0 0 12px;padding:0 0 0 18px;color:var(--muted-foreground);font-size:13.5px}
+.gloss li{margin:2px 0}
+.gloss b{color:var(--foreground);font-weight:600}
+.analogy{margin:0 0 20px;font-size:13.5px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 8px}
+.note{margin:0 0 12px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.viz{margin:0 0 14px}
+.viz svg{display:block;width:100%;height:auto}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.ctl input[type=range]{width:150px;accent-color:var(--primary)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.tnum{font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat b.bad{color:var(--bad)}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">창고 운영</span>
+  <p class="q">창고 안에서는 물건에 무슨 일이 일어나는가</p>
+  <h1>창고의 하루 — 입고 · 보관 · 피킹 · 포장 · 출고</h1>
+  <p class="def">창고는 물건을 <b>받아</b> 두었다가, 주문이 오면 <b>골라 싸서</b> 내보내는 곳이다 — 받고(입고), 두고(보관), 골라(피킹), 싸서(포장), 내보내는(출고) 다섯 걸음.</p>
+  <ul class="gloss">
+    <li><b>입고(receiving)</b> — 주문·발주한 물건이 창고에 들어와 접수되는 일이다.</li>
+    <li><b>보관(storage)</b> — 물건이 팔려 나갈 때까지 창고 안 자리에 안전하게 놓여 있는 단계다.</li>
+    <li><b>피킹(picking)</b> — 주문에 맞는 물건을 창고 안의 자리에서 골라 내는 일이다.</li>
+    <li><b>포장(packing)</b> — 고른 물건을 배송 상자에 넣고 봉인하는 일이다.</li>
+    <li><b>출고(shipping)</b> — 포장한 물건을 창고에서 내보내 운송에 실는 일이다.</li>
+  </ul>
+  <p class="analogy">비유 — 식당 주방: 아침에 재료를 받아 냉장고에 두고, 주문이 오면 꺼내 손질해 접지어 낸다. 다만 주방은 대부분 그날 쓰지만 창고는 오래 둔다.</p>
+</header>
+
+<div class="panel">
+  <h2>체험 · 창고의 하루를 돌려 보기</h2>
+  <p class="note">그림의 도크는 트럭이 창고에 붙어 물건을 내리고 실는 자리고, 검수는 도착한 물건이 주문·통지 내용과 수량까지 같은지 확인하는 일이다. 아침 트럭에서 내린 박스를 검수해 선반에 두고, 주문이 도착하면 피커가 골라 작업대에서 포장한 뒤 오른쪽 도크로 내보낸다.</p>
+  <div class="viz" id="viz">
+    <svg id="vizsvg" role="img" aria-label="창고 평면도: 왼쪽 입고 도크, 입고 스테이징, 선반 24칸, 주문 대기 줄과 작업대, 오른쪽 출고 도크. 재생 버튼으로 하루 흐름이 시작됩니다."></svg>
+  </div>
+  <div class="controls">
+    <button type="button" class="ghostb" id="play">▶ 재생</button>
+    <button type="button" class="ghostb" id="pause" disabled>⏸ 일시정지</button>
+    <button type="button" class="ghostb" id="reset">↺ 초기화</button>
+    <label class="ctl">하루 주문량 <input type="range" id="orders" min="10" max="30" step="1" value="10"> <b id="ordVal" class="tnum">10건</b></label>
+    <span id="status" aria-live="polite"></span>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="kShip">10건</b><span id="shipSub"></span></div>
+  <div class="stat"><b id="kLate">0건</b><span id="lateSub"></span></div>
+</div>
+<p class="foot">전제: 창고 1곳, 피커 2명, 처리 속도 고정, 주문은 하루 종일 조금씩 들어온다고 단순화했다. 주문 한 건 처리에는 피킹·포장을 합쳐 36분이 걸린다고 두었고, 출고 마감은 오후 4시다.</p>
+<p class="takeaway">창고 안은 <b>받고·두고·골라·싸서·내보내는 한 줄 흐름</b>이라 한 군데가 밀리면 하루 전체가 밀린다 — 그래서 물량이 몰리는 날을 미리 아는 것이 중요하다.</p>
+<div class="next">
+  <p>선행: <a href="logistics-players.html">물류의 등장인물</a></p>
+  <p>다음: <a href="inventory-basics.html">재고의 기본</a> · 심화: <a href="crossdock.html">크로스독</a> — 아예 보관하지 않고 바로 내보내는 창고도 있다.</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="warehouse-basics">✓ 학습 완료</button>
+</div>
+
+<script>
+"use strict";
+const DAY0=480,DAY1=1080,DDL=960,T=36,SPAN=DAY1-DAY0;
+const INIT=[3,2,4,1,3,2,2,3,1,4,2,3,4,1,2,3,2,1,2,3,4,1,3,2];
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const RX=[];for(let i=0;i<24;i++){RX.push({dep:480+(i%8)*2.5+((i/8)|0)*12,go:528+(i%8)*2.5+((i/8)|0)*12,cell:i%24});}
+const recvAt=INIT.map(()=>[]);RX.forEach(r=>recvAt[r.cell].push(r.go+14));recvAt.forEach(a=>a.sort((x,y)=>x-y));
+function buildSchedule(n){
+  const arr=[],s=[],c=[],pk=[],pf=[-1e9,-1e9];
+  for(let i=0;i<n;i++){
+    arr.push(540+360*i/n);
+    const p=pf[0]<=pf[1]?0:1,st=Math.max(arr[i],pf[p]);
+    s.push(st);c.push(st+T);pk.push(p);pf[p]=st+T;
+  }
+  const cells=INIT.slice(),cellOf=[],r=rng(42);
+  for(let i=0;i<n;i++){
+    let k=(r()*24)|0,g=0;
+    while(cells[k]<=0&&g<48){k=(k+1)%24;g++}
+    if(cells[k]<=0){k=0;while(cells[k]<=0)k=(k+1)%24}
+    cells[k]--;cellOf.push(k);
+  }
+  const pickAt=INIT.map(()=>[]);
+  for(let i=0;i<n;i++)pickAt[cellOf[i]].push(s[i]+12);
+  pickAt.forEach(a=>a.sort((x,y)=>x-y));
+  const shipped=c.filter(x=>x<=DDL).length;
+  const order=[];for(let i=0;i<n;i++)if(c[i]<=DDL)order.push(i);
+  order.sort((a,b)=>c[a]-c[b]||a-b);
+  const rank={};order.forEach((v,k)=>rank[v]=k);
+  return{n,arr,s,c,pk,cellOf,pickAt,rank,shipped,late:n-shipped};
+}
+</script>
+
+<script>
+(() => {
+"use strict";
+const $=id=>document.getElementById(id);
+const host=$('viz'),svgEl=$('vizsvg'),statusEl=$('status');
+const playB=$('play'),pauseB=$('pause'),resetB=$('reset');
+const slider=$('orders'),ordVal=$('ordVal'),kShip=$('kShip'),kLate=$('kLate'),shipSub=$('shipSub'),lateSub=$('lateSub');
+const MIN_PER_MS=SPAN/36000;
+let N=10,SCH=buildSchedule(N),t=DAY0,playing=false,lastTs=null,lastKey='';
+
+const cntLE=(a,x)=>{let n=0;for(const v of a)if(v<=x)n++;return n};
+const lp=(a,b,q)=>a+(b-a)*q;
+const clockStr=x=>{const m=Math.round(x/5)*5,h=(m/60)|0,mm=m%60;return (h<12?'오전 ':'오후 ')+(h%12||12)+':'+String(mm).padStart(2,'0')};
+
+function geom(W){
+  const G={W,wide:W>=620};
+  if(G.wide){
+    G.H=340;G.clockY=25;G.stripY=25;G.stripX=W-190;G.barY=40;G.barLabelY=36;
+    G.dockIn={x:8,y:64,w:96,h:114};
+    G.stage={x:112,y:64,w:88,h:114};
+    const cw=34;
+    G.shelf={x:208,y:64,cw,ch:24,gx:3,gy:3,w:6*cw+23,h:114,labelY:185};
+    G.dockOut={x:W-104,y:64,w:96,h:114};
+    G.queue={x:8,y:192,w:200,h:132,perRow:4,maxShow:7,cw:46,chh:24,gx:5,gy:6};
+    G.bench={x:220,y:192,w:220,h:132};
+    G.stack={x:452,y:192,w:Math.min(W-460,208),h:132,cols:5,rows:6,bw:24,bh:15,gapc:5,gapr:2.5};
+  }else{
+    G.H=548;G.clockY=24;G.stripY=46;G.stripX=8;G.barY=60;G.barLabelY=56;
+    const half=(W/2)|0;
+    G.dockIn={x:8,y:76,w:half-16,h:72};
+    G.stage={x:half+8,y:76,w:W-half-16,h:72};
+    const cw=((W-31)/6)|0;
+    G.shelf={x:8,y:158,cw,ch:21,gx:3,gy:3,w:6*cw+23,h:99,labelY:271};
+    G.queue={x:8,y:279,w:W-16,h:78,perRow:6,maxShow:11,cw:((W-36)/6)|0,chh:20,gx:5,gy:5};
+    G.bench={x:8,y:365,w:W-16,h:78};
+    G.stack={x:8,y:451,w:half-16,h:78,cols:6,rows:5,bw:17,bh:8,gapc:5,gapr:2};
+    G.dockOut={x:half+8,y:451,w:W-half-16,h:78};
+  }
+  return G;
+}
+const cellC=(k,G)=>({x:G.shelf.x+4+(k%6)*(G.shelf.cw+G.shelf.gx)+G.shelf.cw/2,y:G.shelf.y+6+((k/6)|0)*(G.shelf.ch+G.shelf.gy)+G.shelf.ch/2});
+const benchSlot=(p,G)=>G.wide?{x:G.bench.x+56+p*100,y:G.bench.y+84}:{x:G.bench.x+56+p*116,y:G.bench.y+52};
+const stageSlot=(i,G)=>({x:G.stage.x+8+(i%6)*((G.stage.w-16)/6)+5,y:G.stage.y+38+((i/6)|0)*((G.stage.h-46)/3)});
+function stackSlot(k,G){
+  const col=(k/G.stack.rows)|0,row=k%G.stack.rows;
+  return{x:G.stack.x+8+col*(G.stack.bw+G.stack.gapc),
+    y:G.stack.y+G.stack.h-8-G.stack.bh-row*(G.stack.bh+G.stack.gapr),
+    w:G.stack.bw,h:G.stack.bh};
+}
+const txt=(x,y,str,size,fill,anchor,weight,cls)=>'<text x="'+x+'" y="'+y+'" font-size="'+size+'" fill="'+(fill||'var(--muted-foreground)')+'"'+(anchor?' text-anchor="'+anchor+'"':'')+(weight?' font-weight="'+weight+'"':'')+(cls?' class="'+cls+'"':'')+'>'+str+'</text>';
+function arrow(x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,px=-uy,py=ux;
+  const bx=x2-ux*5,by=y2-uy*5;
+  return '<line x1="'+x1+'" y1="'+y1+'" x2="'+bx.toFixed(1)+'" y2="'+by.toFixed(1)+'" stroke="var(--muted-foreground)" stroke-width="1" stroke-dasharray="3 3" opacity="0.8"/>'
+    +'<polygon points="'+x2+','+y2+' '+(bx+px*3).toFixed(1)+','+(by+py*3).toFixed(1)+' '+(bx-px*3).toFixed(1)+','+(by-py*3).toFixed(1)+'" fill="var(--muted-foreground)" opacity="0.8"/>';
+}
+function truck(x,y,w,h,nose,dash){
+  const cab=Math.round(w*0.3),bw=w-cab,bx=nose<0?x+cab:x,cx=nose<0?x:x+bw,d=dash?' stroke-dasharray="4 3"':'';
+  return '<rect x="'+bx+'" y="'+y+'" width="'+bw+'" height="'+h+'" rx="4" fill="var(--s4)" fill-opacity="0.22" stroke="var(--s4)" stroke-width="1"'+d+'/>'
+    +'<rect x="'+cx+'" y="'+(y+h*0.3).toFixed(1)+'" width="'+cab+'" height="'+(h*0.7).toFixed(1)+'" rx="3" fill="var(--s4)" fill-opacity="0.35" stroke="var(--s4)" stroke-width="1"'+d+'/>'
+    +'<circle cx="'+(x+w*0.25).toFixed(1)+'" cy="'+(y+h)+'" r="3.5" fill="var(--muted-foreground)" opacity="0.7"/><circle cx="'+(x+w*0.75).toFixed(1)+'" cy="'+(y+h)+'" r="3.5" fill="var(--muted-foreground)" opacity="0.7"/>';
+}
+const zoneRect=z=>'<rect x="'+z.x+'" y="'+z.y+'" width="'+z.w+'" height="'+z.h+'" rx="8" fill="var(--s3)" fill-opacity="0.12" stroke="var(--border)" stroke-width="1"/>';
+
+function zones(G){
+  let s=zoneRect(G.dockIn)+zoneRect(G.stage)+zoneRect(G.shelf)+zoneRect(G.dockOut)+zoneRect(G.queue)+zoneRect(G.bench)+zoneRect(G.stack);
+  const dy=G.wide?16:14,l2=G.wide?30:27;
+  s+=txt(G.dockIn.x+6,G.dockIn.y+dy,'입고 도크',11)+txt(G.dockIn.x+6,G.dockIn.y+l2,'운송사 트럭',11,'var(--s4)');
+  s+=txt(G.stage.x+6,G.stage.y+dy,'입고 스테이징',11)+txt(G.stage.x+6,G.stage.y+l2,'검수 후 적치',11);
+  s+=txt(G.shelf.x,G.shelf.labelY,'선반 · 보관 — 칸의 숫자는 박스 수',11);
+  s+=txt(G.dockOut.x+6,G.dockOut.y+dy,'출고 도크',11)+txt(G.dockOut.x+6,G.dockOut.y+l2,'마감 트럭',11,'var(--s4)');
+  s+=txt(G.queue.x+6,G.queue.y+16,'주문 대기 줄',11);
+  s+=txt(G.bench.x+6,G.bench.y+16,'작업대(피킹→포장) · 피커 2명',11);
+  s+=txt(G.stack.x+6,G.stack.y+(G.wide?16:13),'포장한 박스가 쌓임',11);
+  return s;
+}
+function arrows(G){
+  let s='';
+  if(G.wide){
+    s+=arrow(104,121,111,121)+arrow(200,121,207,121)+arrow(323,176,323,191)+arrow(209,240,219,240)+arrow(441,250,451,256);
+    s+=arrow(G.stack.x+G.stack.w/2,190,G.stack.x+G.stack.w/2,179);
+  }else{
+    s+=arrow(G.W/2,150,G.W/2,157)+arrow(G.W/2,263,G.W/2,278)+arrow(G.W/2,359,G.W/2,364)+arrow(G.W/2,445,G.W/2,450);
+    s+=arrow(G.stack.x+G.stack.w+2,490,G.dockOut.x-2,490);
+  }
+  return s;
+}
+function shelfDraw(G,tt){
+  let s='';
+  for(let k=0;k<24;k++){
+    const x=G.shelf.x+4+(k%6)*(G.shelf.cw+G.shelf.gx),y=G.shelf.y+6+((k/6)|0)*(G.shelf.ch+G.shelf.gy);
+    const n=INIT[k]+cntLE(recvAt[k],tt)-cntLE(SCH.pickAt[k],tt);
+    s+='<rect x="'+x+'" y="'+y+'" width="'+G.shelf.cw+'" height="'+G.shelf.ch+'" rx="3" fill="var(--s3)" fill-opacity="0.14" stroke="var(--border)" stroke-width="1"/>'
+      +txt(x+G.shelf.cw/2,y+G.shelf.ch/2+4,String(n),11,n>0?'var(--foreground)':'var(--muted-foreground)','middle',400,'tnum');
+  }
+  return s;
+}
+function clockBand(G){
+  let s=txt(8,G.clockY,clockStr(t),13,'var(--foreground)','start',600,'tnum');
+  const steps=['입고','보관','피킹','포장','출고'];
+  const act=[t<584,t>=542,t>=540,t>=576,doneN()>=1||t>=DDL];
+  let x=G.stripX;
+  steps.forEach((nm,i)=>{
+    s+=txt(x,G.stripY,nm,12,act[i]?'var(--foreground)':'var(--muted-foreground)','start',act[i]?600:400);
+    x+=26;
+    if(i<4){s+=txt(x,G.stripY,'→',11,'var(--muted-foreground)');x+=14;}
+  });
+  const bw=G.W-16;
+  s+='<rect x="8" y="'+G.barY+'" width="'+bw+'" height="5" rx="2.5" fill="var(--muted-foreground)" fill-opacity="0.15"/>';
+  const pw=Math.max(0,(t-DAY0)/SPAN)*bw;
+  if(pw>0.5)s+='<rect x="8" y="'+G.barY+'" width="'+pw.toFixed(1)+'" height="5" rx="2.5" fill="var(--primary)" fill-opacity="0.35"/>';
+  const tx=(8+0.8*bw).toFixed(1);
+  s+='<rect x="'+(tx-1)+'" y="'+(G.barY-3)+'" width="2" height="11" fill="var(--foreground)"/>';
+  s+=txt(G.W-8,G.barLabelY,'오후 4시 마감',11,'var(--muted-foreground)','end');
+  return s;
+}
+const doneN=()=>{const tt=Math.min(t,DDL);let n=0;for(let i=0;i<SCH.n;i++)if(SCH.c[i]<=tt)n++;return n};
+function rxDots(G,tt){
+  if(tt>=584)return '';
+  let s='';
+  const from={x:G.dockIn.x+40,y:G.dockIn.y+56};
+  RX.forEach((r,i)=>{
+    const to=stageSlot(i,G),cell=cellC(r.cell,G);
+    let x=null,y=null;
+    if(tt>=r.dep&&tt<r.dep+10){const q=(tt-r.dep)/10;x=lp(from.x,to.x,q);y=lp(from.y,to.y,q);}
+    else if(tt>=r.dep+10&&tt<r.go){x=to.x;y=to.y;}
+    else if(tt>=r.go&&tt<r.go+14){const q=(tt-r.go)/14;x=lp(to.x,cell.x,q);y=lp(to.y,cell.y,q);}
+    if(x!=null)s+='<rect x="'+(x-3.5).toFixed(1)+'" y="'+(y-3.5).toFixed(1)+'" width="7" height="7" rx="1.5" fill="var(--muted-foreground)" opacity="0.65"/>';
+  });
+  return s;
+}
+function queueChips(G,tt){
+  const late=t>=DDL,ws=[];
+  for(let i=0;i<SCH.n;i++)if(SCH.arr[i]<=tt&&SCH.s[i]>tt)ws.push(i);
+  let s='';
+  ws.forEach((i,j)=>{
+    if(j>=G.queue.maxShow)return;
+    const x=G.queue.x+8+(j%G.queue.perRow)*(G.queue.cw+G.queue.gx),y=G.queue.y+30+((j/G.queue.perRow)|0)*(G.queue.chh+G.queue.gy);
+    s+='<rect x="'+x+'" y="'+y+'" width="'+G.queue.cw+'" height="'+G.queue.chh+'" rx="6" fill="var(--card)" stroke="'+(late?'var(--bad)" stroke-dasharray="4 3"':'var(--border)')+'"/>'
+      +txt(x+G.queue.cw/2,y+G.queue.chh/2+4,'주문'+(i+1),11,late?'var(--bad)':'var(--foreground)','middle',late?600:400,'tnum');
+  });
+  if(ws.length>G.queue.maxShow){
+    const j=G.queue.maxShow;
+    s+=txt(G.queue.x+8+(j%G.queue.perRow)*(G.queue.cw+G.queue.gx)+G.queue.cw/2,G.queue.y+30+((j/G.queue.perRow)|0)*(G.queue.chh+G.queue.gy)+G.queue.chh/2+4,'+'+(ws.length-G.queue.maxShow),11,'var(--muted-foreground)','middle',400,'tnum');
+  }
+  return s;
+}
+function benchDraw(G,tt){
+  let s='';const busy=[false,false];
+  for(let i=0;i<SCH.n;i++){
+    const st=SCH.s[i],c=SCH.c[i],te=c>DDL?Math.min(t,DDL):t;
+    if(st<=te&&te<c){
+      const p=SCH.pk[i];busy[p]=true;
+      const b=benchSlot(p,G),cell=cellC(SCH.cellOf[i],G),u=te-st;
+      let px,py,bx=null,by=null;
+      if(u<12){const q=u/12;px=lp(b.x,cell.x,q);py=lp(b.y,cell.y,q);}
+      else if(u<24){const q=(u-12)/12;px=lp(cell.x,b.x,q);py=lp(cell.y,b.y,q);bx=px;by=py-11;}
+      else if(u<32){px=b.x;py=b.y;bx=b.x+16;by=b.y-6;}
+      else{const q=(u-32)/4,sl=stackSlot(SCH.rank[i],G);px=b.x;py=b.y;bx=lp(b.x+16,sl.x+sl.w/2,q);by=lp(b.y-6,sl.y+sl.h/2,q);}
+      s+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="7" fill="var(--s3)" stroke="var(--card)" stroke-width="1.5"/>';
+      if(bx!=null)s+='<rect x="'+(bx-4).toFixed(1)+'" y="'+(by-4).toFixed(1)+'" width="8" height="8" rx="1.5" fill="var(--muted-foreground)" opacity="0.7"/>';
+      if(c>DDL&&t>=DDL)s+=txt(b.x,b.y-24,'못 나감',11,'var(--bad)','middle',600);
+    }
+  }
+  for(let p=0;p<2;p++)if(!busy[p]){const b=benchSlot(p,G);s+='<circle cx="'+b.x+'" cy="'+b.y+'" r="7" fill="var(--s3)" stroke="var(--card)" stroke-width="1.5"/>';}
+  return s;
+}
+function stackDraw(G){
+  let s='',drawn=0;
+  for(let i=0;i<SCH.n;i++){
+    if(SCH.c[i]>DDL)continue;
+    const k=SCH.rank[i],sl=stackSlot(k,G),st=DDL+k*0.7;
+    let x=sl.x,y=sl.y,loaded=false;
+    if(t>DDL){
+      if(t<st){}
+      else if(t<st+12){const q=(t-st)/12;x=lp(sl.x,G.dockOut.x+30,q);y=lp(sl.y,G.dockOut.y+60,q);}
+      else loaded=true;
+    }
+    if(loaded)continue;
+    s+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+sl.w+'" height="'+sl.h+'" rx="2" fill="var(--s3)" fill-opacity="0.55" stroke="var(--border)" stroke-width="0.75"/>';
+    drawn++;
+  }
+  s+=txt(G.stack.x+G.stack.w-6,G.stack.y+(G.wide?16:13),drawn+'박스',11,'var(--muted-foreground)','end',400,'tnum');
+  return s;
+}
+function trucks(G){
+  let s='';
+  if(t<620){
+    const dx=t>=580?-(t-580)/40*140:0;
+    s+=truck(G.dockIn.x+6+dx,G.dockIn.y+(G.wide?44:36),G.wide?84:78,G.wide?40:30,-1,false);
+  }
+  let dx=0,gone=false;
+  if(t>=1000){if(t<1040)dx=(t-1000)/40*(G.W+80);else gone=true;}
+  if(!gone){
+    s+=truck(G.dockOut.x+8+dx,G.dockOut.y+(G.wide?44:36),G.wide?80:G.dockOut.w-16,G.wide?40:30,1,t<950);
+  }else if(SCH.shipped>0){
+    s+=txt(G.dockOut.x+G.dockOut.w/2,G.dockOut.y+(G.wide?70:52),'출고 완료',11,'var(--s2)','middle',600);
+  }
+  return s;
+}
+function lateMarks(G){
+  if(t<DDL||SCH.late===0)return '';
+  return txt(G.queue.x+G.queue.w-6,G.queue.y+16,'못 나감 '+SCH.late+'건',11,'var(--bad)','end',600,'tnum');
+}
+function draw(){
+  const cw=host.clientWidth||620,W=Math.min(Math.max(cw,300),760),G=geom(W),tt=Math.min(t,DDL);
+  svgEl.setAttribute('viewBox','0 0 '+W+' '+G.H);
+  svgEl.innerHTML=clockBand(G)+zones(G)+arrows(G)+shelfDraw(G,tt)+stackDraw(G)+queueChips(G,tt)+benchDraw(G,tt)+rxDots(G,tt)+trucks(G)+lateMarks(G);
+}
+function waitingN(tt){let n=0;for(let i=0;i<SCH.n;i++)if(SCH.arr[i]<=tt&&SCH.s[i]>tt)n++;return n}
+function arrivedN(tt){let n=0;for(let i=0;i<SCH.n;i++)if(SCH.arr[i]<=tt)n++;return n}
+function phaseOf(){return t<584?'입고':(t<DDL?'피킹·포장':'출고 마감')}
+function maybeStatus(){
+  const ph=phaseOf(),key=ph+'|'+((t/60)|0);
+  if(key===lastKey)return;
+  lastKey=key;
+  const tt=Math.min(t,DDL),done=doneN();
+  svgEl.setAttribute('aria-label','창고의 하루 애니메이션. '+clockStr(t)+', '+ph+' 단계. 주문 '+SCH.n+'건 중 처리 완료 '+done+'건.');
+  if(ph==='입고')statusEl.textContent='입고 — 아침 트럭에서 내린 박스를 검수해 선반에 옮기는 중입니다.';
+  else if(ph==='피킹·포장')statusEl.textContent=clockStr(t)+' · 피킹·포장 — 도착 주문 '+arrivedN(tt)+'건, 처리 완료 '+done+'건, 대기 '+waitingN(tt)+'건.';
+  else statusEl.textContent='오후 4시 마감 — 도크에 쌓인 '+SCH.shipped+'건만 트럭에 실려 나갑니다'+(SCH.late>0?', 작업대·대기 줄에 남은 '+SCH.late+'건은 오늘 못 나갑니다.':' — 오늘 주문은 전부 나갔습니다.');
+}
+function updStats(){
+  kShip.textContent=SCH.shipped+'건';
+  shipSub.textContent='오늘 보낸 주문 (건, 많을수록 좋음) — 도착 '+N+'건 중';
+  kLate.textContent=SCH.late+'건';
+  kLate.classList.toggle('bad',SCH.late>0);
+  lateSub.textContent='마감 못 넘긴 주문 (건, 0이 좋음) — 오후 4시 마감 전에 작업을 못 끝낸 주문';
+}
+function setPlaying(v){
+  playing=v;playB.disabled=v;pauseB.disabled=!v;
+  if(v){lastTs=null;requestAnimationFrame(loop);}
+}
+function loop(ts){
+  if(!playing)return;
+  if(lastTs==null)lastTs=ts;
+  const dt=Math.min(ts-lastTs,120);lastTs=ts;
+  t+=dt*MIN_PER_MS;
+  if(t>=DAY1){
+    t=DAY1;draw();setPlaying(false);
+    statusEl.textContent='하루가 끝났습니다 — 오늘 보낸 주문 '+SCH.shipped+'건, 마감 못 넘긴 주문 '+SCH.late+'건. 주문량을 바꾸거나 초기화해 다시 보세요.';
+    return;
+  }
+  draw();maybeStatus();
+  requestAnimationFrame(loop);
+}
+playB.addEventListener('click',()=>{if(t>=DAY1)t=DAY0;lastKey='';setPlaying(true);maybeStatus();});
+pauseB.addEventListener('click',()=>{setPlaying(false);statusEl.textContent='일시정지 — '+statusEl.textContent;});
+resetB.addEventListener('click',()=>{setPlaying(false);t=DAY0;lastKey='';draw();statusEl.textContent='초기화했습니다. 재생을 누르면 아침 8시부터 하루가 다시 흐릅니다.';});
+slider.addEventListener('input',()=>{
+  N=+slider.value;SCH=buildSchedule(N);
+  setPlaying(false);t=DAY0;lastKey='';
+  ordVal.textContent=N+'건';updStats();draw();
+  statusEl.textContent='하루 주문량 '+N+'건 → 오늘 보내는 주문 '+SCH.shipped+'건, 마감(오후 4시) 못 넘긴 주문 '+SCH.late+'건. 재생하면 흐름이 보입니다.';
+});
+let roPending=false;
+new ResizeObserver(()=>{if(roPending)return;roPending=true;requestAnimationFrame(()=>{roPending=false;draw();});}).observe(host);
+updStats();draw();
+statusEl.textContent='재생을 누르면 아침 8시부터 창고의 하루가 흐릅니다. 슬라이더(10~30건)를 바꾸면 그날의 결과 숫자가 바로 바뀝니다.';
+})();
+</script>
+
+<script>
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>
