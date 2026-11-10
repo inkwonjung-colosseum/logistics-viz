@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>계약 창고 물량 배정 — 물류 개념 시각화</title>
+<meta name="description" content="운영사가 입고 물량을 여러 계약 창고에 나눠 맡기는 배정 결정 — 최저 요율·최단 거리·용량 분산 정책을 창고 여유·하루 물량·요율 격차 손잡이로 바꿔 가며 비용·지연·도크 예약 준수율을 비교하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 14px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+details.pre{margin:0 0 16px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre ul{margin:8px 0 4px;padding-left:18px}
+details.pre li{margin:4px 0;line-height:1.55}
+details.pre b{color:var(--foreground);font-weight:600}
+details.pre a{color:var(--primary);text-decoration:none}
+details.pre a:hover{text-decoration:underline}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--viz-series-1) 8%,transparent)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0;line-height:1.55}
+#diaHost{margin:4px 0 0}
+#dia{display:block;width:100%;height:auto}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.txt{fill:var(--foreground)}
+svg text.num{font-variant-numeric:tabular-nums}
+svg text.a-own{fill:var(--viz-series-2)}
+svg text.a-wh{fill:var(--viz-series-3)}
+svg text.bad{fill:var(--bad)}
+svg .ocard{fill:color-mix(in srgb,var(--viz-series-2) 9%,transparent);stroke:none}
+svg .wcard{fill:color-mix(in srgb,var(--viz-series-3) 10%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 40%,transparent);stroke-width:1}
+svg .dotO{fill:var(--viz-series-2);stroke:none}
+svg .arrO{stroke:color-mix(in srgb,var(--viz-series-2) 60%,transparent);stroke-width:1.5;fill:none}
+svg .arrB{stroke:color-mix(in srgb,var(--bad) 75%,transparent);stroke-width:1.5;fill:none}
+svg .ahdO{fill:color-mix(in srgb,var(--viz-series-2) 60%,transparent);stroke:none}
+svg .ahdB{fill:color-mix(in srgb,var(--bad) 75%,transparent);stroke:none}
+svg .track{fill:color-mix(in srgb,var(--muted-foreground) 12%,transparent);stroke:none}
+svg .fillW{fill:color-mix(in srgb,var(--viz-series-3) 62%,transparent);stroke:none}
+svg .hatchL{stroke:var(--bad);stroke-width:1.5;fill:none}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.good{color:var(--viz-series-2)}
+.stat .cmp em{font-style:normal;font-weight:650;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">주문·이행</span>
+  <p class="q">이 물량을 어느 계약 창고에 맡길 것인가</p>
+  <h1>계약 창고 물량 배정</h1>
+  <p class="def">운영사는 들어오는 입고 물량을 <b>계약 창고</b>들에 나눠 맡긴다 — 싼 창고, 가까운 창고, 여유 있는 창고. 어디에 맡기느냐에 따라 비용과 처리 속도가 달라진다.</p>
+</header>
+
+<div class="terms">
+  <p><b>계약 창고(contract warehouse)</b> — 운영사가 미리 계약해 둔 창고로, 맡긴 화주의 물량을 받아 처리한다.</p>
+  <p><b>요율(rate)</b> — 보관·작업·운송 같은 단위별로 매기는 단가다. 이 페이지에서는 팔레트 하나를 처리하는 단가로 씁니다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <ul>
+    <li><b>운영사</b> — 화주를 대신해 물량을 어느 창고·어느 운송사에 맡길지 정하고, 맡긴 일이 잘 되는지 지켜보는 주체다. → <a href="logistics-players.html">물류의 등장인물</a></li>
+    <li><b>운영 구조(자사 운영)</b> — 자사 운영: 우리가 화주·창고와 계약을 맺고 물량을 배정·감시하는 운영 방식이다. → <a href="tenant-structure.html">운영 구조</a></li>
+    <li><b>도크 예약(어포인트먼트)</b> — 도크: 트럭이 창고에 붙어 물건을 내리고 실는 자리다. 어포인트먼트: 트럭이 도착할 시간을 미리 예약해 두는 제도다. → <a href="yms-dock-scheduling.html">도크 스케줄링</a></li>
+  </ul>
+</details>
+
+<p class="cause"><b>비유 — 배달 앱의 주문 배분</b> · 배달 앱이 주문을 가게에 나눠 주는 것과 같습니다 — 거리·조리 능력·수수료가 다른 가게들에 주문을 붙입니다. 맞지 않는 지점: 가게는 메뉴가 다르지만 창고는 같은 물건을 다룹니다.</p>
+
+<div class="panel">
+  <h2>정책과 조건을 바꿔가며 배정 결과를 비교해 보세요</h2>
+  <div class="controls">
+    <div class="ctl">배정 정책
+      <div class="seg" id="segPolicy" role="group" aria-label="배정 정책">
+        <button type="button" data-v="cheap" aria-pressed="true">최저 요율</button>
+        <button type="button" data-v="near" aria-pressed="false">최단 거리</button>
+        <button type="button" data-v="spread" aria-pressed="false">용량 분산</button>
+      </div>
+    </div>
+    <div class="ctl">창고 여유 용량
+      <div class="seg" id="segCap" role="group" aria-label="창고 여유 용량">
+        <button type="button" data-v="room" aria-pressed="true">넉넉</button>
+        <button type="button" data-v="tight" aria-pressed="false">한 창고 포화</button>
+      </div>
+    </div>
+    <div class="ctl">하루 물량
+      <div class="seg" id="segVol" role="group" aria-label="하루 물량">
+        <button type="button" data-v="std" aria-pressed="true">평일 60</button>
+        <button type="button" data-v="peak" aria-pressed="false">성수기 120</button>
+      </div>
+    </div>
+    <div class="ctl">요율 격차
+      <div class="seg" id="segGap" role="group" aria-label="요율 격차">
+        <button type="button" data-v="sim" aria-pressed="false">비슷</button>
+        <button type="button" data-v="gap" aria-pressed="true">큼</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <p class="patn">최저 요율 = 요율이 가장 낮은 창고에 몰아 맡김 · 최단 거리 = 입고 권역(물량이 들어오는 지역 구획)에서 가장 가까운 창고에 맡김 · 용량 분산 = 슬롯이 가장 여유로운 창고에 고르게 맡김</p>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="계약 창고 3곳 배정 시뮬레이션"></svg>
+  </div>
+  <p class="patn">초록 화살표 = 화주 물량의 배정 · 붉은 화살표·빗금 = 하루 도크 슬롯을 넘겨 다음 날로 밀린 물량 · 창고 카드의 막대 = 슬롯 사용</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="patn">승자 가림: 입고 지연이 0인 정책을 먼저 가리고, 그중 총 처리 비용이 가장 낮은 정책을 승자로 봅니다. 비용 = 팔레트 요율 + 입고 권역에서 창고까지 거리에 따라 붙는 운송 비용(100km당 팔레트 0.5만원), 지연분도 같은 요율로 계산합니다.</p>
+
+<p class="foot">전제: 계약 창고 3곳, 하루 입고 60~120팔레트, 요율·거리는 고정 시나리오, 창고별 하루 슬롯은 정해져 있습니다. 입고 6건은 먼저 신청한 순서대로 슬롯을 받고, 넘치는 분은 그 창고에서 다음 날로 밀립니다.</p>
+<p class="takeaway">여유가 넉넉하고 물량이 잠잠할 때는 싼 창고에 모아 맡기는 것이, 창고가 차고 물량이 몰릴 때는 여유에 맞춰 나누는 것이 낫다 — 배정 규칙은 창고 상황에 따라 바뀌어야 한다. 요율 격차가 작고 입고 권역이 멀면 싼 창고 몰아주기의 총비용이 오히려 커져 가까운 창고에 맡기는 것이 낫습니다. 그래서 실무에서는 정책 하나를 고정하지 않고 창고 여유와 물량을 보고 규칙을 바꿔 적용합니다.</p>
+<p class="sys"><b>OMS에서는</b> 창고별 요율·권역·가용 슬롯을 입력으로 받는 배정 규칙이 되고, 정책과 우선순위는 운영사마다 다르게 설정합니다.</p>
+<div class="next">
+  <p>선행: <a href="tenant-structure.html">운영 구조</a> — 자사 운영·자체 운영과 계약 창고가 어떻게 연결되는지</p>
+  <p>다음: <a href="order-routing.html">주문 라우팅</a> — 이번에는 나가는 주문을 어느 창고에서 내보낼지 정합니다</p>
+  <p>심화: <a href="yms-dock-scheduling.html">도크 스케줄링</a> — 배정된 물량의 도크 시간을 잡는 단계</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="warehouse-assignment">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const REG=['수도권','호남권','영남권'];
+  const WH=[
+    {n:'창고 A',loc:'수도권',d:[20,150,250]},
+    {n:'창고 B',loc:'호남권',d:[170,25,160]},
+    {n:'창고 C',loc:'영남권',d:[240,150,30]}
+  ];
+  const OWN=['화주 A','화주 B'];
+  const ORD=[{own:0,reg:0},{own:0,reg:1},{own:0,reg:2},{own:1,reg:0},{own:1,reg:2},{own:1,reg:1}];
+  const VOL={std:[10,10,10,10,10,10],peak:[30,20,10,30,15,15]};
+  const RATE={sim:[2.4,2.5,2.6],gap:[2.0,2.7,3.4]};
+  const CAP={room:[130,110,90],tight:[50,110,90]};
+  const CAPN={room:'여유 넉넉',tight:'한 창고 포화'};
+  const VOLN={std:'평일 60팔레트',peak:'성수기 120팔레트'};
+  const GAPN={sim:'비슷',gap:'큼'};
+  const POLN={cheap:'최저 요율',near:'최단 거리',spread:'용량 분산'};
+  const FRT=0.005; // 만원/팔레트/km
+  const S={pol:'cheap',cap:'room',vol:'std',gap:'gap'};
+
+  function plan(pol,volKey,gapKey,capKey){
+    const rate=RATE[gapKey], capV=CAP[capKey].slice(), vol=VOL[volKey];
+    const asg=[0,0,0];
+    const rows=ORD.map((o,i)=>{
+      let w;
+      if(pol==='cheap'){ w=rate.indexOf(Math.min(rate[0],rate[1],rate[2])); }
+      else if(pol==='near'){ w=WH[0].d[o.reg]<WH[1].d[o.reg]?(WH[0].d[o.reg]<WH[2].d[o.reg]?0:2):(WH[1].d[o.reg]<WH[2].d[o.reg]?1:2); }
+      else{
+        w=0;
+        for(let k=1;k<3;k++){
+          const r=asg[k]/capV[k], b=asg[w]/capV[w];
+          if(r<b-1e-9){w=k;continue;}
+          if(Math.abs(r-b)<=1e-9){
+            if(capV[k]-asg[k]>capV[w]-asg[w]+1e-9) w=k;
+            else if(Math.abs((capV[k]-asg[k])-(capV[w]-asg[w]))<=1e-9 && rate[k]<rate[w]) w=k;
+          }
+        }
+      }
+      const sent=Math.min(vol[i],capV[w]-asg[w]);
+      asg[w]+=sent;
+      return {w,sent,delay:vol[i]-sent,v:vol[i],own:o.own,reg:o.reg};
+    });
+    return rows;
+  }
+  function kpis(pol){
+    const rate=RATE[S.gap], capV=CAP[S.cap];
+    const rows=plan(pol,S.vol,S.gap,S.cap);
+    const perWH=[0,1,2].map(()=>({sent:0,delay:0}));
+    let cost=0,delay=0,total=0;
+    rows.forEach(r=>{
+      perWH[r.w].sent+=r.sent; perWH[r.w].delay+=r.delay;
+      cost+=(r.sent+r.delay)*(rate[r.w]+FRT*WH[r.w].d[r.reg]);
+      delay+=r.delay; total+=r.v;
+    });
+    return {pol,cost:Math.round(cost*10)/10,delay,comp:Math.round((total-delay)/total*100),rows,perWH};
+  }
+  function pickWinner(all){
+    const z=all.filter(k=>k.delay===0);
+    const pool=z.length?z.slice():all.slice();
+    pool.sort((a,b)=>a.delay-b.delay||a.cost-b.cost);
+    return pool[0];
+  }
+  function fmt(v){return Number.isInteger(v)?String(v):v.toFixed(1);}
+
+  const NS='http://www.w3.org/2000/svg';
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  let all=[],cur=null,win=null;
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function text(x,y,s,cls,anchor){const t=el('text',{x,y,class:cls});if(anchor)t.setAttribute('text-anchor',anchor);t.textContent=s;return t;}
+  function head(x,y,cls){const s=7;el('path',{d:'M'+x+','+y+' L'+(x-5.92)+','+(y-3.95)+' L'+(x-5.92)+','+(y+3.95)+' Z',class:cls});}
+
+  function drawCard(x,y,wd,w){
+    const rate=RATE[S.gap][w],capV=CAP[S.cap][w],p=cur.perWH[w];
+    el('rect',{x,y,width:wd,height:98,rx:10,class:'wcard'});
+    text(x+12,y+20,WH[w].n+' · '+WH[w].loc+' 소재','t12 w6 a-wh');
+    text(x+12,y+36,'요율 '+rate.toFixed(1)+'만원/팔레트 · 슬롯 '+capV,'t11 mut');
+    text(x+12,y+51,'거리 수도권 '+WH[w].d[0]+' · 호남권 '+WH[w].d[1]+' · 영남권 '+WH[w].d[2]+'km','t11 mut');
+    const bx=x+12,by=y+58,bh=10,bw=wd-24;
+    el('rect',{x:bx,y:by,width:bw,height:bh,rx:3,class:'track'});
+    const tot=p.sent+p.delay;
+    const fw=Math.min(1,p.sent/capV)*bw;
+    if(fw>0.5)el('rect',{x:bx,y:by,width:fw,height:bh,rx:3,class:'fillW'});
+    if(p.delay>0&&p.sent>0){
+      const hw=fw*p.delay/tot;
+      for(let hx=bx+fw-hw;hx<bx+fw-2;hx+=6){
+        el('line',{x1:hx,y1:by+bh,x2:Math.min(bx+fw,hx+bh),y2:by,class:'hatchL'});
+      }
+    }
+    text(bx,y+84,'배정 '+tot+'팔레트','t12 num txt');
+    text(bx+110,y+84,'지연 '+p.delay+(p.delay>0?' (다음 날)':''),'t12 num '+(p.delay>0?'bad':'mut'));
+  }
+
+  function drawWide(W){
+    const PAD=10;
+    const ow=Math.max(240,Math.min(330,W*0.40));
+    const ww=Math.max(280,Math.min(380,W*0.42));
+    const ox=PAD,wx=W-PAD-ww;
+    text(ox,16,'대기 물량 — 화주 2곳의 입고 6건','t11 mut');
+    text(wx,16,'계약 창고 3곳','t11 mut');
+    const wy0=30,cardY=w=>wy0+w*110;
+    const cnt=[0,0,0];
+    let y=30;
+    for(let g=0;g<2;g++){
+      text(ox+2,y+12,OWN[g],'t11 w6 a-own'); y+=20;
+      cur.rows.forEach((r,i)=>{
+        if(ORD[i].own!==g)return;
+        const cy=y+15;
+        el('rect',{x:ox,y,width:ow,height:30,rx:8,class:'ocard'});
+        el('circle',{cx:ox+14,cy,r:4,class:'dotO'});
+        text(ox+26,y+19,OWN[g],'t11 a-own');
+        text(ox+82,y+19,REG[r.reg],'t12 txt');
+        if(r.delay>0)text(ox+ow-8,y+19,r.v+'팔레트 중 '+r.delay+'지연','t12 bad num','end');
+        else text(ox+ow-8,y+19,r.v+'팔레트','t12 num txt','end');
+        const x1=ox+ow+5,x2=wx-6;
+        const ay=Math.min(cardY(r.w)+24+cnt[r.w]*12,cardY(r.w)+80); cnt[r.w]++;
+        el('line',{x1,y1:cy,x2,y2:ay,class:r.delay>0?'arrB':'arrO'});
+        head(x2,ay,r.delay>0?'ahdB':'ahdO');
+        text((x1+x2)/2,Math.min(cy,ay)-4,String(r.v),'t11 num mut','middle');
+        y+=35;
+      });
+      y+=4;
+    }
+    const ob=y;
+    for(let w=0;w<3;w++)drawCard(wx,cardY(w),ww,w);
+    return Math.max(ob,wy0+2*110+98)+8;
+  }
+
+  function drawNarrow(W){
+    const PAD=10,x=PAD,cw=W-2*PAD;
+    let y=PAD;
+    text(x,y+12,'대기 물량 — 화주 2곳의 입고 6건 (창고 이름으로 배정 표시)','t11 mut'); y+=26;
+    for(let g=0;g<2;g++){
+      text(x+2,y+12,OWN[g],'t11 w6 a-own'); y+=20;
+      cur.rows.forEach((r,i)=>{
+        if(ORD[i].own!==g)return;
+        el('rect',{x,y,width:cw,height:30,rx:8,class:'ocard'});
+        el('circle',{cx:x+14,cy:y+15,r:4,class:'dotO'});
+        text(x+26,y+19,OWN[g]+' · '+REG[r.reg]+' · '+r.v+'팔레트','t12 txt');
+        if(r.delay>0)text(x+cw-8,y+19,WH[r.w].n+'·'+r.delay+'지연','t12 w6 bad num','end');
+        else text(x+cw-8,y+19,WH[r.w].n,'t11 w6 a-wh','end');
+        y+=35;
+      });
+      y+=4;
+    }
+    y+=8;
+    for(let w=0;w<3;w++){drawCard(x,y,cw,w);y+=110;}
+    return y+2;
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const H=W>=620?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('aria-label','계약 창고 3곳 배정 시뮬레이션 — 정책 '+POLN[S.pol]+', '+CAPN[S.cap]+' · '+VOLN[S.vol]+' · 요율 격차 '+GAPN[S.gap]+'. '+WH.map((wh,i)=>wh.n+' 배정 '+(cur.perWH[i].sent+cur.perWH[i].delay)+'팔레트 중 지연 '+cur.perWH[i].delay).join(', ')+' — 총 비용 '+fmt(cur.cost)+'만원, 입고 지연 '+cur.delay+'팔레트, 도크 예약 준수율 '+cur.comp+'%');
+  }
+
+  function renderStats(){
+    const best=(key,dir)=>all.reduce((a,b)=>dir==='min'?(b[key]<a[key]?b:a):(b[key]>a[key]?b:a));
+    const bc=best('cost','min'),bd=best('delay','min'),bp=best('comp','max');
+    const line=(bestK,val,curVal,goodTxt,unit)=>{
+      const isBest=curVal===bestK[val];
+      return isBest
+        ?'<span class="cmp good">'+goodTxt+'</span>'
+        :'<span class="cmp">가장 좋은 정책: <em>'+POLN[bestK.pol]+'</em> · '+fmt(bestK[val])+unit+'</span>';
+    };
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+fmt(cur.cost)+' 만원</b><span>총 처리 비용 — 낮을수록 좋음</span>'+line(bc,'cost',cur.cost,'3개 정책 중 가장 낮음','만원')+'</div>'+
+      '<div class="stat"><b>'+cur.delay+' 개</b><span>입고 지연 팔레트 — 0이 좋음</span>'+line(bd,'delay',cur.delay,'3개 정책 중 지연 가장 적음','팔레트')+'</div>'+
+      '<div class="stat"><b>'+cur.comp+' %</b><span>도크 예약 준수율 — 높을수록 좋음</span>'+line(bp,'comp',cur.comp,'3개 정책 중 가장 높음','%')+'</div>';
+  }
+
+  function render(){
+    all=['cheap','near','spread'].map(p=>kpis(p));
+    cur=all.find(a=>a.pol===S.pol);
+    win=pickWinner(all);
+    renderStats();draw();
+    status.textContent=POLN[S.pol]+' 적용 · '+CAPN[S.cap]+' · '+VOLN[S.vol]+' · 요율 격차 '+GAPN[S.gap]+' — 승자: '+POLN[win.pol]+' (지연 '+win.delay+'팔레트 · '+fmt(win.cost)+'만원)';
+  }
+
+  function syncSegs(){
+    [['segPolicy','pol'],['segCap','cap'],['segVol','vol'],['segGap','gap']].forEach(p=>{
+      document.querySelectorAll('#'+p[0]+' button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===S[p[1]])));
+    });
+  }
+  function seg(id,key){
+    $(id).addEventListener('click',e=>{
+      const b=e.target.closest('button');if(!b||b.dataset.v===S[key])return;
+      S[key]=b.dataset.v;syncSegs();render();
+    });
+  }
+  seg('segPolicy','pol');seg('segCap','cap');seg('segVol','vol');seg('segGap','gap');
+  new ResizeObserver(()=>draw()).observe(host);
+  syncSegs();render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

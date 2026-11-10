@@ -18,7 +18,7 @@
 |------|------|-----------|------|
 | 1 | **첫걸음 트랙** | 물류가 무엇이고, 누가 등장하고, 창고·재고·주문·시스템이 무엇인지 | 완료 6편 |
 | 2 | **실행 층** (핵심 5개념 · 입고 · 챌린지) | 창고 안과 운송 구간에서 물건을 어떻게 다루나. 주로 WMS가 맡는다 | 완료 16편 · 보강 예정 6편 |
-| 3 | **4PL 트랙** (조율 층) | 화주·운영사·창고·운송사 사이에서 무엇이 오가고, 누가 결정하고, 어떻게 감시하나. 주로 OMS가 맡는다 | 예정 20편 |
+| 3 | **4PL 트랙** (조율 층) | 화주·운영사·창고·운송사 사이에서 무엇이 오가고, 누가 결정하고, 어떻게 감시하나. 주로 OMS가 맡는다 | 진행 6/20편 |
 
 실행 층과 조율 층은 모두 직접 만드는 대상이다. 첫걸음 트랙은 두 층의 페이지에 나오는 말을 미리 소개하는 바닥이다.
 
@@ -33,7 +33,7 @@
 | **선행** | 먼저 배워야 하는 개념의 slug. 제작 순서도 이 관계를 지킨다 |
 | **질문** | 그 페이지가 답하는 질문. 페이지 첫머리에 그대로 쓰므로, 물류를 모르는 사람도 읽을 수 있는 말로 적는다 |
 
-현황: 완료 22편 (첫걸음 트랙 6편 포함) · 4PL 트랙 예정 20편 · 실행 층 보강 예정 6편 · 4PL 박스 예정 5건
+현황: 완료 28편 (4PL 1단계 6편 포함) · 4PL 트랙 예정 14편 · 실행 층 보강 예정 6편 · 4PL 박스 예정 4건
 
 ## 첫걸음 트랙
 
@@ -57,9 +57,9 @@
 
 | slug | 개념 | 질문 | 형식 | 카테고리 | 선행 | 순서 | 상태 |
 |------|------|------|------|----------|------|------|------|
-| `lsp-roles` | 3PL · 4PL · 포워더의 역할 | 창고도 차도 없이 조율만 하는 회사는 무엇을 책임지고 무엇으로 돈을 버는가 | 릴레이형 | 전략 | `logistics-players` | 1-1 | ⬜ |
-| `tenant-structure` | 운영 구조 (자사 운영 · 자체 운영 · 화주 · 계약 창고) | 누가 누구와 계약하고, 어느 화주·창고·재고가 누구에게 보여야 하는가 | 입력형 | 시스템 | `lsp-roles` | 1-2 | ⬜ |
-| `order-handoff` | OMS → WMS → TMS 연계 | 주문 한 건은 주문 시스템에서 창고와 운송으로 어떻게 전달되는가 | 릴레이형 | 주문·이행 | `order-status`, `system-landscape` | 1-3 | ⬜ |
+| `lsp-roles` | 3PL · 4PL · 포워더의 역할 | 창고도 차도 없이 조율만 하는 회사는 무엇을 책임지고 무엇으로 돈을 버는가 | 릴레이형 | 전략 | `logistics-players` | 1-1 | ✅ |
+| `tenant-structure` | 운영 구조 (자사 운영 · 자체 운영 · 화주 · 계약 창고) | 누가 누구와 계약하고, 어느 화주·창고·재고가 누구에게 보여야 하는가 | 입력형 | 시스템 | `lsp-roles` | 1-2 | ✅ |
+| `order-handoff` | OMS → WMS → TMS 연계 | 주문 한 건은 주문 시스템에서 창고와 운송으로 어떻게 전달되는가 | 릴레이형 | 주문·이행 | `order-status`, `system-landscape` | 1-3 | ✅ |
 
 ### 2단계 · 연결 — 서로 다른 기록을 한 언어로
 
@@ -74,8 +74,8 @@
 
 | slug | 개념 | 질문 | 형식 | 카테고리 | 선행 | 순서 | 상태 |
 |------|------|------|------|----------|------|------|------|
-| `warehouse-assignment` | 계약 창고 물량 배정 | 이 물량을 어느 계약 창고에 맡길 것인가 | 배정형 | 주문·이행 | `tenant-structure` | 1-4 | ⬜ |
-| `order-routing` | 주문 라우팅 (출고 창고 결정 · 분할 출고 · Backorder) | 이 주문을 어느 창고에서 내보낼 것인가 | 배정형 | 주문·이행 | `order-handoff`, `warehouse-assignment` | 1-5 | ⬜ |
+| `warehouse-assignment` | 계약 창고 물량 배정 | 이 물량을 어느 계약 창고에 맡길 것인가 | 배정형 | 주문·이행 | `tenant-structure` | 1-4 | ✅ |
+| `order-routing` | 주문 라우팅 (출고 창고 결정 · 분할 출고 · Backorder) | 이 주문을 어느 창고에서 내보낼 것인가 | 배정형 | 주문·이행 | `order-handoff`, `warehouse-assignment` | 1-5 | ✅ |
 | `allocation-atp` | 할당과 ATP | 팔 수 있다고 약속할 수 있는 재고는 얼마인가 | 배정형 | 주문·이행 | `inventory-basics`, `order-routing` | 2-4 | ⬜ |
 | `multi-dc-inventory` | 다중 창고 재고 배치 | 재고를 어느 창고에 얼마나 나눠 둘 것인가 | 배정형 | 재고 | `allocation-atp` | 2-5 | ⬜ |
 | `carrier-selection` | 운송사 선정 · 운임 비교 | 이 출고를 어느 운송사에 실을 것인가 | 배정형 | 수송·네트워크 | `order-routing` | 3-2 | ⬜ |
@@ -84,7 +84,7 @@
 
 | slug | 개념 | 질문 | 형식 | 카테고리 | 선행 | 순서 | 상태 |
 |------|------|------|------|----------|------|------|------|
-| `control-tower` | 컨트롤 타워 (통합 가시성 · 예외 알림) | 수많은 건 중 지금 사람이 봐야 할 것은 무엇인가 | 릴레이형 | 시스템 | `order-handoff` | 1-6 | ⬜ |
+| `control-tower` | 컨트롤 타워 (통합 가시성 · 예외 알림) | 수많은 건 중 지금 사람이 봐야 할 것은 무엇인가 | 릴레이형 | 시스템 | `order-handoff` | 1-6 | ✅ |
 | `logistics-kpi` | 물류 KPI (OTIF · 완전주문 · Dock-to-stock) | 잘하고 있는지를 어떤 숫자로 말할 것인가 | 측정형 | 전략 | `control-tower` | 2-7 | ⬜ |
 | `sla-scorecard` | SLA · 창고별 스코어카드 | 창고와 운송사의 성과를 어떻게 비교하고 책임을 물을 것인가 | 측정형 | 전략 | `logistics-kpi` | 2-8 | ⬜ |
 | `inventory-reconciliation` | 재고 대사 (OMS 재고 vs WMS 재고) | 시스템의 재고와 창고의 실물이 다르면 어느 쪽이 맞는가 | 측정형 | 재고 | `multi-dc-inventory` | 3-3 | ⬜ |
@@ -116,15 +116,15 @@
 | `hub-and-spoke` | 허브 앤 스포크 vs Point-to-Point | 핵심 | ✅ | ⬜ → `network-design` | ⬜ 3차 |
 | `inbound-lifecycle` | 입고 생애주기 · 문서 흐름 | 입고 | ✅ | ⬜ → `status-normalization` | ⬜ 2차 |
 | `asn` | ASN (사전 출하 통지) | 입고 | ✅ | ⬜ → `external-integration` | ⬜ 2차 |
-| `asn-form` | OMS 입고 신청서 (ASN 입력 항목) | 입고 | ✅ | ⬜ → `order-handoff` | ⬜ 1차 |
-| `yms-dock-scheduling` | YMS · 도크 스케줄링 | 입고 | ✅ | — | ⬜ 1차 |
-| `blind-receiving` | 블라인드 입고 vs ASN 스캔 검수 | 입고 | ✅ | — | ⬜ 1차 |
-| `qc-stock-status` | 입고 검품(QC) · 재고 상태 전환 | 입고 | ✅ | — | ⬜ 1차 |
+| `asn-form` | OMS 입고 신청서 (ASN 입력 항목) | 입고 | ✅ | ✅ `order-handoff` | ✅ |
+| `yms-dock-scheduling` | YMS · 도크 스케줄링 | 입고 | ✅ | — | ✅ |
+| `blind-receiving` | 블라인드 입고 vs ASN 스캔 검수 | 입고 | ✅ | — | ✅ |
+| `qc-stock-status` | 입고 검품(QC) · 재고 상태 전환 | 입고 | ✅ | — | ✅ |
 | `osd-exceptions` | 입고 예외 처리 (OS&D) | 입고 | ✅ | ⬜ → `sla-scorecard` | ⬜ 2차 |
-| `receiving-exception-map` | 입하·검수·적치 예외 지도 | 입고 | ✅ | — | ⬜ 1차 |
-| `putaway-strategies` | Put-away 전략 (적치) | 입고 | ✅ | — | ⬜ 1차 |
-| `import-inbound` | 수입 입고 체인 | 입고 | ✅ | — | ⬜ 1차 |
-| `slotting-game` | 슬로팅 챌린지 (미니게임) | 챌린지 | ✅ | — | ⬜ 1차 |
+| `receiving-exception-map` | 입하·검수·적치 예외 지도 | 입고 | ✅ | — | ✅ |
+| `putaway-strategies` | Put-away 전략 (적치) | 입고 | ✅ | — | ✅ |
+| `import-inbound` | 수입 입고 체인 | 입고 | ✅ | — | ✅ |
+| `slotting-game` | 슬로팅 챌린지 (미니게임) | 챌린지 | ✅ | — | ✅ |
 
 입고 심화 후보(Dock-to-stock 분해, 입고 유형 카탈로그 등)는 `inbound-concepts.md`에서 따로 관리한다.
 

@@ -1615,7 +1615,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;div class=&quot;nav nav-pills&quot; role=&quot;tablist&quot; aria-label=&quot;검사 방식&quot;&gt;
     &lt;button class=&quot;nav-link active&quot; id=&quot;qc-tab-full&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-controls=&quot;qc-panel&quot; aria-selected=&quot;true&quot;&gt;전수검사&lt;/button&gt;
-    &lt;button class=&quot;nav-link&quot; id=&quot;qc-tab-sample&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-controls=&quot;qc-panel&quot; aria-selected=&quot;false&quot;&gt;샘플링 (AQL)&lt;/button&gt;
+    &lt;button class=&quot;nav-link&quot; id=&quot;qc-tab-sample&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-controls=&quot;qc-panel&quot; aria-selected=&quot;false&quot;&gt;샘플링(AQL — 뽑아서 검사하는 기준)&lt;/button&gt;
   &lt;/div&gt;
 
   &lt;div id=&quot;qc-panel&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;qc-tab-full&quot;&gt;
@@ -1661,7 +1661,7 @@ html&gt;body{padding:0}&lt;/style&gt;
       ]
     },
     sample: {
-      aria: &#x27;샘플링 검사 시뮬레이션: 10개 중 3개 표본만 검사합니다. 표본이 합격하면 로트 전체가 가용 재고로 전환되지만, 표본에 없던 7번 불량이 함께 통과됩니다.&#x27;,
+      aria: &#x27;샘플링 검사 시뮬레이션: 10개 중 3개 표본만 검사합니다. 표본이 합격하면 로트(같이 들어온 묶음) 전체가 가용 재고로 전환되지만, 표본에 없던 7번 불량이 함께 통과됩니다.&#x27;,
       stats: [
         { label: &#x27;검사 수량&#x27;, value: &#x27;3개 (30%)&#x27;, note: &#x27;AQL 기준 표본&#x27; },
         { label: &#x27;가용 전환&#x27;, value: &#x27;빠름&#x27;, note: &#x27;표본 합격 시 로트 전체&#x27; },
@@ -1807,7 +1807,7 @@ html&gt;body{padding:0}&lt;/style&gt;
     let html;
     if (t &gt;= S.total) {
       html = mode === &#x27;full&#x27;
-        ? &#x27;&lt;span class=&quot;viz-badge&quot;&gt;완료&lt;/span&gt; &lt;span class=&quot;text-muted&quot;&gt;— 10개 전수 검사로 불량 1건을 보류 처리. 가용 전환까지 10.8초.&lt;/span&gt;&#x27;
+        ? &#x27;&lt;span class=&quot;viz-badge&quot;&gt;완료&lt;/span&gt; &lt;span class=&quot;text-muted&quot;&gt;— 10개 전수 검사로 불량 1건을 보류 처리. 가용 전환(바로 팔거나 보낼 수 있는 재고가 되는 것)까지 10.8초.&lt;/span&gt;&#x27;
         : &#x27;&lt;span class=&quot;viz-badge&quot;&gt;완료&lt;/span&gt; &lt;span class=&quot;text-muted&quot;&gt;— 3개 샘플로 로트 전체 가용 전환(4.6초). 단, 표본 밖 불량 통과 리스크 존재.&lt;/span&gt;&#x27;;
     } else if (t &lt; S.Rstart) {
       const cur = S.insp.find(e =&gt; t &gt;= e.t0 &amp;&amp; t &lt; e.t1);

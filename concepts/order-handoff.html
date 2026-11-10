@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMS → WMS → TMS 연계 — 물류 개념 시각화</title>
+<meta name="description" content="주문 한 건이 OMS의 출고 지시로 창고(WMS)에 내려가고, 완료 보고와 운송 의뢰를 거쳐 TMS·배송까지 이어지는 10단계 문서 릴레이를 단계별로 따라 가며, 연동 방식(자동·수기)과 재고 부족 반려 예외, 화주·운영사·창고 관점에 따라 보이는 범위가 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#viewCap{margin:0 0 12px}
+/* 주체·시스템 칩 (레인 범례) */
+.lanes{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.c-oms{color:var(--viz-series-1)}.c-wms,.c-wrk{color:var(--viz-series-3)}.c-tms,.c-drv{color:var(--viz-series-4)}
+.lanes .chip{opacity:.35;transition:opacity .15s ease-out}
+.lanes .chip.on{opacity:1}
+#dia{display:block;width:100%;height:auto}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 12px}
+/* 릴레이 단계 목록 */
+.relay{list-style:none;margin:0;padding:0}
+.rs{display:grid;grid-template-columns:22px minmax(0,1fr);gap:0 10px;padding:8px 10px;margin:0 0 6px;border-radius:10px;border:1px solid var(--border);transition:opacity .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+.rs .n{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;line-height:1.9}
+.rs .hd{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.rs .t{grid-column:2;font-size:13.5px;line-height:1.5;margin-top:3px}
+.rs .tag{font-size:11.5px;line-height:1.6;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--muted-foreground) 12%,transparent);color:var(--muted-foreground)}
+.rs.fut{opacity:.35}
+.rs.cur{border-color:var(--foreground);border-width:2px;background:var(--soft);padding:7px 9px;margin-bottom:5px}
+.rs.dimv{opacity:.25}
+/* 숫자 카드 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+/* SVG 안의 텍스트·도형 */
+#dia text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.halo{stroke:var(--card);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+svg text.c-oms{fill:var(--viz-series-1)}
+svg text.c-wms,svg text.c-wrk{fill:var(--viz-series-3)}
+svg text.c-tms,svg text.c-drv{fill:var(--viz-series-4)}
+svg .hdbox{stroke-width:1}
+svg .h-oms{fill:color-mix(in srgb,var(--viz-series-1) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-1) 42%,transparent)}
+svg .h-wms,svg .h-wrk{fill:color-mix(in srgb,var(--viz-series-3) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 42%,transparent)}
+svg .h-tms,svg .h-drv{fill:color-mix(in srgb,var(--viz-series-4) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-4) 42%,transparent)}
+svg .ll{stroke:var(--border);stroke-dasharray:3 4;stroke-width:1}
+svg .ar{fill:none;stroke-width:1.5}
+svg .ar.d-done{stroke:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg .ar.d-on{stroke:var(--foreground);stroke-width:2}
+svg .ar.d-fut{stroke:var(--border);stroke-dasharray:4 3}
+svg path.hd{stroke:none}
+svg path.hd.d-done{fill:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg path.hd.d-on{fill:var(--foreground)}
+svg path.hd.d-fut{fill:var(--border)}
+svg .dot{fill:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg .dot.on{fill:var(--foreground)}
+svg circle.c-oms{fill:var(--viz-series-1)}
+svg circle.c-wms,svg circle.c-wrk{fill:var(--viz-series-3)}
+svg circle.c-tms,svg circle.c-drv{fill:var(--viz-series-4)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">주문·이행</span>
+  <p class="q">주문 한 건은 주문 시스템에서 창고와 운송으로 어떻게 전달되는가</p>
+  <h1>OMS → WMS → TMS 연계</h1>
+  <p class="def">주문은 시스템 세 곳을 차례로 통과한다 — 주문을 총괄하는 <b>OMS</b>, 창고 작업을 지시하는 <b>WMS</b>, 운송을 맡는 <b>TMS</b>. 각 연결은 문서로 이뤄지고, 문서가 끊기면 다음 단계가 멈춘다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>OMS · WMS · TMS</b> — 각각 주문 관리 시스템(OMS)·창고 관리 시스템(WMS)·운송 관리 시스템(TMS)으로, 주문·창고 작업·운송을 맡는 프로그램이다. → <a href="system-landscape.html">물류 시스템 지도</a></p>
+  <p><b>주문 상태</b> — 주문이 접수된 뒤 배송이 끝날 때까지 어디까지 진행됐는지 나타내는 표시다. → <a href="order-status.html">주문 한 건의 여정</a></p>
+  <p><b>운영사</b> — 화주를 대신해 물량을 어느 창고·어느 운송사에 맡길지 정하고, 맡긴 일이 잘 되는지 지켜보는 주체다. → <a href="logistics-players.html">물류의 등장인물</a></p>
+</details>
+
+<div class="terms">
+  <p><b>출고 지시</b> — 주문 시스템이 창고에 "이 주문을 내보내라"고 보내는 지시다.</p>
+  <p><b>완료 보고</b> — 일을 실행한 쪽이 끝났다고 시스템에 알리는 기록이다.</p>
+</div>
+
+<p class="cause"><b>비유 — 레스토랑</b> · 홀 직원이 주문서를 주방에 넘기고(OMS→WMS), 요리가 완성되면 배달대행에 넘긴다(WMS/TMS). 주문서가 한 곳에 걸리면 다음 방은 모두 기다립니다. 다만 맞지 않는 지점이 하나 있다 — 음식은 주문이 들어와 그때 만들지만, 물류는 미리 갖춰 둔 재고에서 고릅니다.</p>
+
+<div class="panel">
+  <h2>주문 한 건의 10단계 문서 릴레이</h2>
+  <div class="lanes" id="lanes"></div>
+  <p class="cause" id="viewCap"></p>
+  <div class="controls">
+    <div class="ctl">연동 방식
+      <div class="seg" id="segMode" role="group" aria-label="연동 방식">
+        <button type="button" data-v="auto" aria-pressed="true">시스템 자동</button>
+        <button type="button" data-v="man" aria-pressed="false">사람이 전달</button>
+      </div>
+    </div>
+    <div class="ctl">예외 시나리오
+      <div class="seg" id="segExc" role="group" aria-label="예외 시나리오">
+        <button type="button" data-v="off" aria-pressed="true">없음</button>
+        <button type="button" data-v="on" aria-pressed="false">재고 부족 반려</button>
+      </div>
+    </div>
+    <div class="ctl">관점
+      <div class="seg" id="segView" role="group" aria-label="보는 관점">
+        <button type="button" data-v="own" aria-pressed="false">화주</button>
+        <button type="button" data-v="ctr" aria-pressed="true">운영사</button>
+        <button type="button" data-v="wh" aria-pressed="false">창고</button>
+      </div>
+    </div>
+    <div class="ctl">단계
+      <button type="button" class="ghostb" id="prev">◀ 이전</button>
+      <button type="button" class="ghostb" id="next">다음 ▶</button>
+    </div>
+    <span class="cnt" id="cnt">1 / 10</span>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="OMS·WMS·TMS 세 시스템과 창고 작업·운송 기사 레인의 주문 1건 10단계 문서 릴레이"></svg>
+  </div>
+  <p class="patn">화살표 라벨 = 시스템 사이에 넘기는 문서입니다(출고 지시 · 작업 지시 · 완료 보고 · 운송 의뢰 · 반려 · 재지시). OMS는 운영사색, WMS·창고 작업은 창고색, TMS·운송 기사는 운송사색 — 시스템이 주체의 색을 물려받습니다. 흐려진 단계는 지금 고른 관점의 화면에 없는 구간이고, 재지시는 다른 창고로 향하지만 그림에서는 WMS 레인 하나로 표시했습니다.</p>
+  <ol class="relay" id="relay"></ol>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 주문 1건, 시스템 3종, 지연 수치는 일반적인 값을 단순화했다.</p>
+<p class="takeaway">문서가 자동으로 이어질 때는 순서대로 흘러가지만 한 연결이 끊기면 다음 단계가 모두 기다리고 어떤 주체는 모른 채 있게 된다 — 그래서 실패한 전달은 자동으로 다시 보내고, 사람에게는 지금 봐야 할 것만 알린다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 출고 지시·운송 의뢰를 내보내고 WMS·TMS의 완료 보고를 받아 주문 상태를 갱신한다. 재전송 횟수와 반려 시 대체 창고 규칙은 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="system-landscape.html">물류 시스템 지도 — OMS·WMS·TMS</a></p>
+  <p>다음: <a href="warehouse-assignment.html">계약 창고 물량 배정</a> — 출고 지시를 어느 창고에 보낼지 정하는 바로 앞 단계</p>
+  <p>같은 묶음: <a href="control-tower.html">컨트롤 타워</a> — 여러 주문 가운데 연결이 끊긴 건을 한곳에 모아 보는 것</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="order-handoff">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const LANES={
+    oms:{n:'OMS',sub:'주문을 총괄',cls:'c-oms'},
+    wms:{n:'WMS',sub:'창고 작업을 지시',cls:'c-wms'},
+    wrk:{n:'창고 작업',sub:'피킹·포장·출고',cls:'c-wrk'},
+    tms:{n:'TMS',sub:'운송을 맡다',cls:'c-tms'},
+    drv:{n:'운송 기사',sub:'배송을 실행',cls:'c-drv'}
+  };
+  const ORDER=['oms','wms','wrk','tms','drv'];
+  // delay: [자동, 수기] 정보 지연(분) · man: 수작업(건) · mism: 상태 불일치(건) — 단계별 합산
+  const BASE=[
+    {a:'oms',t:'주문 확정',d:'고객의 주문이 OMS에 쌓이고 확정된다',delay:[0.5,5],man:[0,0],mism:[0,0]},
+    {a:'oms',t:'출고 지시',d:'OMS가 창고에 이 주문을 내보내라고 지시를 보낸다',hand:{f:'oms',to:'wms',lb:'출고 지시'},delay:[0.5,30],man:[0,1],mism:[0,0]},
+    {a:'wms',t:'접수',d:'지시를 받아 접수하고 재고를 다시 확인한다',delay:[0.5,15],man:[0,1],mism:[0,0]},
+    {a:'wms',t:'작업 지시',d:'무엇을 골라 어디서 실을지 작업으로 내려 보낸다',hand:{f:'wms',to:'wrk',lb:'작업 지시'},delay:[0.5,10],man:[0,0],mism:[0,0]},
+    {a:'wrk',t:'피킹·포장·출고',d:'물건을 골라 싸서 창고에서 내보낸다',hand:{f:'wrk',to:'wms',lb:'작업 완료'},delay:[0.5,10],man:[0,0],mism:[0,0]},
+    {a:'wms',t:'출고 완료 보고',d:'출고가 끝났다고 OMS에 알린다',hand:{f:'wms',to:'oms',lb:'완료 보고'},delay:[0.5,30],man:[0,1],mism:[0,1]},
+    {a:'oms',t:'상태 갱신',d:"주문 상태를 '출고'로 바꾼다",delay:[0.5,5],man:[0,0],mism:[0,0]},
+    {a:'oms',t:'운송 의뢰',d:"'이 화물을 옮겨 달라'는 요청을 TMS에 보낸다",hand:{f:'oms',to:'tms',lb:'운송 의뢰'},delay:[0.5,30],man:[0,1],mism:[0,0]},
+    {a:'tms',t:'배정·추적',d:'운송사·차량을 정해 기사에게 넘기고 상황을 추적한다',hand:{f:'tms',to:'drv',lb:'배차'},delay:[0.5,20],man:[0,1],mism:[0,0]},
+    {a:'drv',t:'배송 완료 보고',d:'배송이 끝나 완료 보고가 OMS에 닿고 주문이 종료된다',hand:{f:'drv',to:'oms',lb:'완료 보고'},delay:[0.5,25],man:[0,1],mism:[0,1]}
+  ];
+  const EXCS=[
+    {a:'wms',t:'반려',d:'재고가 부족해 창고가 출고 지시를 되돌려 보낸다',hand:{f:'wms',to:'oms',lb:'반려'},delay:[0.5,30],man:[0,1],mism:[0,1]},
+    {a:'oms',t:'재지시',d:'재고가 있는 다른 창고로 출고 지시를 다시 보낸다',hand:{f:'oms',to:'wms',lb:'재지시'},delay:[0.5,25],man:[0,1],mism:[0,0]}
+  ];
+  const VIEW={
+    ctr:{lanes:['oms','wms','wrk','tms','drv'],
+      cap:e=>e?'<b>운영사 관점</b> — 세 시스템이 모두 보인다. 출고 지시가 첫 창고에서 재고 부족으로 반려됐는지, 다른 창고로 재지시했는지, 배송이 얼마나 늦어지는지까지 한 화면에서 확인한다.':'<b>운영사 관점</b> — 세 시스템이 모두 보인다. 어느 단계에서 문서가 멈췄는지도, 어느 창고로 다시 보낼지도 이 화면에서 정한다.',
+      st:e=>e?'운영사 관점 — 전 구간이 보입니다. 반려 구간과 대체 창고 재지시까지 확인할 수 있습니다.':'운영사 관점 — 세 시스템 전체가 보입니다.'},
+    own:{lanes:['oms'],
+      cap:e=>e?'<b>화주 관점</b> — 주문 상태 하나만 보인다. 화면에는 "배송이 늦다"는 표시만 있을 뿐, 어느 창고에서 왜 막혔는지는 닿지 않는다.':'<b>화주 관점</b> — 평소에는 주문 상태의 변화만 흘러온다. 각 단계에서 어떤 문서가 오가는지는 보이지 않는다.',
+      st:e=>e?'화주 관점 — 이 사건은 "배송이 늦다"는 상태 표시로만 보입니다. 원인 구간은 화면에 없습니다.':'화주 관점 — 평소에는 주문 상태의 변화만 보입니다.'},
+    wh:{lanes:['wms','wrk'],
+      cap:e=>e?'<b>창고 관점</b> — 자기 작업만 보인다. "재고 부족, 반려"까지만 알 수 있고, 이 주문이 화주에게 얼마나 늦게 보일지는 이 화면에 없다.':'<b>창고 관점</b> — 평소에는 자기 작업 지시·완료만 보인다. 주문 전체의 여정은 보이지 않는다.',
+      st:e=>e?'창고 관점 — 자기 작업 지연("재고 부족, 반려")까지만 보입니다. 다른 창고에서 다시 시작됐는지는 보이지 않습니다.':'창고 관점 — 자기 작업 지시·완료만 보입니다.'}
+  };
+  let MODE='auto',EXC='off',view='ctr',cur=0;
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function steps(){const b=BASE.slice();if(EXC==='on')b.splice(2,0,EXCS[0],EXCS[1]);return b;}
+  const vis=k=>VIEW[view].lanes.includes(k);
+  const svis=s=>vis(s.a)&&(!s.hand||(vis(s.hand.f)&&vis(s.hand.to)));
+  function kpis(){const S=steps(),m=MODE==='auto'?0:1,o=1-m;
+    let d=0,p=0,mi=0,d2=0,p2=0,mi2=0;
+    S.forEach(s=>{d+=s.delay[m];p+=s.man[m];mi+=s.mism[m];d2+=s.delay[o];p2+=s.man[o];mi2+=s.mism[o];});
+    return {d,p,mi,d2,p2,mi2};}
+
+  function units(s){let u=0;for(const ch of s){const c=ch.codePointAt(0);
+    u+=((c>=0xAC00&&c<=0xD7A3)||(c>=0x3000&&c<=0x9FFF)||(c>=0xFF00&&c<=0xFF60))?1
+      :(ch===' '?0.34:(ch==='·'?0.58:((c>=48&&c<=57)||(c>=65&&c<=90)||(c>=97&&c<=122))?0.58:1));}
+    return u;}
+  function wrap(s,maxU){
+    const out=[];let line='';
+    const add=ch=>{if(line&&units(line+ch)>maxU){out.push(line);line=ch;}else line+=ch;};
+    for(const tok of s.split(' ')){
+      if(!line){for(const ch of tok)add(ch);continue;}
+      if(units(line+' '+tok)<=maxU){line+=' '+tok;continue;}
+      out.push(line);line='';
+      for(const ch of tok)add(ch);
+    }
+    if(line)out.push(line);
+    return out;}
+  function head(x,y,ang,cls){
+    const s=7,a1=ang+2.58,a2=ang-2.58;
+    el('path',{d:'M'+x+','+y+' L'+(x+Math.cos(a1)*s).toFixed(2)+','+(y+Math.sin(a1)*s).toFixed(2)+' L'+(x+Math.cos(a2)*s).toFixed(2)+','+(y+Math.sin(a2)*s).toFixed(2)+' Z',class:cls});}
+
+  function drawWide(W){
+    const PAD=12,BW=Math.min((W-2*PAD)/5-12,168),COLH=42,TOP=COLH+18,RH=64;
+    const S=steps(),n=S.length,x0=PAD,x1=W-PAD,span=x1-x0,H=TOP+n*RH+12;
+    const C=ORDER.map((k,i)=>x0+span*(i+0.5)/5);
+    ORDER.forEach((k,i)=>{
+      const cx=C[i],o=vis(k)?1:0.28;
+      el('rect',{x:cx-BW/2,y:4,width:BW,height:COLH,rx:9,class:'hdbox h-'+k,opacity:o});
+      el('text',{x:cx,y:4+16,'text-anchor':'middle',class:'t12 w6 '+LANES[k].cls,opacity:o}).textContent=LANES[k].n;
+      el('text',{x:cx,y:4+32,'text-anchor':'middle',class:'t11 mut',opacity:o}).textContent=LANES[k].sub;
+      el('line',{x1:cx,y1:COLH+10,x2:cx,y2:H-6,class:'ll',opacity:o});
+    });
+    S.forEach((s,i)=>{
+      const y=TOP+i*RH,ay=y+RH-14,dim=svis(s)?1:0.28;
+      const st=i>cur?'d-fut':(i===cur?'d-on':'d-done');
+      let mx;
+      if(s.hand){
+        const fx=C[ORDER.indexOf(s.hand.f)],tx=C[ORDER.indexOf(s.hand.to)];
+        mx=(fx+tx)/2;
+        el('line',{x1:fx,y1:ay,x2:tx,y2:ay,class:'ar '+st,opacity:dim});
+        head(tx,ay,tx>fx?0:Math.PI,'hd '+st);
+        el('text',{x:mx,y:ay+4,'text-anchor':'middle',class:'t11 halo '+(i===cur?'w6 txt':'mut'),opacity:dim}).textContent=s.hand.lb;
+      }else{
+        const lx=C[ORDER.indexOf(s.a)];
+        mx=lx+12;
+        el('circle',{cx:lx,cy:ay,r:4.5,class:'dot'+(i===cur?' on':''),opacity:dim});
+      }
+      const anch=s.hand?'middle':'start';
+      el('text',{x:mx,y:y+14,'text-anchor':anch,class:'t12 halo '+(i===cur?'w6 txt':(i<cur?'txt':'mut')),opacity:dim}).textContent=(i+1)+'. '+s.t;
+      el('text',{x:mx,y:y+30,'text-anchor':anch,class:'t11 halo mut',opacity:dim}).textContent=s.d;
+    });
+    return H;
+  }
+
+  function drawNarrow(W){
+    const PAD=10,AH=30,maxU=Math.max(14,Math.floor((W-2*PAD-32)/10.5));
+    const S=steps();let y=PAD;
+    for(let i=0;i<=cur;i++){
+      const s=S[i],A=LANES[s.a],dim=svis(s)?1:0.28,hl=15;
+      const dl=wrap(s.d,maxU),ch=34+hl*dl.length+(s.hand?17:0);
+      el('rect',{x:PAD,y:y,width:W-2*PAD,height:ch,rx:9,class:'hdbox h-'+s.a,opacity:dim});
+      el('circle',{cx:PAD+13,cy:y+15,r:3.5,class:A.cls,opacity:dim});
+      const t1=el('text',{x:PAD+22,y:y+19,class:'t11 w6 '+A.cls,opacity:dim});
+      const sp=document.createElementNS(NS,'tspan');sp.textContent=A.n;t1.appendChild(sp);
+      const sp2=document.createElementNS(NS,'tspan');sp2.setAttribute('class','txt');sp2.textContent=' · '+s.t;t1.appendChild(sp2);
+      dl.forEach((ln,k)=>{el('text',{x:PAD+22,y:y+35+hl*k,class:'t11 mut',opacity:dim}).textContent=ln;});
+      if(s.hand)el('text',{x:PAD+22,y:y+35+hl*dl.length,class:'t11 w6 '+A.cls,opacity:dim}).textContent='문서: '+s.hand.lb+' · '+LANES[s.hand.f].n+' → '+LANES[s.hand.to].n;
+      y+=ch;
+      if(i<cur){
+        const nx=S[i+1],vo=svis(nx)?1:0.28,cl=i+1===cur?'d-on':'d-done';
+        el('line',{x1:PAD+16,y1:y+3,x2:PAD+16,y2:y+AH-13,class:'ar '+cl,opacity:vo});
+        head(PAD+16,y+AH-13,Math.PI/2,'hd '+cl);
+        el('text',{x:PAD+30,y:y+AH-16,class:'t11 mut',opacity:vo}).textContent=nx.hand?'문서: '+nx.hand.lb:'시스템 안 처리';
+        y+=AH;
+      }
+    }
+    return y+PAD;
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const S=steps(),s=S[cur];
+    const H=W>=620?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('aria-label','OMS·WMS·TMS 세 시스템과 창고 작업·운송 기사 레인의 주문 1건 '+S.length+'단계 문서 릴레이 — '+(cur+1)+'단계까지 진행, 현재 '+(cur+1)+'번 '+LANES[s.a].n+' '+s.t+(s.hand?' (문서: '+s.hand.lb+')':''));
+  }
+
+  function renderLanes(){
+    $('lanes').innerHTML=ORDER.map(k=>'<span class="chip '+LANES[k].cls+(vis(k)?' on':'')+'">'+LANES[k].n+' · '+LANES[k].sub+'</span>').join('');
+  }
+  function renderRelay(){
+    $('relay').innerHTML=steps().map((s,i)=>{
+      const stc=i===cur?' cur':(i>cur?' fut':''),dim=svis(s)?'':' dimv',A=LANES[s.a];
+      const tag=s.hand?'<span class="tag">'+s.hand.lb+' · '+LANES[s.hand.f].n+' → '+LANES[s.hand.to].n+'</span>':'<span class="tag">시스템 안 처리</span>';
+      return '<li class="rs'+stc+dim+'"><span class="n">'+(i+1)+'</span><div class="hd"><span class="chip '+A.cls+'">'+A.n+'</span>'+tag+'</div><div class="t">'+s.d+'</div></li>';
+    }).join('');
+  }
+  function renderStats(){
+    const k=kpis(),win='<em>시스템 자동</em>',auto=MODE==='auto';
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+k.d+'분</b><span>정보 지연 시간 (분) — 사건 발생부터 화주 화면 반영까지 · 짧을수록 좋음</span>'+
+      (auto?'<span class="cmp good">수기 전달이면 '+k.d2+'분 — '+win+'이 가장 짧다</span>':'<span class="cmp bad">'+win+'이면 '+k.d2+'분 — 지금 설정은 약 '+Math.round(k.d/k.d2)+'배 더 늦다</span>')+'</div>'+
+      '<div class="stat"><b>'+k.p+'건</b><span>수작업 건수 (건) — 사람이 문서를 전달·재입력하는 횟수 · 적을수록 좋음</span>'+
+      (auto?'<span class="cmp good">수기 전달이면 '+k.p2+'건 — '+win+'은 사람 손이 없다</span>':'<span class="cmp bad">문서를 사람이 옮기는 단계가 '+k.p+'건이다 — '+win+'은 0건</span>')+'</div>'+
+      '<div class="stat"><b>'+k.mi+'건</b><span>상태 불일치 건수 (건) — 실제 진행과 시스템 상태가 다른 단계 수 · 0이 좋음</span>'+
+      (auto?'<span class="cmp good">수기 전달이면 '+k.mi2+'건 — '+win+'은 화면과 실제가 같다</span>':'<span class="cmp bad">완료 보고가 사람 손을 거치는 동안 실제와 화면이 어긋난다</span>')+'</div>';
+  }
+  function render(){
+    cur=Math.min(cur,steps().length-1);
+    renderLanes();
+    $('viewCap').innerHTML=VIEW[view].cap(EXC==='on');
+    renderRelay();
+    $('cnt').textContent=(cur+1)+' / '+steps().length;
+    $('prev').disabled=cur<=0;
+    $('next').disabled=cur>=steps().length-1;
+    renderStats();
+    draw();
+  }
+  function say(m){status.textContent=m;}
+  function stepMsg(){
+    const S=steps(),s=S[cur];
+    return (cur+1)+'/'+S.length+' · '+LANES[s.a].n+' '+s.t+' — '+s.d+(s.hand?' (문서: '+s.hand.lb+')':'');
+  }
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+
+  $('segMode').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    MODE=b.dataset.v;setPressed('segMode',b);render();
+    const k=kpis();
+    say('연동 방식: '+(MODE==='auto'?'시스템 자동 — 문서가 시스템 사이를 바로 오갑니다':'사람이 전달 — 문서가 사람 손을 거듭니다')+' (정보 지연 '+k.d+'분 · 수작업 '+k.p+'건 · 불일치 '+k.mi+'건)');
+  });
+  $('segExc').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    EXC=b.dataset.v;setPressed('segExc',b);render();
+    say(EXC==='on'
+      ?'예외 시나리오: 재고 부족 반려 — 출고 지시가 WMS에서 반려되고 OMS가 다른 창고로 재지시합니다. 단계가 '+steps().length+'개로 늘어납니다.'
+      :'예외 시나리오: 없음 — 주문이 '+steps().length+'단계를 순서대로 통과합니다.');
+  });
+  $('segView').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    view=b.dataset.v;setPressed('segView',b);render();
+    say(VIEW[view].st(EXC==='on'));
+  });
+  $('prev').addEventListener('click',()=>{cur=Math.max(0,cur-1);render();say(stepMsg());});
+  $('next').addEventListener('click',()=>{cur=Math.min(steps().length-1,cur+1);render();say(stepMsg());});
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+  say(stepMsg());
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

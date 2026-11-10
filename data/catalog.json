@@ -8,6 +8,12 @@
       "items": ["logistics-basics", "logistics-players", "warehouse-basics", "inventory-basics", "order-status", "system-landscape"]
     },
     {
+      "id": "4pl",
+      "title": "4PL 트랙",
+      "desc": "화주·운영사·창고·운송사 사이에서 무엇이 오가고 누가 결정하는가 — 큰 그림, 연결, 배정, 감시, 정산의 다섯 단계. 완성된 페이지부터 순서대로 채워집니다.",
+      "items": ["lsp-roles", "tenant-structure", "order-handoff", "status-normalization", "master-data-mapping", "external-integration", "channel-order-intake", "warehouse-assignment", "order-routing", "allocation-atp", "multi-dc-inventory", "carrier-selection", "control-tower", "logistics-kpi", "sla-scorecard", "inventory-reconciliation", "contract-rates", "cost-to-serve", "network-design", "routing-game"]
+    },
+    {
       "id": "intro",
       "title": "핵심 5개념 트랙",
       "desc": "창고·재고·수송을 관통하는 기초 개념. 시뮬레이션을 돌려보고 ✓ 학습 완료를 누르면 진도가 저장됩니다.",
@@ -196,6 +202,54 @@
       "tags": ["OMS", "WMS", "TMS", "입문"]
     },
     {
+      "id": "lsp-roles",
+      "title": "3PL · 4PL · 포워더의 역할",
+      "category": "전략",
+      "summary": "물류를 맡기는 세 방식 — 실행을 맡기는 3PL, 조율·감시를 맡기는 4PL, 국제 구간을 주선하는 포워더. 같은 물량을 세 방식이 처리할 때 화주의 계약 수·비용·가시성이 어떻게 달라지는지 비교한다.",
+      "file": "concepts/lsp-roles.html",
+      "tags": ["3PL", "4PL", "포워더"]
+    },
+    {
+      "id": "tenant-structure",
+      "title": "운영 구조 (자사 운영 · 자체 운영)",
+      "category": "시스템",
+      "summary": "같은 시스템 안에 여러 운영이 함께 들어갈 때 — 계약 관계가 어긋나면 남의 재고가 보인다. 자사·자체 운영 전환과 연결 실수, 주체별로 보이는 데이터를 직접 확인한다.",
+      "file": "concepts/tenant-structure.html",
+      "tags": ["테넌트", "자사 운영", "자체 운영", "데이터 격리"]
+    },
+    {
+      "id": "order-handoff",
+      "title": "OMS → WMS → TMS 연계",
+      "category": "주문·이행",
+      "summary": "주문 한 건이 세 시스템을 통과하며 오가는 문서(출고 지시·완료 보고·운송 의뢰)와 끊기는 지점. 자동 연동과 수기 전달, 재고 부족 반려 시 대체 재지시를 단계별로 따라간다.",
+      "file": "concepts/order-handoff.html",
+      "tags": ["OMS", "WMS", "TMS", "출고 지시", "완료 보고"]
+    },
+    {
+      "id": "warehouse-assignment",
+      "title": "계약 창고 물량 배정",
+      "category": "주문·이행",
+      "summary": "들어오는 입고 물량을 어느 계약 창고에 맡길까 — 최저 요율·최단 거리·용량 분산 세 정책을 같은 물량에 적용하고, 여유·물량·요율 격차로 순위가 뒤집히는 것을 본다.",
+      "file": "concepts/warehouse-assignment.html",
+      "tags": ["계약 창고", "배정", "요율"]
+    },
+    {
+      "id": "order-routing",
+      "title": "주문 라우팅 (출고 창고 결정 · 분할 출고)",
+      "category": "주문·이행",
+      "summary": "이 주문을 어느 창고에서 내보낼까 — 최단 거리·최저 비용·한 창고 몰아주기 세 규칙이 재고 편중·품목 수·운임 차에 따라 건당 물류비·납기 준수율·분할 출고율에서 승부를 가른다.",
+      "file": "concepts/order-routing.html",
+      "tags": ["주문 라우팅", "분할 출고", "배송 권역"]
+    },
+    {
+      "id": "control-tower",
+      "title": "컨트롤 타워 (통합 가시성 · 예외 알림)",
+      "category": "시스템",
+      "summary": "수많은 이벤트 중 지금 봐야 할 것만 고르는 시스템 — 알림 기준을 민감하게 잡으면 놓치지 않지만 파묻히고, 둔감하게 잡으면 편하지만 흘린다. 화주·운영사·창고 관점 토글 포함.",
+      "file": "concepts/control-tower.html",
+      "tags": ["컨트롤 타워", "예외 알림", "가시성"]
+    },
+    {
       "id": "receiving-exception-map",
       "title": "입하·검수·적치 예외 지도",
       "category": "창고 운영",
@@ -205,12 +259,6 @@
     }
   ],
   "planned": [
-    { "id": "lsp-roles", "title": "3PL · 4PL · 포워더의 역할", "category": "전략" },
-    { "id": "tenant-structure", "title": "운영 구조 (자사 운영 · 자체 운영 · 화주 · 계약 창고)", "category": "시스템" },
-    { "id": "order-handoff", "title": "OMS → WMS → TMS 연계", "category": "주문·이행" },
-    { "id": "warehouse-assignment", "title": "계약 창고 물량 배정", "category": "주문·이행" },
-    { "id": "order-routing", "title": "주문 라우팅 (출고 창고 결정 · 분할 출고 · Backorder)", "category": "주문·이행" },
-    { "id": "control-tower", "title": "컨트롤 타워 (통합 가시성 · 예외 알림)", "category": "시스템" },
     { "id": "status-normalization", "title": "상태 매핑 (창고 작업 상태 → 화주용 주문 상태)", "category": "시스템" },
     { "id": "master-data-mapping", "title": "마스터 데이터 표준화 (상품코드 매핑)", "category": "시스템" },
     { "id": "external-integration", "title": "외부 시스템 연동 (EDI · API)", "category": "시스템" },

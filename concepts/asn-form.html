@@ -97,6 +97,11 @@ button.ghostb:hover{color:var(--foreground)}
 .stat span{font-size:12px;color:var(--muted-foreground)}
 .foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:70ch}
 .takeaway{margin:6px 0 22px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.pl4{margin:0 0 18px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:12px;padding:12px 16px}
+.pl4 h2{font-size:14px;font-weight:600;color:var(--primary);margin:0 0 6px}
+.pl4 p{margin:0;font-size:13.5px;line-height:1.6;color:var(--muted-foreground)}
+.pl4 a{color:var(--primary);text-decoration:none}
+.pl4 a:hover{text-decoration:underline}
 .done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:all .15s ease-out}
 .done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -108,7 +113,7 @@ button.ghostb:hover{color:var(--foreground)}
 <header>
   <span class="cat">창고 운영</span>
   <h1>OMS 입고 신청서 (ASN 입력 항목)</h1>
-  <p class="def">화주가 OMS에서 올리는 <b>입고 신청서</b>는 건 전체 정보인 <b>헤더</b>와 상품별 정보인 <b>라인</b>으로 이뤄집니다. 모든 항목은 WMS의 어느 단계가 읽어 쓰기 때문에 존재합니다 — 항목을 눌러 비워 보면 어느 단계가 멈추는지 보입니다.</p>
+  <p class="def">화주가 OMS(주문 관리 시스템)에서 올리는 <b>입고 신청서</b>는 건 전체 정보인 <b>헤더</b>와 상품별 정보인 <b>라인</b>으로 이뤄집니다. 모든 항목은 WMS(창고 관리 시스템)의 어느 단계가 읽어 쓰기 때문에 존재합니다 — 항목을 눌러 비워 보면 어느 단계가 멈추는지 보입니다.</p>
 </header>
 
 <div class="panel">
@@ -145,9 +150,10 @@ button.ghostb:hover{color:var(--foreground)}
 </div>
 
 <div class="stats" id="stats"></div>
-<p class="foot">전제: 항목 구성과 누락 시 처리(반려·보류·수작업)는 일반적인 WMS 동작을 단순화한 예시입니다. 실제 필수 여부와 처리 방식은 WMS·3PL 계약마다 다릅니다.</p>
-<p class="takeaway">빈칸 하나는 곧 <b>그 항목을 읽는 WMS 단계의 정지</b>입니다 — 그래서 OMS 입고 신청 화면은 필수·조건부 필수를 입력 단계에서 막고, 마스터에 없는 SKU는 신청 전에 먼저 등록하게 해야 합니다.</p>
-<button class="done" id="done">✓ 학습 완료</button>
+<p class="foot">전제: 항목 구성과 누락 시 처리(반려·보류·수작업)는 일반적인 WMS 동작을 단순화한 예시입니다. 실제 필수 여부와 처리 방식은 WMS·3PL(제3자 물류) 계약마다 다릅니다.</p>
+<p class="takeaway">빈칸 하나는 곧 <b>그 항목을 읽는 WMS 단계의 정지</b>입니다 — 그래서 OMS 입고 신청 화면은 필수·조건부 필수를 입력 단계에서 막고, 마스터(상품 기준 정보)에 없는 SKU(재고 단위)는 신청 전에 먼저 등록하게 해야 합니다.</p>
+<aside class='pl4'><h2>4PL 시점에서는</h2><p>이 신청서가 OMS에서 WMS로 넘어가는 순간이 시스템 연계의 시작이다 — 항목이 비면 WMS 단계가 멈추듯, 전달이 끊기면 창고와 운송이 모두 기다린다. 어느 항목을 필수로 막을지는 운영사마다, 화주와의 계약마다 다르게 설정한다. 문서가 시스템 사이를 흐르는 모습은 <a href='order-handoff.html'>OMS → WMS → TMS 연계</a>에서 본다.</p></aside>
+<button class="done" id="mv-done-btn" data-slug="asn-form">✓ 학습 완료</button>
 </div>
 
 <script>
@@ -306,7 +312,7 @@ button.ghostb:hover{color:var(--foreground)}
   $('reset').addEventListener('click',()=>{empty.clear();render();status.textContent='모든 항목을 채웠습니다.';});
 
   // 진도
-  const db=$('done');
+  const db=$('mv-done-btn');
   const key='mv-done:'+SLUG;
   try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
   db.addEventListener('click',()=>{

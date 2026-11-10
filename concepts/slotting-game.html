@@ -66,7 +66,7 @@ button.ghostb:hover{color:var(--foreground)}
 <header>
   <span class="cat">창고 운영</span>
   <h1>슬로팅 챌린지 — 골든존에 누구를?</h1>
-  <p class="def"><b>슬로팅</b>: 어떤 SKU를 어떤 자리에 둘까. 회전율(A/B/C)과 무게를 고려해 100회 피킹의 총 비용을 최소화하라.</p>
+  <p class="def"><b>슬로팅</b>: 어떤 SKU(재고 단위)를 어떤 자리에 둘까. 회전율(잘 팔리는 속도, A가 가장 빠름)과 무게를 고려해 100회 피킹의 총 비용을 최소화하라.</p>
 </header>
 
 <div class="panel">
@@ -84,8 +84,8 @@ button.ghostb:hover{color:var(--foreground)}
   <div class="stat"><b id="kGrade">—</b><span>등급 (S 최적 · A 105% 이내 · B 115% 이내)</span></div>
 </div>
 
-<p class="takeaway">회전 빠른 A는 골든존, 무거운 SKU는 허리 아래 — ABC 분석·슬로팅·골든존이 실전에서 쓰이는 방식 그대로다.</p>
-<button class="done" id="done">✓ 학습 완료</button>
+<p class="takeaway">회전 빠른 A는 골든존(허리에서 어깨 높이 사이, 가장 빨리 집을 수 있는 선반 칸), 무거운 SKU는 허리 아래 — ABC 분석·슬로팅·골든존이 실전에서 쓰이는 방식 그대로다.</p>
+<button class="done" id="mv-done-btn" data-slug="slotting-game">✓ 학습 완료</button>
 </div>
 
 <script>
@@ -332,7 +332,7 @@ button.ghostb:hover{color:var(--foreground)}
   resetBtn.addEventListener('click',resetAll);
   new ResizeObserver(()=>render()).observe(svg.parentElement);
   // 진도
-  const db=document.getElementById('done');
+  const db=document.getElementById('mv-done-btn');
   const key='mv-done:slotting-game';
   try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
   db.addEventListener('click',()=>{

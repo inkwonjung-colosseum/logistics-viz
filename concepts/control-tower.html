@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>컨트롤 타워 — 통합 가시성 · 예외 알림 — 물류 개념 시각화</title>
+<meta name="description" content="창고 3곳·운송사 2곳의 하루 이벤트 30건이 흐르는 가운데 알림 기준과 관점(화주·운영사·창고)을 바꿔 보며, 컨트롤 타워가 예외를 어떻게 골라 알리는지, 놓친 예외·알림 피로·대응 속도가 어떻게 갈리는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms summary{cursor:pointer;color:var(--foreground);font-weight:500}
+.terms[open] summary{margin-bottom:6px}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.terms a{color:var(--primary);text-decoration:none}
+.terms a:hover{text-decoration:underline}
+.cause{font-size:13.5px;margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+#thrV{font-weight:600;color:var(--foreground)}
+input[type=range]{accent-color:var(--primary);width:170px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.a-op{color:var(--viz-series-1)}.a-own{color:var(--viz-series-2)}.a-wh{color:var(--viz-series-3)}.a-car{color:var(--viz-series-4)}
+#dia{display:block;width:100%;height:auto}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 12px}
+.dash{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:700px){.dash{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.dcol h2{font-size:13.5px;font-weight:600;margin:0 0 8px}
+.dcol h2 span{color:var(--muted-foreground);font-weight:400}
+.dlist{list-style:none;margin:0;padding:0}
+.dlist li{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;padding:6px 9px;border:1px solid var(--border);border-radius:10px;margin:0 0 6px;font-size:12.5px}
+.dlist .dt{color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.dlist .what{flex:1 1 auto;min-width:14ch;color:var(--foreground)}
+.dlist .what b{color:var(--bad);font-weight:600}
+.dlist .dv{color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.dlist .rsp{color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.dlist .rsp.none{color:var(--bad)}
+.dlist li.more,.dlist li.empty{color:var(--muted-foreground);border-style:dashed}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat em{font-style:normal;font-weight:600;color:var(--foreground)}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+/* SVG 안의 텍스트·도형 */
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.txt{fill:var(--foreground)}
+svg text.exc{fill:var(--bad);font-weight:600}
+svg text.num{fill:var(--muted-foreground);font-variant-numeric:tabular-nums}
+svg text.a-wh{fill:var(--viz-series-3)}
+svg text.a-car{fill:var(--viz-series-4)}
+svg .sep{stroke:var(--border);stroke-width:1}
+svg .now{stroke:var(--foreground);stroke-width:1.5;stroke-dasharray:4 3}
+svg .c-wh{fill:var(--viz-series-3)}
+svg .c-car{fill:var(--viz-series-4)}
+svg .ghost{fill:color-mix(in srgb,var(--muted-foreground) 20%,transparent)}
+svg .card{stroke-width:1}
+svg .f-wh{fill:color-mix(in srgb,var(--viz-series-3) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 42%,transparent)}
+svg .f-car{fill:color-mix(in srgb,var(--viz-series-4) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-4) 42%,transparent)}
+svg .alarm{stroke-width:2}
+svg .alarm.f-wh{stroke:var(--viz-series-3)}
+svg .alarm.f-car{stroke:var(--viz-series-4)}
+svg .missed{stroke:var(--bad);stroke-dasharray:4 3;stroke-width:1.5}
+svg .cur{stroke:var(--foreground);stroke-width:2}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">시스템</span>
+  <p class="q">수많은 건 중 지금 사람이 봐야 할 것은 무엇인가</p>
+  <h1>컨트롤 타워 — 통합 가시성 · 예외 알림</h1>
+  <p class="def"><b>컨트롤 타워</b>는 여러 창고·운송사의 상황을 한곳에 모아 보고, 정해 놓은 기준에서 벗어난 일(<b>예외</b>)만 골라 알린다.</p>
+</header>
+
+<details class="terms">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>시스템 셋</b> — OMS(주문 관리 시스템)·WMS(창고 관리 시스템)·TMS(운송 관리 시스템)가 각자 맡은 일 → <a href="system-landscape.html">물류 시스템 지도</a></p>
+  <p><b>시스템 연계</b> — 주문과 상태가 OMS → WMS → TMS로 넘어가는 일 → <a href="order-handoff.html">OMS → WMS → TMS 연계</a></p>
+  <p><b>주문 상태</b> — 주문이 접수된 뒤 배송이 끝날 때까지 어디까지 진행됐는지 나타내는 표시다 → <a href="order-status.html">주문 한 건의 여정</a></p>
+</details>
+
+<div class="terms">
+  <p><b>컨트롤 타워(control tower)</b> — 여러 창고·운송사의 상황을 한곳에서 모아 보고, 사람이 봐야 할 문제를 골라 알려 주는 시스템이다.</p>
+  <p><b>예외(exception)</b> — 정해 놓은 기준에서 벗어난 일이다. 지연·부족·불일치 같은 것이 예외다.</p>
+  <p><b>예외 알림</b> — 예외가 생겼다고 담당자에게 보내는 신호다.</p>
+</div>
+
+<p class="cause"><b>비유 — 병원 중환자실 모니터</b> · 환자별 수치를 전부 볼 수는 없으니 기준을 벗어난 것만 경보를 냅니다. 다만 모니터는 경보만 울리지만, 물류는 사람이 알림을 끄고 다음 조치까지 정해야 합니다.</p>
+
+<div class="panel">
+  <h2>하루 이벤트 스트림 — 창고 3곳 · 운송사 2곳의 30건</h2>
+  <div class="chips" aria-label="주체 색 범례">
+    <span class="chip a-wh">창고 A</span>
+    <span class="chip a-wh">창고 B</span>
+    <span class="chip a-wh">창고 C</span>
+    <span class="chip a-car">운송사 갑</span>
+    <span class="chip a-car">운송사 을</span>
+  </div>
+  <div class="controls">
+    <div class="ctl">흐름
+      <button type="button" class="ghostb" id="play">▶ 재생</button>
+      <button type="button" class="ghostb" id="prev">◀ 이전</button>
+      <button type="button" class="ghostb" id="next">다음 ▶</button>
+      <button type="button" class="ghostb" id="reset">⟲ 처음</button>
+    </div>
+    <span class="cnt" id="cnt">14 / 30</span>
+    <div class="ctl">알림 기준
+      <span class="cnt">민감 30분</span>
+      <input type="range" id="thr" min="30" max="240" step="30" value="120" aria-label="알림 기준 지연 시간(분)">
+      <span class="cnt">둔감 4시간</span>
+      <span class="cnt" id="thrV">지연 120분 이상 알림</span>
+    </div>
+    <div class="ctl">관점
+      <div class="seg" id="segView" role="group" aria-label="볼 주체 선택">
+        <button type="button" data-v="own" aria-pressed="false">화주</button>
+        <button type="button" data-v="op" aria-pressed="true">운영사</button>
+        <button type="button" data-v="wh" aria-pressed="false">창고</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <p class="cause" id="scope"></p>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="창고 3곳과 운송사 2곳의 하루 이벤트 30건"></svg>
+  </div>
+  <p class="patn">굵은 테두리 = 기준을 넘어 알림으로 잡힌 이벤트 · ⚠ = 실제 문제(예외) · 점선 테두리 = 기준 미달로 놓친 예외 · 흐린 점 = 지금 화면에서는 보이지 않는 이벤트</p>
+  <div class="dash">
+    <section class="dcol" aria-labelledby="hAlarm">
+      <h2 id="hAlarm">알림 목록 — 기준을 넘어 잡힌 것 <span id="alarmN"></span></h2>
+      <ul class="dlist" id="alarmList"></ul>
+    </section>
+    <section class="dcol" aria-labelledby="hMiss">
+      <h2 id="hMiss">놓친 예외 — 기준 밖이지만 실제 문제 <span id="missN"></span></h2>
+      <ul class="dlist" id="missList"></ul>
+    </section>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 하루 이벤트 30건(예외 6건), 창고 3곳·운송사 2곳, 화주 1곳으로 뒀습니다. 알림 기준은 지연 시간 하나로 단순화했고, 대응 시작은 "쌓인 알림 순서만큼 늦어진다"로 단순화했습니다.</p>
+<p class="takeaway">알림 기준을 <b>예민하게(지연 30분부터)</b> 잡으면 놓치는 일은 줄지만 사람이 알림에 파묻히고, <b>둔감하게(4시간부터)</b> 잡으면 편하지만 진짜 문제를 흘린다 — 그래서 기준은 물량·계절에 맞춰 조절하고 예외는 등급을 나눠 받는다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 창고·운송사의 상태·위치 이벤트를 모아 기준(임계값)별로 예외를 만들어 담당자에게 보낸다. 알림 기준과 받는 사람은 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="order-handoff.html">OMS → WMS → TMS 연계</a> · <a href="system-landscape.html">물류 시스템 지도(OMS·WMS·TMS)</a> · <a href="order-status.html">주문 한 건의 여정</a></p>
+  <p>다음(심화): <a href="inbound-lifecycle.html">입고 생애주기 · 문서 흐름</a> — 상태와 문서가 실제로 흐르는 모습. 이어 2단계 '상태 매핑'이 예정돼 있습니다.</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="control-tower">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+const LANES=[
+ {k:'A',n:'창고 A',cls:'wh'},{k:'B',n:'창고 B',cls:'wh'},{k:'C',n:'창고 C',cls:'wh'},
+ {k:'G',n:'운송사 갑',cls:'car'},{k:'E',n:'운송사 을',cls:'car'}];
+// [시각, 레인, 라벨, 지연(분), 예외, 심각도(1중간/2높음), 주문]
+const RAW=[
+ ['08:10','A','검수 완료',40,0,0],
+ ['08:40','B','웨이브 확정',15,0,0],
+ ['09:00','G','픽업 도착',30,0,0],
+ ['09:15','C','입고 대기',80,0,0],
+ ['09:35','E','픽업 완료',10,0,0],
+ ['09:40','A','재고 부족',330,1,2,'#3'],
+ ['10:05','B','출고 지연',95,1,2,'#7'],
+ ['10:40','C','검수 완료',35,0,0],
+ ['10:50','G','배송 출발',25,0,0],
+ ['11:15','A','도크 초과',40,1,1],
+ ['11:20','E','배송 출발',130,0,0],
+ ['11:30','B','검수 완료',60,0,0],
+ ['12:20','C','출고 지연',260,1,2,'#12'],
+ ['12:40','A','출고 완료',55,0,0],
+ ['12:45','G','배송 지연',250,1,2,'#9'],
+ ['13:15','B','출고 완료',45,0,0],
+ ['13:45','C','상태 불일치',60,1,1,'#12'],
+ ['13:50','E','배송 도착',110,0,0],
+ ['14:10','A','검수 완료',35,0,0],
+ ['14:30','G','배송 출발',65,0,0],
+ ['15:20','E','픽업 완료',150,0,0],
+ ['15:40','B','피킹 완료',20,0,0],
+ ['16:00','C','검수 완료',120,0,0],
+ ['16:20','A','출고 완료',70,0,0],
+ ['16:45','G','배송 도착',40,0,0],
+ ['17:50','B','출고 완료',90,0,0],
+ ['18:05','E','배송 완료',85,0,0],
+ ['18:40','A','재고 실사',10,0,0],
+ ['19:10','C','출고 완료',150,0,0],
+ ['19:30','G','배송 완료',15,0,0]];
+const EV=RAW.map((e,i)=>({i,t:e[0],m:(+e[0].slice(0,2)-8)*60+(+e[0].slice(3,5)),l:e[1],k:e[2],d:e[3],x:e[4],sev:e[5],ord:e[6]||''}));
+const VIEW={
+ own:{n:'화주',has:e=>e.l==='G'||e.l==='E',note:'화주 화면 — 내 주문의 배송 구간 11건만 보입니다. 창고 안의 19건(출고 지연·재고 부족 등)은 이 화면에 없습니다. 화주는 "배송이 늦는다"만 알 수 있습니다.'},
+ op:{n:'운영사',has:()=>true,note:'운영사 화면 — 컨트롤 타워. 창고 3곳·운송사 2곳의 이벤트 30건을 모두 봅니다. 어느 창고·어느 구간에서 막혔는지까지 보입니다.'},
+ wh:{n:'창고 A',has:e=>e.l==='A',note:'창고 A 화면 — 자기 창고의 이벤트 7건만 보입니다. 다른 창고 2곳과 운송 구간 23건은 보이지 않습니다.'}};
+const $=x=>document.getElementById(x);
+const svg=$('dia'),host=$('diaHost'),statusEl=$('status');
+const NS='http://www.w3.org/2000/svg';
+let step=14,thr=120,view='op',timer=null;
+
+const laneIdx=k=>LANES.findIndex(l=>l.k===k);
+const laneName=e=>LANES[laneIdx(e.l)].n;
+const vis=()=>EV.slice(0,step).filter(VIEW[view].has);
+const alarms=()=>vis().filter(e=>e.d>=thr);
+const missed=()=>vis().filter(e=>e.x&&e.d<thr);
+const wait=i=>12+9*i;
+const respAvg=list=>list.length?Math.round(list.reduce((a,_,i)=>a+wait(i),0)/list.length):null;
+
+function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+
+function drawWide(W){
+ const PAD=10,LW=88,AXH=26,LH=54,CH=34,CW=76;
+ const x0=LW+8,x1=W-PAD,TW=x1-x0;
+ const X=m=>x0+m/720*TW;
+ for(let h=0;h<=6;h++){
+  const m=h*120;
+  el('line',{x1:X(m),y1:AXH-6,x2:X(m),y2:AXH+LH*5,class:'sep'});
+  el('text',{x:X(m),y:AXH-10,'text-anchor':'middle',class:'t11 num'}).textContent=('0'+(8+h)).slice(-2)+':00';
+ }
+ LANES.forEach((L,li)=>{
+  const cy=AXH+li*LH+LH/2;
+  el('line',{x1:0,y1:AXH+li*LH,x2:x1,y2:AXH+li*LH,class:'sep'});
+  el('circle',{cx:12,cy:cy-9,r:4,class:'c-'+L.cls});
+  el('text',{x:21,y:cy-5,class:'t12 w6 a-'+L.cls}).textContent=L.n;
+ });
+ const hidden=EV.slice(0,step).filter(e=>!VIEW[view].has(e));
+ hidden.forEach(e=>{el('circle',{cx:X(e.m),cy:AXH+laneIdx(e.l)*LH+LH/2,r:3.5,class:'ghost'});});
+ vis().forEach(e=>{
+  const li=laneIdx(e.l),cx=Math.min(Math.max(X(e.m),x0+CW/2),x1-CW/2),y=AXH+li*LH+(LH-CH)/2;
+  let cls='card f-'+LANES[li].cls;
+  if(e.d>=thr)cls+=' alarm';
+  if(e.x&&e.d<thr)cls+=' missed';
+  el('rect',{x:cx-CW/2,y:y,width:CW,height:CH,rx:7,class:cls});
+  el('text',{x:cx,y:y+13,'text-anchor':'middle',class:'t11 num'}).textContent=e.t+' +'+e.d+'분';
+  el('text',{x:cx,y:y+27,'text-anchor':'middle',class:'t11 '+(e.x?'exc':'txt')}).textContent=(e.x?'⚠ ':'')+e.k;
+ });
+ const last=EV[step-1];
+ if(last){
+  const nx=X(last.m);
+  el('line',{x1:nx,y1:AXH-4,x2:nx,y2:AXH+LH*5,class:'now'});
+  const lb=VIEW[view].n+' · 지금';
+  const t=el('text',{x:nx+4,y:AXH+LH*5-4,class:'t11 txt'});
+  if(nx>x1-80){t.setAttribute('x',nx-4);t.setAttribute('text-anchor','end');}
+  t.textContent=lb;
+ }
+ return AXH+LH*5+8;
+}
+
+function drawNarrow(W){
+ const PAD=10,RH=40,GAP=5,x=PAD,cw=W-2*PAD;
+ let y=PAD;
+ const hiddenN=step-vis().length;
+ if(hiddenN>0){el('text',{x:x+4,y:y+13,class:'t11 mut'}).textContent='이 화면에서는 보이지 않는 이벤트 '+hiddenN+'건';y+=24;}
+ vis().forEach((e,idx)=>{
+  const L=LANES[laneIdx(e.l)];
+  let cls='card f-'+L.cls;
+  if(e.d>=thr)cls+=' alarm';
+  if(e.x&&e.d<thr)cls+=' missed';
+  if(idx===vis().length-1&&step<30)cls+=' cur';
+  el('rect',{x:x,y:y,width:cw,height:RH,rx:8,class:cls});
+  el('circle',{cx:x+12,cy:y+13,r:3.5,class:'c-'+L.cls});
+  el('text',{x:x+21,y:y+17,class:'t12 w6 '+(e.x?'exc':'txt')}).textContent=(e.x?'⚠ ':'')+e.t+' '+L.n+' '+e.k+(e.d>=thr?' · 알림':'')+(e.x&&e.d<thr?' · 놓침':'');
+  el('text',{x:x+cw-8,y:y+17,'text-anchor':'end',class:'t12 num'}).textContent='+'+e.d+'분';
+  y+=RH+GAP;
+ });
+ return y+PAD-GAP;
+}
+
+function draw(){
+ const W=host.clientWidth;
+ if(!W||W<40)return;
+ while(svg.firstChild)svg.removeChild(svg.firstChild);
+ const H=W>=780?drawWide(W):drawNarrow(W);
+ svg.setAttribute('viewBox','0 0 '+W+' '+H);
+ const a=alarms().length,m=missed().length;
+ svg.setAttribute('aria-label','창고 3곳·운송사 2곳의 하루 이벤트 30건 중 '+step+'건이 흘렀습니다. 지금 화면('+VIEW[view].n+')에서 기준 지연 '+thr+'분 이상 알림 '+a+'건, 놓친 예외 '+m+'건입니다.');
+}
+
+const MAXN=6;
+function dash(){
+ const A=alarms(),M=missed();
+ $('alarmN').textContent=A.length+'건';
+ $('missN').textContent=M.length+'건';
+ $('alarmList').innerHTML=(A.length?A.slice(-MAXN).reverse().map(e=>
+  '<li><span class="dt">'+e.t+'</span><span class="chip a-'+LANES[laneIdx(e.l)].cls+'">'+laneName(e)+'</span><span class="what">'+(e.x?'<b>⚠ 예외</b> · ':'')+e.k+(e.ord?' · 주문 '+e.ord:'')+'</span><span class="dv">+'+e.d+'분</span><span class="rsp">대응 시작 +'+wait(A.indexOf(e))+'분</span></li>').join('')+
+  (A.length>MAXN?'<li class="more">최근 '+MAXN+'건만 표시 — 총 '+A.length+'건</li>':'')
+  :'<li class="empty">아직 없습니다 — 기준을 넘은 이벤트가 없습니다.</li>');
+ $('missList').innerHTML=(M.length?M.slice(-MAXN).reverse().map(e=>
+  '<li><span class="dt">'+e.t+'</span><span class="chip a-'+LANES[laneIdx(e.l)].cls+'">'+laneName(e)+'</span><span class="what"><b>⚠ 예외</b> · '+e.k+(e.ord?' · 주문 '+e.ord:'')+' · 심각도 '+(e.sev===2?'높음':'중간')+'</span><span class="dv">+'+e.d+'분</span><span class="rsp none">기준 '+thr+'분 미달 — 알림 없음 · 대응 없음</span></li>').join('')+
+  (M.length>MAXN?'<li class="more">최근 '+MAXN+'건만 표시 — 총 '+M.length+'건</li>':'')
+  :'<li class="empty">아직 없습니다 — 기준 미달로 놓친 예외가 없습니다.</li>');
+}
+
+function stats(){
+ const A=alarms(),M=missed(),R=respAvg(A);
+ const m30=vis().filter(e=>e.x&&e.d<30).length;
+ const a240=vis().filter(e=>e.d>=240).length;
+ const r240=respAvg(vis().filter(e=>e.d>=240));
+ const win=(cur,other,name)=>cur===other?'지금 기준과 같습니다':'이 숫자만 보면 <em>'+name+'</em>이 이깁니다';
+ $('stats').innerHTML=
+  '<div class="stat"><b>'+M.length+'건</b><span>놓친 예외 — 기준 미달로 알림이 안 감 (0이 좋음)</span><span class="cmp '+(M.length>m30?'bad':'')+'">민감(30분)이면 '+m30+'건 — '+win(M.length,m30,'민감(30분)')+'</span></div>'+
+  '<div class="stat"><b>'+A.length+'건</b><span>알림 수 — 많으면 사람이 알림에 파묻힘 (적당해야 좋음)</span><span class="cmp '+(A.length>a240?'bad':'')+'">'+(A.length>=15?'알림 피로 구간 — ':'')+'둔감(4시간)이면 '+a240+'건 — '+win(A.length,a240,'둔감(4시간)')+'</span></div>'+
+  '<div class="stat"><b>'+(R===null?'—':R+'분')+'</b><span>평균 대응 시작 — 쌓인 알림 순서만큼 늦어짐 (짧을수록 좋음)</span><span class="cmp '+(R!==null&&r240!==null&&R>r240?'bad':'')+'">'+(r240===null?'—':'둔감(4시간)이면 '+r240+'분 — '+win(R,r240,'둔감(4시간)'))+'</span></div>';
+}
+
+function announce(){
+ if(step===0){statusEl.textContent='재생을 누르면 하루 이벤트가 시간 순으로 흐릅니다. 이전·다음으로 한 건씩 볼 수도 있습니다.';return;}
+ const e=EV[step-1];
+ statusEl.textContent=step+'/30 · '+e.t+' '+laneName(e)+' '+e.k+' +'+e.d+'분'+(e.x?' · 예외(심각도 '+(e.sev===2?'높음':'중간')+')':'')+(e.d>=thr?' · 알림':' · 기준 미달'+(e.x?' — 놓침':''));
+}
+
+function render(){
+ $('cnt').textContent=step+' / 30';
+ $('scope').textContent=VIEW[view].note;
+ $('thrV').textContent='지연 '+thr+'분 이상 알림';
+ $('prev').disabled=step===0;
+ $('next').disabled=step>=30;
+ draw();dash();stats();announce();
+}
+
+function stopPlay(done){
+ if(timer){clearInterval(timer);timer=null;}
+ $('play').textContent='▶ 재생';
+ if(done)statusEl.textContent='하루 30건을 모두 봤습니다 — 대시보드와 숫자가 하루 전체 기준입니다.';
+}
+
+$('play').addEventListener('click',()=>{
+ if(timer){stopPlay(false);announce();return;}
+ if(step>=30)step=0;
+ timer=setInterval(()=>{step++;render();if(step>=30)stopPlay(true);},260);
+ $('play').textContent='⏸ 일시정지';
+});
+$('prev').addEventListener('click',()=>{stopPlay(false);step=Math.max(0,step-1);render();});
+$('next').addEventListener('click',()=>{stopPlay(false);step=Math.min(30,step+1);render();});
+$('reset').addEventListener('click',()=>{stopPlay(false);step=0;render();});
+$('thr').addEventListener('input',e=>{thr=+e.target.value;render();save();});
+$('segView').addEventListener('click',e=>{
+ const b=e.target.closest('button');if(!b)return;
+ view=b.dataset.v;
+ document.querySelectorAll('#segView button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+ stopPlay(false);render();save();
+});
+
+function save(){try{if(window.zcode&&window.zcode.setWidgetState)window.zcode.setWidgetState({modelContent:{view:view,thr:thr}});}catch(_){}}
+try{
+ const ws=window.zcode&&window.zcode.widgetState&&window.zcode.widgetState.modelContent;
+ if(ws){
+  if(VIEW[ws.view]){view=ws.view;document.querySelectorAll('#segView button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v===view)));}
+  if(ws.thr>=30&&ws.thr<=240){thr=ws.thr;$('thr').value=thr;}
+ }
+}catch(_){}
+new ResizeObserver(()=>draw()).observe(host);
+render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

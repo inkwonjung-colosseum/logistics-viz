@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운영 구조 — 자사 운영 · 자체 운영 — 물류 개념 시각화</title>
+<meta name="description" content="같은 시스템 안에 자사 운영과 자체 운영이 함께 들어갈 때, 계약이 어디에 묶였는지에 따라 어느 화주·창고·재고가 누구에게 보이는지와 연결이 하나 어긋났을 때 남의 데이터가 노출되는 상황을 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+details.pre p{margin:6px 0 2px;line-height:1.55}
+details.pre a{color:var(--primary);text-decoration:none;white-space:nowrap}
+details.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.cols{display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:780px){.cols{grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr)}}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+#dia{display:block;width:100%;height:auto}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.sub{font-size:12.5px;color:var(--muted-foreground);margin:0 0 10px;font-variant-numeric:tabular-nums}
+.rows{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0;padding:7px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.5;font-variant-numeric:tabular-nums}
+.row .own{font-size:12px;color:var(--muted-foreground)}
+.row.muted{border-style:dashed;color:var(--muted-foreground);font-size:12.5px}
+.row.warn{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,transparent);color:var(--foreground)}
+.row.warn .own{color:var(--bad)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.c-op{color:var(--viz-series-1)}.c-own{color:var(--viz-series-2)}.c-wh{color:var(--viz-series-3)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* SVG 안의 텍스트·도형 */
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.c1{fill:var(--viz-series-1)}
+svg text.c2{fill:var(--viz-series-2)}
+svg text.c3{fill:var(--viz-series-3)}
+svg text.cbad{fill:var(--bad)}
+svg .gcap{fill:var(--muted-foreground)}
+svg .n-op{fill:color-mix(in srgb,var(--viz-series-1) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-1) 42%,transparent);stroke-width:1}
+svg .n-own{fill:color-mix(in srgb,var(--viz-series-2) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-2) 42%,transparent);stroke-width:1}
+svg .n-wh{fill:color-mix(in srgb,var(--viz-series-3) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 42%,transparent);stroke-width:1}
+svg .sel{stroke:var(--foreground);stroke-width:2}
+svg .warnbox{fill:color-mix(in srgb,var(--bad) 10%,transparent);stroke:var(--bad);stroke-width:2}
+svg .cline{stroke:color-mix(in srgb,var(--viz-series-1) 58%,transparent);stroke-width:1.5;fill:none}
+svg .wline{stroke:var(--bad);stroke-width:2;stroke-dasharray:6 4;fill:none}
+svg .albl{paint-order:stroke;stroke:var(--card);stroke-width:3.5px;stroke-linejoin:round}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">시스템</span>
+  <p class="q">누가 누구와 계약하고, 어느 화주·창고·재고가 누구에게 보여야 하는가</p>
+  <h1>운영 구조 — 자사 운영 · 자체 운영</h1>
+  <p class="def">같은 시스템 안에 여러 운영이 함께 들어간다. 우리가 계약하고 배정하는 운영이 <b>자사 운영</b>이다. 고객이 자기 화주·창고로 직접 운영하는 쪽이 <b>자체 운영</b>이다. 누가 누구와 계약했는지에 따라 보이는 재고와 주문이 갈린다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>운영사</b> — 화주를 대신해 물량을 어느 창고·어느 운송사에 맡길지 정하고, 맡긴 일이 잘 되는지 지켜보는 주체다. → <a href="logistics-players.html">물류의 등장인물</a></p>
+  <p><b>3PL·4PL</b> — 3PL(제3자 물류)은 화주 대신 창고·운송을 실행해 주는 방식, 4PL(제4자 물류)은 창고도 차도 없이 전체 물류를 설계·조율하는 방식이다. → <a href="lsp-roles.html">3PL · 4PL · 포워더의 역할</a></p>
+  <p><b>재고</b> — 팔거나 쓰려고 갖춰 둔 물건이다. → <a href="inventory-basics.html">재고의 기본</a></p>
+</details>
+
+<div class="terms">
+  <p><b>자사 운영</b> — 우리가 화주·창고와 계약을 맺고 물량을 배정·감시하는 운영 방식이다.</p>
+  <p><b>자체 운영</b> — 고객이 자기 화주·자기 창고로 직접 운영하고, 우리는 그 운영을 소프트웨어로 지원하는 방식이다.</p>
+  <p><b>테넌트(tenant)</b> — 같은 시스템 안에서 각자의 데이터를 나눠 쓰는 입주 주체(운영사·화주)다.</p>
+</div>
+
+<p class="cause"><b>비유 — 공유 오피스</b> · 같은 건물에 여러 회사가 들어가지만, 각 회사 서류는 자기 회사 사람만 봅니다. 다만 오피스는 방이 물리적으로 나뉘지만, 시스템은 방 없이 데이터 권한만으로 나눕니다.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="ctl">운영 구조
+      <div class="seg" id="segMode" role="group" aria-label="운영 구조">
+        <button type="button" data-v="own" aria-pressed="true">자사 운영</button>
+        <button type="button" data-v="self" aria-pressed="false">자체 운영</button>
+      </div>
+    </div>
+    <div class="ctl">계약 연결
+      <div class="seg" id="segWire" role="group" aria-label="계약 연결 상태">
+        <button type="button" data-v="ok" aria-pressed="true">정상</button>
+        <button type="button" data-v="bad" aria-pressed="false">연결 실수</button>
+      </div>
+    </div>
+    <div class="ctl">시야
+      <div class="seg" id="segView" role="group" aria-label="데이터를 보는 주체">
+        <button type="button" data-v="opA" aria-pressed="true">운영사 A</button>
+        <button type="button" data-v="opB" aria-pressed="false">운영사 B</button>
+        <button type="button" data-v="sh" aria-pressed="false">화주</button>
+        <button type="button" data-v="wh" aria-pressed="false">창고</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div class="cols">
+    <section aria-labelledby="hBoard">
+      <h2 id="hBoard">계약 구성 판</h2>
+      <div id="diaHost">
+        <svg id="dia" role="img" aria-label="계약 구성 판"></svg>
+      </div>
+      <p class="patn">실선 = 계약 연결 · 빨간 점선 = 잘못된 연결 · 굵은 테두리 = 지금 보고 있는 시야 · 구조를 바꾸면 화주2·창고2의 계약이 운영사 A↔B 사이를 옮겨 갑니다</p>
+    </section>
+    <section aria-labelledby="hData">
+      <h2 id="hData">보이는 데이터</h2>
+      <p class="sub" id="sub"></p>
+      <div class="rows" id="rows"></div>
+    </section>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 운영사 2곳(자사 A, 자체 B), 화주 3곳, 창고 3곳, 주문 10건으로 단순화했습니다. 재고는 화주마다 한 창고에만 두었고, 같은 조건이면 결과가 항상 같습니다.</p>
+<p class="takeaway">계약 관계가 정확히 묶여 있으면 같은 시스템 안에서도 서로의 재고·주문이 섞이지 않지만, 연결이 하나 어긋나면 곧바로 남의 데이터가 보인다 — <b>테넌트 구분</b>이 시스템의 첫째 규칙이다. 그래서 실무에서는 계약 연결을 만들 때 어느 운영사·화주 소유인지부터 묶고, 화면과 API가 그 소유 값으로 전부 걸러지는지 확인한다.</p>
+<p class="sys"><b>시스템에서는</b> OMS·WMS에서는 모든 주문·재고·창고 기록에 테넌트(운영사)와 화주 소유 정보가 붙고, 화면과 API 응답이 이 값으로 걸러진다. 공유 범위는 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="lsp-roles.html">3PL · 4PL · 포워더의 역할</a></p>
+  <p>다음: <a href="order-handoff.html">OMS → WMS → TMS 연계</a> — 테넌트가 나뉜 시스템에서 주문 한 건이 창고·운송으로 넘어가는 방식</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="tenant-structure">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const NS='http://www.w3.org/2000/svg';
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+
+  // 화주1 재고4·주문4(창고1) / 화주2 재고3·주문3(창고2) / 화주3 재고2·주문3(창고3)
+  const ENT=[
+    {n:'화주1',inv:4,ord:4},{n:'화주2',inv:3,ord:3},{n:'화주3',inv:2,ord:3}
+  ];
+  // 운영 소유: own(자사 운영)=A,A,B / self(자체 운영)=A,B,B — 화주2·창고2가 모드 사이를 옮겨 간다
+  const OWN={own:['A','A','B'],self:['A','B','B']};
+  const MNAME={own:'자사 운영',self:'자체 운영'}, WNAME={ok:'정상 연결',bad:'연결 실수'};
+  const VNAME={opA:'운영사 A',opB:'운영사 B',sh:'화주',wh:'창고'};
+
+  // 시야별 보이는 목록 (운영사 A·B)
+  const VIEW_OP={
+    opA:{
+      own:{ok:{inv:'재고 7건 — 화주1 4 · 화주2 3, 내 범위 전부',ord:'주문 7건 전부 — 자동 배정 7/7',note:'내 계약 범위(화주 2곳 · 창고 2곳)가 전부 보입니다. 화주3·창고3은 운영사 B 소유.'},
+           bad:{inv:'재고 7건',ord:'주문 4건 자동 배정 · 3건 보류(창고2)',note:'내 재고 3건·주문 3건(총 6건)이 계약 없는 운영사 B 화면에 새어 나가는 중',warn:1}},
+      self:{ok:{inv:'재고 4건 — 화주1(창고1)만',ord:'주문 4건 — 화주1 것만',note:'화주2·3과 창고2·3은 운영사 B 소유라 이 화면에 보이지 않습니다.'},
+            bad:{inv:'재고 7건이 보임 — 내 4 + 남의 3',ord:'주문 7건이 보임 — 내 4 + 남의 3',note:'잘못 연결된 창고2로 운영사 B 데이터 6건(재고 3 · 주문 3)까지 보입니다',warn:1}}},
+    opB:{
+      own:{ok:{inv:'재고 2건 — 화주3(창고3)만',ord:'주문 3건 — 화주3 것만',note:'자사 운영이라 화주1·2, 창고1·2는 운영사 A 소유라 보이지 않습니다.'},
+           bad:{inv:'재고 5건이 보임 — 내 2 + 남의 3',ord:'주문 6건이 보임 — 내 3 + 남의 3',note:'계약이 없는데도 창고2로 운영사 A 데이터 6건(재고 3 · 주문 3)이 보입니다',warn:1}},
+      self:{ok:{inv:'재고 5건 — 화주2 3 · 화주3 2, 내 범위 전부',ord:'주문 6건 전부 — 자동 배정 6/6',note:'자체 운영: 내 화주·창고 범위가 전부 보입니다.'},
+            bad:{inv:'재고 5건',ord:'주문 3건 자동 배정 · 3건 보류(창고2)',note:'내 재고 3건·주문 3건(총 6건)이 운영사 A 화면에 새어 나가는 중',warn:1}}}
+  };
+
+  let mode='own', wire='ok', view='opA';
+
+  const expo=()=>wire==='bad'?6:0;         // 다른 운영사 데이터 노출(건): 창고2 재고 3 + 주문 3
+  const hold=()=>wire==='bad'?3:0;         // 보류 주문(건): 창고2 배정 주문 3
+  const rate=()=>wire==='bad'?70:100;      // 주문 자동 배정률(%): 10건 기준
+  const opOrd=()=>mode==='own'?{A:7,B:3}:{A:4,B:6};
+
+  const chip=(cls,t)=>`<span class="chip ${cls}">${t}</span>`;
+
+  function renderRows(){
+    const op=opOrd();
+    $('sub').textContent=`주문 10건 소속 — 운영사 A ${op.A}건 · 운영사 B ${op.B}건`;
+    let h='';
+    if(view==='opA'||view==='opB'){
+      const t=VIEW_OP[view][mode][wire];
+      const nm=view==='opA'?'운영사 A':'운영사 B';
+      h+=`<p class="row">${chip('c-op',nm)}${t.inv}</p>`;
+      h+=`<p class="row">${chip('c-op',nm)}${t.ord}</p>`;
+      h+=`<p class="row${t.warn?' warn':' muted'}">${t.warn?'⚠ ':''}${t.note}</p>`;
+    }else if(view==='sh'){
+      const own=OWN[mode];
+      ENT.forEach((s,i)=>{
+        h+=`<p class="row">${chip('c-own',s.n)}내 재고 ${s.inv}건 · 내 주문 ${s.ord}건 · 남의 데이터 없음 <span class="own">운영: 운영사 ${own[i]}</span></p>`;
+      });
+      h+=`<p class="row muted">구조를 바꿔도 화주는 자기 것만 봅니다 — 바뀌는 것은 어느 운영사가 관리하느냐뿐입니다.</p>`;
+    }else{
+      const own=OWN[mode];
+      ENT.forEach((s,i)=>{
+        const warn=wire==='bad'&&i===1;
+        let t=`${chip('c-wh','창고'+(i+1))}보관 재고 ${s.inv}건 · 출고 지시 ${s.ord}건 · 소속 운영: 운영사 ${own[i]}`;
+        if(warn)t+=' <span class="own">⚠ 두 운영사에 동시 연결 — 재고·지시가 양쪽 화면에 보이고, 소속 판정 전이라 지시 3건은 보류</span>';
+        h+=`<p class="row${warn?' warn':''}">${t}</p>`;
+      });
+    }
+    $('rows').innerHTML=h;
+  }
+
+  function renderStats(){
+    const bad=wire==='bad', op=opOrd();
+    $('stats').innerHTML=
+      `<div class="stat"><b>${expo()}건</b><span>다른 운영사 데이터 노출 (0이 좋음)</span><span class="cmp ${bad?'bad':'good'}">${bad?'창고2의 재고 3건·주문 3건이 반대편 운영사 화면에 보입니다':'<em>정상 연결</em>이 이긴 상태 — 잘못 연결이면 6건(재고 3 · 주문 3)'}</span></div>`+
+      `<div class="stat"><b>${rate()}%</b><span>주문 자동 배정률 (높을수록 좋음 — 계약이 비면 배정 못 받고 보류)</span><span class="cmp">주문 소속 — 운영사 A ${op.A}건 · B ${op.B}건${mode==='own'?' → 자체 운영이면 A 4 · B 6':' → 자사 운영이면 A 7 · B 3'}</span>${bad?'<span class="cmp bad">창고2 주문 3건이 소유 판정 전이라 보류 — <em>정상 연결</em>이면 100%</span>':'<span class="cmp good"><em>정상 연결</em>이면 10건 전부 자동 배정</span>'}</div>`+
+      `<div class="stat"><b>${hold()}건</b><span>보류 주문 (0이 좋음)</span><span class="cmp ${bad?'bad':'good'}">${bad?'잘못 연결 — 창고2로 가던 주문 3건이 보류':'잘못 연결이면 창고2 주문 3건이 보류됩니다'}</span></div>`;
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const el=(n,at)=>{const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;};
+    const PAD=8;
+    const opW=Math.max(72,Math.min(88,W*0.28)), enW=Math.max(78,Math.min(96,W*0.32));
+    const opX=PAD, opCX=opX+opW, enX=W-PAD-enW;
+    // 위 3칸 = 화주, 아래 3칸 = 창고
+    const cy=i=>[33,72,111,167,206,245][i];
+    const boxY=i=>[18,57,96,152,191,230][i];
+    const BH=30, OPY=[52,186], OPH=40, opcY=[72,206];
+    const own=OWN[mode], bad=wire==='bad';
+
+    // 계약선 (모드별) — 먼저 그려 상자에 가려지게
+    const lines=[];
+    ENT.forEach((s,i)=>{
+      const o=own[i], oi=o==='A'?0:1;
+      lines.push({x1:opCX,y1:opcY[oi],x2:enX,y2:cy(i),cls:'cline'});
+      lines.push({x1:opCX,y1:opcY[oi],x2:enX,y2:cy(i+3),cls:'cline'});
+    });
+    // 잘못된 연결: 창고2(i=1)가 두 운영사에 연결 — 소유자가 아닌 쪽에 빨간 점선
+    if(bad){
+      const owner=own[1], oi=owner==='A'?1:0; // 소유자가 A면 B(1)가 잘못 연결됨
+      lines.push({x1:opCX,y1:opcY[oi],x2:enX,y2:cy(4),cls:'wline',warn:1});
+    }
+    lines.forEach(l=>el('line',{x1:l.x1,y1:l.y1,x2:l.x2,y2:l.y2,class:l.cls}));
+    if(bad){
+      const l=lines[lines.length-1];
+      el('text',{x:(l.x1+l.x2)/2,y:(l.y1+l.y2)/2-5,'text-anchor':'middle',class:'t11 cbad albl'}).textContent='잘못된 연결';
+    }
+
+    // 운영사 상자
+    const opSel=[view==='opA',view==='opB'];
+    [['운영사 A · 자사',0],['운영사 B · 자체',1]].forEach(([nm,i])=>{
+      el('rect',{x:opX,y:OPY[i],width:opW,height:OPH,rx:9,class:'n-op'+(opSel[i]?' sel':'')});
+      const parts=nm.split(' · ');
+      el('text',{x:opX+opW/2,y:OPY[i]+17,'text-anchor':'middle',class:'t12 w6 c1'}).textContent=parts[0];
+      el('text',{x:opX+opW/2,y:OPY[i]+32,'text-anchor':'middle',class:'t11 mut'}).textContent=parts[1];
+    });
+
+    // 그룹 이름
+    el('text',{x:enX,y:12,class:'t11 gcap'}).textContent='화주 3곳';
+    el('text',{x:enX,y:146,class:'t11 gcap'}).textContent='창고 3곳';
+
+    // 화주·창고 상자
+    ENT.forEach((s,i)=>{
+      const wh=i+3, warn=bad&&i===1;
+      const selSh=view==='sh', selWh=view==='wh';
+      el('rect',{x:enX,y:boxY(i),width:enW,height:BH,rx:8,class:'n-own'+(selSh?' sel':'')});
+      el('text',{x:enX+enW/2,y:boxY(i)+13,'text-anchor':'middle',class:'t12 w6 c2'}).textContent=s.n;
+      el('text',{x:enX+enW/2,y:boxY(i)+26,'text-anchor':'middle',class:'t11 mut'}).textContent=`재고${s.inv}·주문${s.ord}`;
+      el('rect',{x:enX,y:boxY(wh),width:enW,height:BH,rx:8,class:'n-wh'+(warn?' warnbox':selWh?' sel':'')});
+      el('text',{x:enX+enW/2,y:boxY(wh)+13,'text-anchor':'middle',class:'t12 w6'+(warn?' cbad':' c3')}).textContent='창고'+(i+1);
+      el('text',{x:enX+enW/2,y:boxY(wh)+26,'text-anchor':'middle',class:'t11 mut'}).textContent=`재고${s.inv}·지시${s.ord}`;
+    });
+
+    const cnt=o=>own.filter(x=>x===o).length;
+    let lb=MNAME[mode]+' 구조 — 운영사 A가 화주 '+cnt('A')+'곳·창고 '+cnt('A')+'곳, 운영사 B가 화주 '+cnt('B')+'곳·창고 '+cnt('B')+'곳과 계약했습니다.';
+    if(bad)lb+=' 창고2가 두 운영사에 잘못 연결되어 다른 운영사 데이터 6건(재고 3 · 주문 3)이 노출됩니다.';
+    svg.setAttribute('aria-label','계약 구성 판: '+lb+' 현재 시야는 '+VNAME[view]+'입니다.');
+    svg.setAttribute('viewBox','0 0 '+W+' 272');
+  }
+
+  function announce(){
+    status.textContent=`${MNAME[mode]} · ${WNAME[wire]} · 시야 ${VNAME[view]} — 다른 운영사 데이터 노출 ${expo()}건 · 주문 자동 배정률 ${rate()}% · 보류 ${hold()}건.`;
+  }
+
+  function render(){draw();renderRows();renderStats();announce();}
+
+  function seg(id,fn){
+    $(id).addEventListener('click',e=>{
+      const b=e.target.closest('button');if(!b)return;
+      document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+      fn(b.dataset.v);render();
+    });
+  }
+  seg('segMode',v=>mode=v);
+  seg('segWire',v=>wire=v);
+  seg('segView',v=>view=v);
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>
