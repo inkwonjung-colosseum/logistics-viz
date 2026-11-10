@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>출고 플로우 — 웨이브 → 피킹 → 포장 → 출고 — 물류 개념 시각화</title>
+<meta name="description" content="같은 주문 20건을 웨이브로 묶어 처리할 때와 한 건씩 바로 처리할 때의 전체 완료 시간·첫 주문 완료 시각·피커 이동거리를 창고 평면도 애니메이션으로 나란히 비교하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 8px}
+.note{margin:0 0 12px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+#viz svg{display:block;width:100%;height:auto}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+svg text{font-variant-numeric:tabular-nums}
+svg text.halo{stroke:var(--card);stroke-width:3px;paint-order:stroke;stroke-linejoin:round}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">창고 운영</span>
+  <p class="q">주문이 창고에 내려간 뒤 출고까지 무엇을 거치는가</p>
+  <h1>출고 플로우 — 웨이브 → 피킹 → 포장 → 출고</h1>
+  <p class="def">내보낼 주문들을 묶어 만든 배치가 <b>웨이브</b>다 — 웨이브가 확정되면 피킹·포장·출고가 차례로 돌고, 창고 마감 시간에 맞춰 한 덩어리로 나간다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>창고의 하루</b> — 창고는 받고(입고)·두고(보관)·골라(피킹)·싸서(포장)·내보내는(출고) 다섯 걸음이 하루에 이어진다. → <a href="warehouse-basics.html">창고의 하루</a></p>
+  <p><b>주문 라우팅</b> — 주문마다 어느 창고에서 내보낼지 정하는 규칙이다. → <a href="order-routing.html">주문 라우팅</a></p>
+  <p><b>피킹</b> — 주문에 맞는 물건을 창고 안의 자리에서 골라 내는 일이다. → <a href="picking-methods.html">피킹 방식 4종</a></p>
+</details>
+
+<div class="terms">
+  <p><b>웨이브(wave)</b> — 창고에서 주기적으로 몰아 처리하려고 내보낼 주문들을 묶어 만든 배치다.</p>
+  <p><b>마감(cutoff)</b> — 창고가 그날 물건을 마지막으로 내보내기로 정한 시각이다. 이 시각에 맞춰 완료된 상자가 트럭에 실린다.</p>
+</div>
+
+<p class="cause"><b>비유 — 커피숍</b> · 주문이 몇 개 쌓이면 한꺼번에 만들어 나르는 것이 웨이브이고, 한 잔씩 바로 만들어 주는 것이 건별이다. 손님이 몰려 들 때 한꺼번에 만드는 쪽이 주방 전체로는 빠르다. 다만 맞지 않는 지점이 하나 있다 — 커피는 만들자마자 나가지만, 출고된 상자는 마감 트럭에 실려야 나간다.</p>
+
+<div class="panel">
+  <h2>체험 · 웨이브 배치 vs 건별 처리</h2>
+  <p class="note">같은 주문 20건, 같은 도착 시각 — 처리 방식만 다르다. 왼쪽은 주문을 웨이브 크기만큼 묶어 확정한 뒤 피커 2명이 나눠 처리하고, 오른쪽은 도착 즉시 한 건씩 처리한다. 피커 점이 선반↔작업대를 왕복하고, 완료한 상자는 출고 스테이징에 쌓였다가 오후 4시 마감 트럭에 한꺼번에 실린다. 웨이브 크기를 1건으로 하면 왼쪽도 건별과 같아진다.</p>
+  <div id="viz">
+    <svg id="dia" role="img" aria-label="창고 평면도 두 개 나란히: 왼쪽 웨이브 배치, 오른쪽 건별 처리. 주문 풀에서 웨이브 확정을 거쳐 피킹·포장·출고 스테이징·마감 트럭으로 흐릅니다. 재생 버튼으로 시작합니다."></svg>
+  </div>
+  <div class="controls">
+    <button type="button" class="ghostb" id="play">▶ 재생</button>
+    <button type="button" class="ghostb" id="pause" disabled>⏸ 일시정지</button>
+    <button type="button" class="ghostb" id="reset">↺ 초기화</button>
+    <div class="ctl">웨이브 크기
+      <div class="seg" id="segW" role="group" aria-label="웨이브 크기">
+        <button type="button" data-v="1" aria-pressed="false">1건(건별)</button>
+        <button type="button" data-v="5" aria-pressed="true">5건</button>
+        <button type="button" data-v="20" aria-pressed="false">20건 몰아서</button>
+      </div>
+    </div>
+    <div class="ctl">주문 도착 간격
+      <div class="seg" id="segS" role="group" aria-label="주문 도착 간격">
+        <button type="button" data-v="tight" aria-pressed="true">촘촘</button>
+        <button type="button" data-v="mid" aria-pressed="false">보통</button>
+        <button type="button" data-v="sparse" aria-pressed="false">드문드문</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <p class="patn">피커·작업대·상자는 창고, 마감 트럭은 운송사. 진한 점 = 확정된 웨이브에 모인 주문. 이동거리 u는 피킹 왕복 이동 거리를 합한 값이다.</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 주문 20건 · 피커 2명 · 마감은 1회, 처리 속도는 고정 시나리오다. 웨이브는 크기만큼 주문이 모이는 즉시 확정되며, 확정 준비에 5분, 피킹 왕복 이동에 6분이 걸린다.</p>
+<p class="takeaway">주문이 촘촘히 몰릴 때는 묶어서(웨이브) 돌리는 것이 전체로는 빠르지만, 드문드문 오면 기다리는 시간이 커져 건별이 응답성에서 이긴다 — 웨이브 크기는 물량의 모양에 맞춘다.</p>
+<p class="sys"><b>시스템에서는</b> WMS에서는 마감 시간과 물량에 따라 웨이브를 자동 확정하고 피킹·포장에 지시를 내린다. 웨이브 규칙과 마감 횟수는 운영사·창고마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="warehouse-basics.html">창고의 하루</a> — 입고·피킹·출고를 처음 본다</p>
+  <p>다음: <a href="pack-hierarchy.html">포장 단위와 UoM 변환</a> — 같은 상품을 세는 단위가 어긋나면 어디서 틀어지는지</p>
+  <p>함께 보기: <a href="order-routing.html">주문 라우팅</a> — 출고 지시가 창고에 내려오기 전에 어느 창고에서 내보낼지 정하는 단계</p>
+  <p>심화: <a href="picking-methods.html">피킹 방식 4종</a> — 피킹 단계를 깊이 본다</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="outbound-flow">✓ 학습 완료</button>
+</div>
+
+<script>
+"use strict";
+const CFG={T:6,P:6,Q:8,S:5,D:40,N:20,START:480,DDL:960,END:1015};
+const SPAN={tight:10,mid:150,sparse:300};
+const SPNAME={tight:'촘촘',mid:'보통',sparse:'드문드문'};
+function schedule(w,span){
+  const arr=[];for(let i=0;i<CFG.N;i++)arr.push(CFG.START+Math.round(i*span/(CFG.N-1)));
+  const jobs=[[],[]],free=[CFG.START,CFG.START];
+  const comp=new Array(CFG.N).fill(0),rel=new Array(CFG.N).fill(0);
+  const nw=Math.ceil(CFG.N/w);let trip=0;
+  for(let g=0;g<nw;g++){
+    const lo=g*w,hi=Math.min(lo+w,CFG.N),conf=arr[hi-1];
+    const md=lo+Math.ceil((hi-lo)/2);
+    for(const h of[[lo,md],[md,hi]]){
+      const h0=h[0],h1=h[1];
+      if(h1<=h0)continue;
+      const k=h1-h0,p=free[0]<=free[1]?0:1;
+      const s=Math.max(conf,free[p]);
+      const r=s+(w>1?CFG.S:0);
+      const te=r+CFG.T+k*CFG.P;
+      for(let j=h0;j<h1;j++){rel[j]=r;comp[j]=te+(j-h0+1)*CFG.Q;}
+      jobs[p].push({t0:s,rel:r,te:te,t1:te+k*CFG.Q,cell:trip%3,k:k});
+      free[p]=te+k*CFG.Q;trip++;
+    }
+  }
+  let first=Infinity,total=0;
+  for(const c of comp){if(c<first)first=c;if(c>total)total=c;}
+  const confOf=i=>arr[Math.min((Math.floor(i/w)+1)*w,CFG.N)-1];
+  return{w,arr,jobs,comp,rel,nw,trips:trip,first:first-CFG.START,total:total-CFG.START,dist:trip*CFG.D,confOf};
+}
+</script>
+
+<script>
+(() => {
+"use strict";
+const $=id=>document.getElementById(id);
+const host=$('viz'),svgEl=$('dia'),statusEl=$('status');
+const playB=$('play'),pauseB=$('pause'),resetB=$('reset');
+const MIN_PER_MS=(CFG.END-CFG.START)/33000;
+let wv=5,sp='tight',t=CFG.START,playing=false,lastTs=null,lastKey='';
+let SCHL=schedule(wv,SPAN[sp]),SCHR=schedule(1,SPAN[sp]);
+
+const clockStr=x=>{const m=Math.round(x/5)*5,h=(m/60)|0,mm=m%60;return (h<12?'오전 ':'오후 ')+(h%12||12)+':'+String(mm).padStart(2,'0')};
+const lp=(a,b,q)=>a+(b-a)*q;
+const doneN=Sc=>{let n=0;for(let i=0;i<CFG.N;i++)if(Sc.comp[i]<=t)n++;return n};
+const tripOn=Sc=>Sc.jobs.some(js=>js.some(j=>t>=j.rel&&t<j.te));
+const packOn=Sc=>Sc.jobs.some(js=>js.some(j=>t>=j.te&&t<j.t1));
+
+function geom(W){
+  const pad=8,gap=10,wide=W>=620;
+  const G={W:W,wide:wide};
+  if(wide){G.pw=Math.floor((W-2*pad-gap)/2);G.ph=212;G.px=[pad,pad+G.pw+gap];G.py=[46,46];G.H=G.py[0]+G.ph+10;}
+  else{G.pw=W-2*pad;G.ph=198;G.px=[pad,pad];G.py=[46,46+G.ph+8];G.H=G.py[1]+G.ph+8;}
+  return G;
+}
+function zones(G,pi){
+  const x=G.px[pi],y=G.py[pi],w=G.pw,h=G.ph;
+  const zy=y+38,zh=h-58;
+  const pool={x:x+8,y:zy,w:Math.max(48,Math.round(w*0.20)),h:zh};
+  const trk={x:x+w-46,y:zy,w:40,h:zh};
+  const stg={x:pool.x+pool.w+12,y:zy,w:Math.max(54,Math.round(w*0.20)),h:zh};
+  const pk={x:stg.x+stg.w+12,y:zy,w:Math.max(64,trk.x-12-(stg.x+stg.w+12)),h:zh};
+  return{x:x,y:y,w:w,h:h,pool:pool,pk:pk,stg:stg,trk:trk,zy:zy,zh:zh,titleY:y+16,badgeY:y+30,labelY:y+h-7};
+}
+const T=(x,y,str,size,fill,anchor,weight,cls)=>'<text x="'+x+'" y="'+y+'" font-size="'+size+'" fill="'+fill+'"'+(anchor?' text-anchor="'+anchor+'"':'')+(weight?' font-weight="'+weight+'"':'')+(cls?' class="'+cls+'"':'')+'>'+str+'</text>';
+const R=(x,y,w,h,rx,fill,stroke,sw,extra)=>'<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="'+rx+'" fill="'+fill+'"'+(stroke?' stroke="'+stroke+'" stroke-width="'+(sw||1)+'"':'')+(extra||'')+'/>';
+const CIRC=(x,y,r,fill,stroke)=>'<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+r+'" fill="'+fill+'"'+(stroke?' stroke="'+stroke+'" stroke-width="1.5"':'')+'/>';
+const zoneFill='color-mix(in srgb, var(--muted-foreground) 5%, transparent)';
+
+function clockBand(G){
+  let s=T(8,18,clockStr(t),13,'var(--foreground)','start',600);
+  const steps=['웨이브','피킹','포장','마감'];
+  const waveOn=wv>1&&t>=SCHL.arr[Math.min(wv,CFG.N)-1]&&t<CFG.START+SCHL.total;
+  const act=[waveOn,tripOn(SCHL)||tripOn(SCHR),packOn(SCHL)||packOn(SCHR),t>=CFG.DDL];
+  let x=G.wide?G.W-190:G.W-172;
+  steps.forEach((nm,i)=>{
+    s+=T(x,18,nm,12,act[i]?'var(--foreground)':'var(--muted-foreground)','start',act[i]?600:400);
+    x+=26;
+    if(i<3){s+=T(x,18,'→',11,'var(--muted-foreground)');x+=14;}
+  });
+  const bw=G.W-16;
+  s+=R(8,30,bw,5,2.5,'color-mix(in srgb, var(--muted-foreground) 15%, transparent)');
+  const pw=Math.max(0,(t-CFG.START)/(CFG.END-CFG.START))*bw;
+  if(pw>0.5)s+=R(8,30,pw,5,2.5,'color-mix(in srgb, var(--primary) 35%, transparent)');
+  const tx=8+bw*(CFG.DDL-CFG.START)/(CFG.END-CFG.START);
+  s+=R(tx-1,27,2,11,0,'var(--foreground)');
+  s+=T(G.W-8,26,'오후 4시 마감',11,'var(--muted-foreground)','end');
+  return s;
+}
+function badgeL(){
+  if(wv===1)return '도착 즉시 · 완료 '+doneN(SCHL)+'/20건';
+  for(let g=0;g<SCHL.nw;g++){
+    const lo=g*wv,hi=Math.min(lo+wv,CFG.N);
+    let allDone=true,proc=false,arrN=0;
+    for(let i=lo;i<hi;i++){
+      if(SCHL.comp[i]>t)allDone=false;
+      if(SCHL.rel[i]<=t&&SCHL.comp[i]>t)proc=true;
+      if(SCHL.arr[i]<=t&&SCHL.rel[i]>t)arrN++;
+    }
+    if(proc)return '웨이브 '+(g+1)+'/'+SCHL.nw+' 처리 중';
+    if(!allDone)return arrN===hi-lo?'웨이브 '+(g+1)+' 확정 — 피커 대기':'웨이브 '+(g+1)+' 대기 — '+arrN+'/'+(hi-lo)+'건 모임';
+  }
+  return '웨이브 '+SCHL.nw+'/'+SCHL.nw+' 완료';
+}
+function pickerPos(Sch,p,z){
+  const b={x:z.pk.x+(p===0?22:z.pk.w-22),y:z.zy+z.zh-26};
+  let job=null;
+  for(const j of Sch.jobs[p]){if(t>=j.t0&&t<j.t1){job=j;break}}
+  if(!job)return{x:b.x,y:b.y,b:b,carry:0};
+  const cw=(z.pk.w-20)/3;
+  const cell={x:z.pk.x+7+job.cell*cw+cw/2,y:z.zy+12};
+  if(t<job.rel)return{x:b.x,y:b.y,b:b,carry:0};
+  if(t<job.rel+2){const q=(t-job.rel)/2;return{x:lp(b.x,cell.x,q),y:lp(b.y,cell.y,q),b:b,carry:0}}
+  if(t<job.te-2)return{x:cell.x,y:cell.y,b:b,carry:job.k};
+  if(t<job.te){const q=(t-(job.te-2))/2;return{x:lp(cell.x,b.x,q),y:lp(cell.y,b.y,q),b:b,carry:job.k}}
+  return{x:b.x,y:b.y,b:b,carry:0};
+}
+function boxPos(Sch,i,z){
+  const c=Sch.comp[i];
+  if(t<c)return null;
+  const cols=Math.max(3,Math.floor((z.stg.w-8)/12));
+  const slot={x:z.stg.x+6+(i%cols)*11,y:z.stg.y+16+Math.floor(i/cols)*11};
+  const bench={x:z.pk.x+z.pk.w/2,y:z.zy+z.zh-26};
+  if(t<c+6){const q=(t-c)/6;return{x:lp(bench.x,slot.x,q),y:lp(bench.y,slot.y,q)}}
+  const ls=CFG.DDL+2+(i%4)*1.5;
+  if(t<ls)return slot;
+  if(t<ls+8){const q=(t-ls)/8;return{x:lp(slot.x,z.trk.x+10,q),y:lp(slot.y,z.zy+z.zh-34,q)}}
+  return null;
+}
+function truckSvg(z){
+  const ty=z.zy+z.zh-48;
+  const dep=t>=CFG.DDL+32;
+  const dx=dep?Math.min((t-(CFG.DDL+32))*2.2,44):0;
+  const dash=t<CFG.DDL?' stroke-dasharray="4 3"':'';
+  const bx=z.trk.x+2+dx;
+  let s=R(bx,ty,28,14,3,'color-mix(in srgb, var(--viz-series-4) 25%, transparent)','var(--viz-series-4)',1,dash);
+  s+=R(bx+28,ty+4,10,10,2,'color-mix(in srgb, var(--viz-series-4) 40%, transparent)','var(--viz-series-4)',1,dash);
+  s+=CIRC(bx+7,ty+16,3,'var(--muted-foreground)')+CIRC(bx+30,ty+16,3,'var(--muted-foreground)');
+  let st,fill,w;
+  if(t<CFG.DDL){st='마감 대기';fill='var(--muted-foreground)';w=400;}
+  else if(dep){st='출고 완료';fill='var(--viz-series-2)';w=600;}
+  else{st='적재 중';fill='var(--foreground)';w=600;}
+  s+=T(z.trk.x+z.trk.w/2,z.zy+12,st,11,fill,'middle',w);
+  return s;
+}
+function panelSVG(G,pi,Sch,isWave,title,badge,badgeFill){
+  const z=zones(G,pi);
+  let s=R(z.x,z.y,z.w,z.h,9,zoneFill,'var(--border)',1);
+  s+=T(z.x+10,z.titleY,title,12,'var(--foreground)','start',600);
+  s+=T(z.x+10,z.badgeY,badge,11,badgeFill);
+  // 주문 풀
+  s+=R(z.pool.x,z.pool.y,z.pool.w,z.pool.h,7,zoneFill,'var(--border)',1);
+  const waitN=(()=>{let n=0;for(let i=0;i<CFG.N;i++)if(Sch.arr[i]<=t&&Sch.rel[i]>t)n++;return n})();
+  s+=T(z.pool.x+5,z.pool.y+11,waitN+'건 대기',11,'var(--muted-foreground)');
+  const cols=Math.max(3,Math.floor((z.pool.w-8)/12));
+  let idx=0;
+  for(let i=0;i<CFG.N;i++){
+    if(Sch.arr[i]<=t&&Sch.rel[i]>t){
+      const px=z.pool.x+6+(idx%cols)*11,py=z.pool.y+16+Math.floor(idx/cols)*11;
+      const on=isWave&&wv>1&&t>=Sch.confOf(i);
+      s+=R(px,py,8,8,2,on?'var(--primary)':'color-mix(in srgb, var(--muted-foreground) 45%, transparent)');
+      idx++;
+    }
+  }
+  // 화살표
+  const ay=z.zy+z.zh/2+4;
+  s+=T(z.pool.x+z.pool.w+1,ay,'→',11,'var(--muted-foreground)');
+  s+=T(z.pk.x+z.pk.w+1,ay,'→',11,'var(--muted-foreground)');
+  s+=T(z.stg.x+z.stg.w+1,ay,'→',11,'var(--muted-foreground)');
+  // 피킹·포장
+  const cw=(z.pk.w-20)/3;
+  for(let i=0;i<3;i++)s+=R(z.pk.x+7+i*cw,z.zy+4,cw-3,16,3,'color-mix(in srgb, var(--viz-series-3) 14%, transparent)','var(--border)',1);
+  s+=R(z.pk.x+6,z.zy+z.zh-18,z.pk.w-12,13,4,'color-mix(in srgb, var(--viz-series-3) 20%, transparent)','var(--border)',1);
+  for(let p=0;p<2;p++){
+    const pos=pickerPos(Sch,p,z);
+    s+=CIRC(pos.x,pos.y,6,'var(--viz-series-3)','var(--card)');
+    if(pos.carry>0)s+=T(pos.x+9,pos.y+4,'×'+pos.carry,11,'var(--foreground)','start',600,'halo');
+  }
+  // 스테이징
+  s+=R(z.stg.x,z.stg.y,z.stg.w,z.stg.h,7,zoneFill,'var(--border)',1);
+  s+=T(z.stg.x+5,z.stg.y+11,'완료 '+doneN(Sch)+'/20건',11,'var(--muted-foreground)');
+  for(let i=0;i<CFG.N;i++){
+    const bp=boxPos(Sch,i,z);
+    if(bp)s+=R(bp.x,bp.y,8,6,1.5,'color-mix(in srgb, var(--viz-series-3) 60%, transparent)');
+  }
+  s+=truckSvg(z);
+  // 아래 레이블
+  s+=T(z.pool.x+z.pool.w/2,z.labelY,'주문 풀',11,'var(--muted-foreground)','middle');
+  s+=T(z.pk.x+z.pk.w/2,z.labelY,'피킹·포장',11,'var(--muted-foreground)','middle');
+  s+=T(z.stg.x+z.stg.w/2,z.labelY,'출고 스테이징',11,'var(--muted-foreground)','middle');
+  s+=T(z.trk.x+z.trk.w/2,z.labelY,'마감 트럭',11,'var(--muted-foreground)','middle');
+  return s;
+}
+function draw(){
+  const cw=host.clientWidth||620,W=Math.min(Math.max(cw,300),760);
+  const G=geom(W);
+  svgEl.setAttribute('viewBox','0 0 '+W+' '+G.H);
+  let s=clockBand(G);
+  const titleL=wv===1?'웨이브 배치 — 1건씩(건별 동일)':'웨이브 배치 — '+wv+'건씩 '+SCHL.nw+'웨이브';
+  s+=panelSVG(G,0,SCHL,true,titleL,badgeL(),'var(--primary)');
+  s+=panelSVG(G,1,SCHR,false,'건별 처리 — 도착 즉시 1건씩','도착 즉시 · 완료 '+doneN(SCHR)+'/20건','var(--muted-foreground)');
+  svgEl.innerHTML=s;
+}
+function maybeStatus(){
+  const ph=t<CFG.DDL?0:(t<CFG.DDL+32?1:2);
+  const key=ph+'|'+Math.floor(t/10);
+  if(key===lastKey)return;
+  lastKey=key;
+  const dL=doneN(SCHL),dR=doneN(SCHR);
+  svgEl.setAttribute('aria-label','출고 플로우 애니메이션. '+clockStr(t)+'. 웨이브 배치('+wv+'건): '+dL+'/20건 완료. 건별 처리: '+dR+'/20건 완료.');
+  if(ph===0)statusEl.textContent=clockStr(t)+' — 웨이브 배치: '+badgeL()+', 건별: '+dR+'/20건 완료.';
+  else if(ph===1)statusEl.textContent='오후 4시 마감 — 두 방식 모두 스테이징의 상자가 마감 트럭에 한꺼번에 실립니다.';
+  else statusEl.textContent='출고 완료 — 웨이브 배치 전체 '+SCHL.total+'분·첫 주문 '+SCHL.first+'분, 건별 전체 '+SCHR.total+'분·첫 주문 '+SCHR.first+'분.';
+}
+function updStats(){
+  const wname=wv===1?'웨이브 1건':'웨이브 '+wv+'건';
+  const cmp=(a,b,unit)=>{
+    if(a===b)return '<span class="cmp">건별 '+b+unit+' — 웨이브 크기 1건은 건별과 같다</span>';
+    const win=a<b?wname:'건별 처리',d=Math.abs(a-b),cls=a<b?'good':'bad';
+    return '<span class="cmp '+cls+'">건별 '+b+unit+' · 더 빠른 쪽 <em>'+win+'</em> ('+d+unit+' 차이)</span>';
+  };
+  $('stats').innerHTML=
+    '<div class="stat"><b>'+SCHL.total+'분</b><span>전체 완료 시간 (분) — 첫 주문 도착부터 20건 모두 완료까지 · 짧을수록 좋음</span>'+cmp(SCHL.total,SCHR.total,'분')+'</div>'+
+    '<div class="stat"><b>'+SCHL.first+'분</b><span>첫 주문 완료 시각 (분) — 첫 주문이 상자가 되기까지 · 짧을수록 좋음 (응답성)</span>'+cmp(SCHL.first,SCHR.first,'분')+'</div>'+
+    '<div class="stat"><b>'+SCHL.dist+'u</b><span>피커 총 이동거리 (u, 창고 안 왕복 거리 합) — 짧을수록 좋음</span>'+cmp(SCHL.dist,SCHR.dist,'u')+'</div>';
+}
+function setPlaying(v){
+  playing=v;playB.disabled=v;pauseB.disabled=!v;
+  if(v){lastTs=null;requestAnimationFrame(loop);}
+}
+function loop(ts){
+  if(!playing)return;
+  if(lastTs==null)lastTs=ts;
+  const dt=Math.min(ts-lastTs,120);lastTs=ts;
+  t+=dt*MIN_PER_MS;
+  if(t>=CFG.END){
+    t=CFG.END;draw();setPlaying(false);
+    statusEl.textContent='출고 완료 — 웨이브 배치 전체 '+SCHL.total+'분·첫 주문 '+SCHL.first+'분, 건별 전체 '+SCHR.total+'분·첫 주문 '+SCHR.first+'분. 손잡이를 바꿔 다시 비교해 보세요.';
+    return;
+  }
+  draw();maybeStatus();
+  requestAnimationFrame(loop);
+}
+function apply(head){
+  setPlaying(false);t=CFG.START;lastKey='';
+  SCHL=schedule(wv,SPAN[sp]);SCHR=schedule(1,SPAN[sp]);
+  draw();updStats();
+  statusEl.textContent=head+' — 웨이브 배치: 전체 '+SCHL.total+'분·첫 주문 '+SCHL.first+'분·이동 '+SCHL.dist+'u / 건별: 전체 '+SCHR.total+'분·첫 주문 '+SCHR.first+'분·이동 '+SCHR.dist+'u. 재생하면 흐름이 보입니다.';
+}
+function seg(id,fn){
+  $(id).addEventListener('click',e=>{
+    const b=e.target.closest('button');
+    if(!b||b.getAttribute('aria-pressed')==='true')return;
+    document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    fn(b.dataset.v);
+  });
+}
+seg('segW',v=>{wv=+v;apply('웨이브 크기 '+wv+'건 · 도착 '+SPNAME[sp])});
+seg('segS',v=>{sp=v;apply('웨이브 크기 '+wv+'건 · 도착 '+SPNAME[sp]+' — 주문 20건이 '+SPAN[sp]+'분에 걸쳐 들어옵니다')});
+playB.addEventListener('click',()=>{if(t>=CFG.END)t=CFG.START;lastKey='';setPlaying(true);maybeStatus();});
+pauseB.addEventListener('click',()=>{setPlaying(false);statusEl.textContent='일시정지 — '+statusEl.textContent;});
+resetB.addEventListener('click',()=>{setPlaying(false);t=CFG.START;lastKey='';draw();statusEl.textContent='초기화했습니다. 재생을 누르면 오전 8시부터 다시 흐릅니다.';});
+let roPending=false;
+new ResizeObserver(()=>{if(roPending)return;roPending=true;requestAnimationFrame(()=>{roPending=false;draw();});}).observe(host);
+draw();updStats();
+statusEl.textContent='재생을 누르면 오전 8시부터 주문이 도착해 마감 트럭까지 흐릅니다. 지금 설정(웨이브 '+wv+'건 · 도착 '+SPNAME[sp]+'): 웨이브 전체 '+SCHL.total+'분 vs 건별 전체 '+SCHR.total+'분.';
+})();
+</script>
+
+<script>
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

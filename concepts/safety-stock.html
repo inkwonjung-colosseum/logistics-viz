@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>안전재고 · 재주문점 · EOQ — 물류 개념 시각화</title>
+<meta name="description" content="하루 평균 수요와 입고 리드타임으로 정해지는 재주문점 위에 안전재고를 얼마나 얹을지, 여유 없음·고정 20개·변동 따라 조정 세 정책을 60일 시뮬레이션으로 비교하며 수요 변동과 리드타임 손잡이에 따라 품절 일수·평균 재고·발주 횟수의 승자가 바뀌는 것을 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.ctl input[type="range"]{width:120px;accent-color:var(--primary)}
+.ctl .val{font-variant-numeric:tabular-nums;color:var(--foreground);white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+#dia text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.halo{stroke:var(--card);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+svg .ax{stroke:var(--border);stroke-width:1}
+svg .inv{fill:none;stroke:var(--viz-series-1);stroke-width:2;stroke-linejoin:round}
+svg .invArea{fill:color-mix(in srgb,var(--viz-series-1) 12%,transparent)}
+svg .rop{stroke:var(--muted-foreground);stroke-width:1;stroke-dasharray:5 3}
+svg .avg{stroke:var(--muted-foreground);stroke-width:1;stroke-dasharray:1 3}
+svg .drop{stroke:var(--border);stroke-width:1;stroke-dasharray:2 3}
+svg .ordDot{fill:var(--viz-series-2)}
+svg .dbar{fill:color-mix(in srgb,var(--muted-foreground) 45%,transparent)}
+svg .dbar.out{fill:color-mix(in srgb,var(--bad) 78%,transparent)}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 8px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted-foreground);margin:0}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend span i{display:inline-block;width:12px;height:10px;border-radius:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">재고</span>
+  <p class="q">얼마나 쌓아 두고 언제 다시 채울 것인가</p>
+  <h1>안전재고 · 재주문점 · EOQ</h1>
+  <p class="def">갑자기 몰리거나 입고가 늦어도 막히지 않으려고 더 쌓아 둔 재고가 <b>안전재고</b>고, 재고가 이 수준으로 떨어지면 다시 발주하는 기준선이 <b>재주문점</b>이며, 한 번에 발주하는 양 가운데 총비용이 가장 작아지는 크기가 <b>EOQ(경제적 발주량)</b>이다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>재고(inventory)</b> — 팔거나 쓰려고 갖춰 둔 물건이다. → <a href="inventory-basics.html">재고의 기본</a></p>
+  <p><b>할당과 ATP</b> — ATP(Available to Promise)는 "지금 주문하면 바로 보낼 수 있다"고 약속할 수 있는 수량이다. → <a href="allocation-atp.html">할당과 ATP</a></p>
+  <p><b>리드타임(lead time)</b> — 무엇을 맡긴 뒤 끝날 때까지 걸리는 시간이다. 발주에서는 발주부터 입고까지를 센다. (풀이는 용어집 참조)</p>
+</details>
+
+<div class="terms">
+  <p><b>안전재고(safety stock)</b> — 갑자기 주문이 몰리거나 입고가 늦어도 막히지 않으려고 더 쌓아 둔 재고다.</p>
+  <p><b>재주문점(reorder point)</b> — 재고가 이 수준으로 떨어지면 다시 발주해야 하는 기준선이다.</p>
+  <p><b>EOQ(Economic Order Quantity, 경제적 발주량)</b> — 한 번에 발주하는 양 가운데 총비용이 가장 작아지는 크기다.</p>
+</div>
+
+<p class="cause"><b>비유 — 화장지</b> · "이제 사야겠다"고 선을 긋는 것이 재주문점, 그 선에 도달하기 전에 미리 더 쌓아 두는 몫이 안전재고, 한 번에 몇 손이나 사 올지가 EOQ 문제입니다. 다만 맞지 않는 지점이 하나 있다 — 화장지는 다 떨어지면 그날 사러 갈 수 있지만, 물류 발주는 리드타임이 며칠 걸려 채워 달라고 해도 그날 바로 오지 않습니다.</p>
+
+<div class="panel">
+  <h2>같은 상품 60일 — 하루 10개 안팎 팔릴 때의 세 가지 발주 규칙</h2>
+  <div class="controls">
+    <div class="ctl">정책
+      <div class="seg" id="segPol" role="group" aria-label="발주 정책">
+        <button type="button" data-v="1" aria-pressed="true">① 여유 없음</button>
+        <button type="button" data-v="2" aria-pressed="false">② 고정 안전재고</button>
+        <button type="button" data-v="3" aria-pressed="false">③ 변동 따라 조정</button>
+      </div>
+    </div>
+    <div class="ctl">수요 변동 (안정 ↔ 들쭉날쭉)
+      <input type="range" id="rVol" min="0" max="100" step="5" value="50" aria-label="수요 변동(하루 수요가 들쭉날쭉한 정도)">
+      <span class="val" id="volV">보통</span>
+    </div>
+    <div class="ctl">입고 리드타임 (5일 ↔ 12일)
+      <input type="range" id="rLt" min="5" max="12" step="1" value="7" aria-label="입고 리드타임(발주부터 입고까지 걸리는 일수)">
+      <span class="val" id="ltV">7일</span>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="60일 재고 시뮬레이션"></svg>
+  </div>
+  <p class="patn" id="patn"></p>
+  <p class="legend">
+    <span><i style="background:var(--viz-series-1);height:3px"></i>하루 끝 재고</span>
+    <span><i style="border-top:2px dashed var(--muted-foreground);height:0;background:none"></i>재주문점</span>
+    <span><i style="border-top:2px dotted var(--muted-foreground);height:0;background:none"></i>60일 평균 재고</span>
+    <span><i style="background:var(--viz-series-2);width:9px;height:9px;border-radius:50%"></i>발주한 날</span>
+    <span><i style="background:color-mix(in srgb,var(--bad) 70%,transparent)"></i>못 채운 날(품절) — 아래 막대 하나가 그날 수요</span>
+  </p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 60일, 단일 상품, 수요·리드타임은 고정 시나리오, 발주 비용은 회당 일정하다고 단순화했다. 재고는 160개로 시작해 한 번에 80개씩 발주하며, 그날 못 채운 수요는 다음 입고 때 채운다. 일일 수요는 고정된 시드(42)로 만들어, 손잡이 값이 같으면 결과도 항상 같다.</p>
+<p class="takeaway">수요와 리드타임이 안정적일 때는 여유를 줄이는 것이 돈에 유리하지만, 변동이 크면 여유가 없으면 품절로 손해가 더 커진다 — 안전재고는 변동의 크기에 맞춰 정한다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 수요 평균·변이와 리드타임으로 재주문점과 안전재고를 계산해 발주를 제안한다. 계산식과 여유 수준은 운영사·상품마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="inventory-basics.html">재고의 기본</a> — 재고가 왜 쌓이는지 · <a href="allocation-atp.html">할당과 ATP</a> — 쌓아 둔 재고를 팔 수 있다고 약속하는 단계</p>
+  <p>다음(심화): <a href="fifo-lifo-fefo.html">FIFO · LIFO · FEFO</a> — 쌓아 둔 재고를 꺼내는 순서</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="safety-stock">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  // ── 60일 시뮬레이션: 시드 고정(42). 손잡이 값이 같으면 결과도 항상 같다. ──
+  const DAYS=60, AVG=10, Q=80, INIT=160, MAXP=3, SS_M=2.2;
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  function gauss(r){const u1=r(),u2=r();return Math.sqrt(-2*Math.log(u1+1e-12))*Math.cos(2*Math.PI*u2);}
+  function genDemand(noise){
+    const r=mulberry32(42), sig=3+noise*16, d=[];
+    for(let i=0;i<DAYS;i+=2){
+      const z1=gauss(r), z2=gauss(r);
+      d.push(Math.max(0,Math.min(35,Math.round(AVG+z1*sig))));
+      d.push(Math.max(0,Math.min(35,Math.round(AVG+z2*sig))));
+    }
+    return d;
+  }
+  function statsOf(a){const n=a.length,m=a.reduce((x,y)=>x+y,0)/n,v=a.reduce((x,y)=>x+(y-m)*(y-m),0)/n;return {mean:m,sd:Math.sqrt(v)};}
+  function runPolicy(rop,demand,L){
+    let inv=INIT,orders=0,outDays=0,sumInv=0;
+    const pend=[],series=[],ord=[],out=[];
+    for(let d=1;d<=DAYS;d++){
+      for(let i=pend.length-1;i>=0;i--)if(pend[i]<=d){inv+=Q;pend.splice(i,1);}
+      const dv=demand[d-1];let served=0;
+      if(dv>0){served=Math.min(inv,dv);if(served<dv)outDays++;inv-=dv;}
+      out.push(dv>0&&served<dv);
+      sumInv+=Math.max(0,inv);series.push(Math.max(0,inv));
+      if(inv+pend.length*Q<=rop&&pend.length<MAXP){pend.push(d+L);orders++;ord.push(d);}
+    }
+    return {outDays,avg:Math.round(sumInv/DAYS),orders,series,ord,out};
+  }
+  function compute(vol,L){
+    const noise=vol/100, demand=genDemand(noise), {mean,sd}=statsOf(demand), res={demand,mean,sd};
+    const base=Math.round(mean*L);
+    for(const p of [1,2,3]){
+      const ss=p===1?0:p===2?20:Math.min(Math.round(SS_M*sd*Math.sqrt(L)),Q);
+      const rop=base+ss, r=runPolicy(rop,demand,L);
+      r.rop=rop;r.ss=ss;r.base=base;res[p]=r;
+    }
+    return res;
+  }
+
+  const PN={1:'여유 없음',2:'고정 안전재고',3:'변동 따라 조정'};
+  const MARK={1:'①',2:'②',3:'③'};
+  let vol=50, L=7, cur=1;
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'), host=$('diaHost'), status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+  let RES=null;
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function text(x,y,cls,s){const t=el('text',{x:x,y:y,class:cls});t.textContent=s;return t;}
+  function volName(v){return v<=20?'안정':v<=45?'다소 변동':v<=70?'보통':v<=90?'변동 큼':'들쭉날쭉';}
+
+  function mini(x0,y0,pid,colW,sel){
+    const p=RES[pid], padL=30, padR=6, plotTop=y0+40, PH=108, base=y0+148;
+    const plotW=colW-padL-padR, dw=plotW/DAYS;
+    el('rect',{x:x0-4,y:y0-2,width:colW+8,height:202,rx:10,fill:'none',
+      stroke:sel?'var(--foreground)':'var(--border)','stroke-width':sel?2:1});
+    text(x0+4,y0+13,'t12 w6 txt',MARK[pid]+' '+PN[pid]);
+    text(x0+4,y0+27,'t11 mut','재주문점 '+p.rop+' · 안전재고 '+p.ss);
+    const allMax=Math.max(INIT,p.rop,...RES[1].series,...RES[2].series,...RES[3].series);
+    const yMax=Math.ceil(allMax/20)*20;
+    const X=d=>x0+padL+(d-0.5)*dw;
+    const Y=v=>base-(v/yMax)*PH;
+    // 재고 영역 + 선
+    let ap='M'+X(1).toFixed(1)+','+base;
+    let lp='';
+    for(let d=1;d<=DAYS;d++){ap+=' L'+X(d).toFixed(1)+','+Y(p.series[d-1]).toFixed(1);lp+=X(d).toFixed(1)+','+Y(p.series[d-1]).toFixed(1)+' ';}
+    ap+=' L'+X(DAYS).toFixed(1)+','+base+' Z';
+    el('path',{d:ap,class:'invArea'});
+    el('polyline',{points:lp,class:'inv'});
+    // 재주문점 / 평균 점선
+    const yR=Y(Math.min(p.rop,yMax)), yA=Y(p.avg);
+    el('line',{x1:x0+padL,y1:yR,x2:x0+padL+plotW,y2:yR,class:'rop'});
+    text(x0+padL+4,yR-3,'t11 mut halo','재주문점');
+    el('line',{x1:x0+padL,y1:yA,x2:x0+padL+plotW,y2:yA,class:'avg'});
+    if(Math.abs(yA-yR)>=14)text(x0+padL+plotW-4,yA-3,'t11 mut halo','평균');
+    // 축 · 눈금
+    el('line',{x1:x0+padL,y1:base,x2:x0+padL+plotW,y2:base,class:'ax'});
+    const yl=text(x0+padL-4,plotTop+8,'t11 mut',yMax); yl.setAttribute('text-anchor','end');
+    const zl=text(x0+padL-4,base+4,'t11 mut',0); zl.setAttribute('text-anchor','end');
+    [[0,'0'],[15,'15'],[30,'30'],[45,'45'],[60,'60일']].forEach(([d,s])=>{
+      const t=text(x0+padL+d*dw,y0+178,'t11 mut',s);
+      t.setAttribute('text-anchor',d===0?'start':d===60?'end':'middle');
+    });
+    // 발주 시점 표시
+    for(const od of p.ord){
+      const cx=X(od), cy=Y(p.series[od-1]);
+      el('line',{x1:cx,y1:cy,x2:cx,y2:y0+164,class:'drop'});
+      el('circle',{cx:cx,cy:cy,r:3,class:'ordDot'});
+    }
+    // 일일 수요 막대(품절 날은 붉게)
+    const dMax=35;
+    for(let d=1;d<=DAYS;d++){
+      const dv=RES.demand[d-1], h=2+dv/dMax*12;
+      el('rect',{x:(x0+padL+(d-1)*dw).toFixed(2),y:(y0+164-h).toFixed(2),width:Math.max(dw-0.5,0.8).toFixed(2),height:h.toFixed(2),
+        class:p.out[d-1]?'dbar out':'dbar'});
+    }
+    text(x0+4,y0+194,'t11 mut','품절 '+p.outDays+'일 · 평균 '+p.avg+'개 · 발주 '+p.orders+'회');
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const GAP=14, narrow=W<620;
+    const colW=narrow?W-2*GAP:Math.floor((W-4*GAP)/3);
+    [1,2,3].forEach((pid,i)=>{
+      const x0=narrow?GAP:GAP+i*(colW+GAP);
+      const y0=narrow?GAP+i*216:GAP;
+      mini(x0,y0,pid,colW,pid===cur);
+    });
+    const H=narrow?3*216+2*GAP:216+2*GAP;
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('aria-label','60일 재고 시뮬레이션(수요 '+volName(vol)+' · 리드타임 '+L+'일) — '
+      +'여유 없음(재주문점 '+RES[1].rop+'): 품절 '+RES[1].outDays+'일 · 평균 재고 '+RES[1].avg+'개 · 발주 '+RES[1].orders+'회 / '
+      +'고정 안전재고 +20(재주문점 '+RES[2].rop+'): 품절 '+RES[2].outDays+'일 · 평균 재고 '+RES[2].avg+'개 · 발주 '+RES[2].orders+'회 / '
+      +'변동 따라 조정(안전재고 '+RES[3].ss+' · 재주문점 '+RES[3].rop+'): 품절 '+RES[3].outDays+'일 · 평균 재고 '+RES[3].avg+'개 · 발주 '+RES[3].orders+'회');
+  }
+
+  function winMin(key,unit,neutral){
+    const vals=[1,2,3].map(p=>key(RES[p])), best=Math.min(...vals);
+    if(neutral==='orders'&&Math.max(...vals)-best<=1)
+      return '<span class="cmp">셋 모두 <em>'+Math.min(...vals)+'~'+Math.max(...vals)+'회</em> — 발주 횟수는 안전재고보다 한 번에 사는 양(EOQ)이 크게 좌우한다</span>';
+    const names=[1,2,3].filter(p=>key(RES[p])===best).map(p=>PN[p]);
+    if(vals.every(v=>v===best))
+      return '<span class="cmp">셋 모두 <em>'+best+unit+'</em> — 이 조건에서는 차이가 나지 않는다</span>';
+    const win=names.includes(PN[cur]);
+    return '<span class="cmp '+(win?'good':'bad')+'">이 기준의 승자: '+names.map(n=>'<em>'+n+'</em>').join(' · ')+' · '+best+unit+'</span>';
+  }
+  function renderStats(){
+    const F=RES[cur];
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+F.outDays+'일</b><span>품절 일수 (일) — 재고가 없어 그날 주문을 못 채운 날 · 0이 좋음</span>'+winMin(p=>p.outDays,'일')+'</div>'+
+      '<div class="stat"><b>'+F.avg+'개</b><span>평균 재고 (개) — 60일간 하루 끝 재고의 평균 · 돈이 잠기는 양, 적을수록 좋음</span>'+winMin(p=>p.avg,'개')+'</div>'+
+      '<div class="stat"><b>'+F.orders+'회</b><span>발주 횟수 (회) — 60일간 발주한 횟수 · 발주 때마다 비용이 든다, 적을수록 좋음</span>'+winMin(p=>p.orders,'회','orders')+'</div>';
+  }
+  function renderPatn(){
+    $('patn').innerHTML='① 재주문점 = 하루 평균 수요 '+RES.mean.toFixed(1)+'개 × 리드타임 '+L+'일 = '+RES[1].rop
+      +' · ② +20개 고정 → '+RES[2].rop
+      +' · ③ +2.2 × 수요 변이 ±'+Math.round(RES.sd)+' × √'+L+' = +'+RES[3].ss+' → '+RES[3].rop+'(발주량 80개가 상한)'
+      +' · 세 정책 모두 한 번에 80개씩 발주합니다 — 이 "한 번에 사는 양"을, 발주할 때마다 드는 비용과 쌓아 두는 비용의 합이 가장 작아지도록 고르는 계산이 EOQ이고, 양을 늘리면 발주 횟수가 줄지만 평균 재고가 커집니다.';
+  }
+  function render(){RES=compute(vol,L);draw();renderStats();renderPatn();}
+  function saySum(){
+    status.textContent='수요 '+volName(vol)+' · 리드타임 '+L+'일 — 품절: 여유 없음 '+RES[1].outDays+'일 · 고정 '+RES[2].outDays+'일 · 조정 '+RES[3].outDays+'일 / 평균 재고 '+RES[1].avg+'·'+RES[2].avg+'·'+RES[3].avg+'개';
+  }
+  function sayPol(){
+    const p=RES[cur];
+    const how=cur===1?'평균 수요 × 리드타임(안전재고 0)':cur===2?'평균 수요 × 리드타임 +20':'평균 수요 × 리드타임 + 안전재고 '+p.ss;
+    status.textContent=PN[cur]+' — 재주문점 '+p.rop+'개('+how+') · 품절 '+p.outDays+'일 · 평균 재고 '+p.avg+'개 · 발주 '+p.orders+'회';
+  }
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+
+  $('segPol').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    cur=+b.dataset.v;setPressed('segPol',b);draw();renderStats();sayPol();
+  });
+  $('rVol').addEventListener('input',function(){vol=+this.value;$('volV').textContent=volName(vol);render();saySum();});
+  $('rLt').addEventListener('input',function(){L=+this.value;$('ltV').textContent=L+'일';render();saySum();});
+
+  new ResizeObserver(()=>draw()).observe(host);
+  $('volV').textContent=volName(vol);
+  render();saySum();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

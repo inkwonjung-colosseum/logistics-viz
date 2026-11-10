@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>다중 창고 재고 배치 — 물류 개념 시각화</title>
+<meta name="description" content="창고 3곳에 총 재고 300개를 판매 비중·균등·한 곳 집중 세 가지 방식으로 나눠 깔고 주문 30건을 처리해 보며, 권역 수요 편중·총 재고·창고 간 이동 비용에 따라 평균 배송 거리와 품절 권역 주문·창고 간 보충이 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 12px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:500}
+details.pre{margin:0 0 12px;border:1px solid var(--border);border-radius:12px;padding:8px 14px;font-size:13.5px;color:var(--muted-foreground)}
+details.pre summary{cursor:pointer;font-weight:500;color:var(--foreground)}
+details.pre p{margin:6px 0}
+details.pre a{color:var(--primary);text-decoration:none}
+.cause{font-size:13.5px;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:500}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:500;margin:0 0 10px}
+.opd{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--viz-series-1);margin-right:5px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{accent-color:var(--primary)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.stock{margin:0 0 12px;font-size:12.5px;color:var(--muted-foreground)}
+.stock b{color:var(--foreground);font-weight:500}
+#dia{display:block;width:100%;height:auto}
+svg text{font-family:inherit}
+svg text.t12{font-size:12px}
+svg text.t11{font-size:11px}
+svg text.w6{font-weight:600}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.txt{fill:var(--foreground)}
+svg text.bad{fill:var(--bad)}
+svg text.wh{fill:var(--viz-series-3)}
+svg text.num{font-variant-numeric:tabular-nums}
+svg text.halo{stroke:var(--card);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+svg .zbox{fill:color-mix(in srgb,var(--muted-foreground) 11%,transparent);stroke:color-mix(in srgb,var(--muted-foreground) 35%,transparent);stroke-width:1}
+svg .whbox{fill:color-mix(in srgb,var(--viz-series-3) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 42%,transparent);stroke-width:1}
+svg .flow{fill:none;stroke:color-mix(in srgb,var(--muted-foreground) 45%,transparent)}
+svg .tra{fill:none;stroke:var(--viz-series-3);stroke-dasharray:5 4;stroke-width:1.5}
+svg .trh{fill:var(--viz-series-3)}
+svg .barbg{fill:color-mix(in srgb,var(--muted-foreground) 12%,transparent)}
+svg .barfill{fill:color-mix(in srgb,var(--viz-series-3) 62%,transparent)}
+.patn{font-size:12px;color:var(--muted-foreground);margin:8px 0 14px}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin:0}
+.tbl th{font-weight:500;color:var(--muted-foreground);text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)}
+.tbl td{padding:4px 8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.tbl td.late{color:var(--bad)}
+.mat th,.mat td{padding:3px 6px;font-size:12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.good{color:var(--viz-series-2)}
+.stat em{font-style:normal;font-weight:500;color:var(--foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:500}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">재고</span>
+  <p class="q">재고를 어느 창고에 얼마만큼 나눠 둘 것인가</p>
+  <h1>다중 창고 재고 배치</h1>
+  <p class="def">여러 <b>물류 센터</b>에 재고를 나눠 두면 가깝게 보낼 수 있지만, 나누는 비율이 수요와 어긋나면 한 창고는 남고 다른 창고는 품절난다.</p>
+</header>
+
+<div class="terms">
+  <p><b>물류 센터(DC, Distribution Center)</b> — 여러 지역에 나눠 두고 주문을 받아 상품을 내보내는 역할이 큰 창고를 이르는 말이다.</p>
+  <p><b>배분</b> — 총 재고를 여러 창고에 나눠 담을 비율을 정하는 일이다.</p>
+</div>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말 3개</summary>
+  <p><b>재고(inventory)</b> — 팔거나 쓰려고 갖춰 둔 물건이다. → <a href="inventory-basics.html">재고의 기본</a></p>
+  <p><b>할당(allocation)</b> — 들어온 주문에 팔 수 있는 재고를 지정해 묶어 주는 일이다. <b>ATP(Available to Promise)</b> — "지금 주문하면 바로 보낼 수 있다"고 약속할 수 있는 수량이다. → <a href="allocation-atp.html">할당과 ATP</a></p>
+  <p><b>창고(warehouse)</b> — 물건을 받아 보관하다가, 주문이 들어오면 다시 내보내는 곳이다. → <a href="warehouse-basics.html">창고의 하루</a></p>
+</details>
+
+<p class="cause"><b>비유 — 편의점 체인 본사</b> · 지역마다 잘 팔리는 물건이 다른데 본사가 모든 매장에 똑같이 깔아 주면, 어디 매장은 재고가 쌓이고 어디 매장은 텅 빕니다. 재고 배치도 같습니다. 다만 맞지 않는 지점이 하나 있습니다 — 편의점은 매장 간에 물건을 옮기기 어렵지만, 창고 재고는 서로 보낼 수 있습니다. 그래서 이 페이지에는 창고 간 보충이 등장합니다.</p>
+
+<div class="panel">
+  <h2><span class="opd" aria-hidden="true"></span>운영사가 창고 3곳에 총 재고를 나눠 깔고, 주문 30건이 들어옵니다</h2>
+  <div class="controls">
+    <div class="ctl">배치 방식
+      <div class="seg" id="segPol" role="group" aria-label="배치 방식">
+        <button type="button" data-v="0" aria-pressed="true">판매 비중 배분</button>
+        <button type="button" data-v="1" aria-pressed="false">균등 분산</button>
+        <button type="button" data-v="2" aria-pressed="false">한 곳 집중</button>
+      </div>
+    </div>
+  </div>
+  <p class="stock" id="stock"></p>
+  <div class="controls">
+    <div class="ctl">권역 수요 편중
+      <input type="range" id="knS" min="0" max="100" step="20" value="0" aria-label="권역 수요 편중">
+      <span class="cnt" id="lblS"></span>
+    </div>
+    <div class="ctl">총 재고
+      <input type="range" id="knT" min="150" max="450" step="30" value="300" aria-label="총 재고">
+      <span class="cnt" id="lblT"></span>
+    </div>
+    <div class="ctl">창고 간 이동 비용
+      <div class="seg" id="segC" role="group" aria-label="창고 간 이동 비용">
+        <button type="button" data-v="0" aria-pressed="false">쌈</button>
+        <button type="button" data-v="1" aria-pressed="true">보통</button>
+        <button type="button" data-v="2" aria-pressed="false">비쌈</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="창고 3곳(서울·대전·부산)의 재고 배치와 주문 30건 처리 결과"></svg>
+  </div>
+  <p class="patn">굵은 선은 주문이 나간 창고→권역입니다(굵기 = 건수). 점선 화살표는 창고 간 보충 — 바닥난 창고의 주문을 다른 창고들의 남은 재고로 메운 횟수입니다(화살표는 가장 많이 보태 준 창고를 가리킴). 보충은 이동 비용에 따라 한 기간에 쌈 12회 · 보통 4회 · 비쌈 1회까지만 허용되고, 남은 주문은 품절이 됩니다.</p>
+  <table class="tbl mat" aria-label="창고별 권역 거리와 하루 배달 권역">
+    <tr><th>거리(km)</th><th>수도권</th><th>충청·호남</th><th>영남</th></tr>
+    <tr><th>서울 창고</th><td>10</td><td>170</td><td class="late">400 · 권역 밖</td></tr>
+    <tr><th>대전 창고</th><td>170</td><td>20</td><td>230</td></tr>
+    <tr><th>부산 창고</th><td class="late">400 · 권역 밖</td><td>230</td><td>10</td></tr>
+  </table>
+  <p class="patn">300km 안이 각 창고의 하루 배달 권역(다음 날 도착)입니다. 서울↔부산 400km는 권역 밖이라 바로 보낼 수 없고, 주문 한 건은 한 창고에서 전부 나갑니다(나눠 보내지 않음).</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 창고 3곳 · 총 재고 300개 · 주문 30건, 수요는 권역별 고정 시나리오다. 주문 한 건은 10개씩 사서 30건 × 10 = 수요 300개로 총 재고와 같다. 그래서 총 재고를 300 아래로 내리면 재고가 빠듯해진다. 300km 안을 하루 배달 권역으로 보고, 창고 처리 능력과 보충 소요 시간은 제한이 없다고 둔다.</p>
+<p class="takeaway">수요가 <b>권역별로 뚜렷하면 그 비중대로 나눠 두는 것이</b>, <b>고르거나 총량이 넉넉하면 나누는 방식의 영향이 줄어듭니다</b> — 재고가 빠듯하고 이동 비용이 클수록 배치 하나가 성적을 바꿉니다. 그래서 실무에서는 입고 때 배치 비율을 수요 예측에 맞춰 정하고, 어긋나면 창고 간 보충으로 뒤늦게 수습합니다.</p>
+<p class="sys"><b>시스템에서는</b> OMS(주문 관리 시스템)에서는 권역별 수요 예측과 창고 용량을 받아 입고 시 배치 비율을 정하고, 품절 시 보충을 제안한다. 배치 규칙은 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="allocation-atp.html">할당과 ATP</a> — 팔 수 있다고 약속할 수 있는 재고가 얼마인지 보는 것</p>
+  <p>다음: <a href="contract-rates.html">계약과 요율</a> — 나눠 둔 재고를 보관하고 옮기는 단가가 정해지는 방식</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="multi-dc-inventory">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+/*SIM-BEGIN*/
+const ZONES=['수도권','충청·호남','영남'];
+const WHN=['서울','대전','부산'];
+const D=[[10,170,400],[170,20,230],[400,230,10]]; // D[창고][권역] km
+const LIM=300; // 하루 배달 권역(km)
+const SIZE=10; // 주문 한 건 크기(개) — 30건 × 10 = 총 수요 300
+const POLN=['판매 비중 배분','균등 분산','한 곳 집중'];
+const COSTN=['쌈','보통','비쌈'];
+const CAP=[99,4,1]; // 이동 비용별 기간 내 보충 허용 횟수
+function counts(t){const n0=12+Math.round(t/10),rest=30-n0,n1=rest>>1;return[n0,n1,rest-n1];}
+function sequence(cnt){const done=[0,0,0],seq=[];
+  for(let i=0;i<30;i++){let b=0,bv=-1;
+    for(let j=0;j<3;j++){const v=cnt[j]*(i+1)/30-done[j];if(v>bv+1e-9){bv=v;b=j;}}
+    done[b]++;seq.push(b);}
+  return seq;}
+function allocate(pol,T,cnt){
+  if(pol===0){const a0=Math.round(T*cnt[0]/30),a1=Math.round(T*cnt[1]/30);return[a0,a1,T-a0-a1];}
+  if(pol===1){const b=Math.round(T/3);return[b,b,T-2*b];}
+  return[0,T,0];}
+function run(pol,T,t,cost){
+  const cnt=counts(t),cap=CAP[cost],init=allocate(pol,T,cnt),st=init.slice(),seq=sequence(cnt);
+  let dist=0,served=0,failed=0,tr=0,trUsed=0;
+  const fz=[0,0,0],pair={},trs={};
+  const cand=z=>[0,1,2].filter(k=>D[k][z]<=LIM).sort((a,b)=>D[a][z]-D[b][z]);
+  for(let i=0;i<30;i++){
+    const z=seq[i],s=SIZE,cs=cand(z);let w=-1;
+    for(const k of cs)if(st[k]>=s){w=k;break;}
+    if(w<0&&trUsed<cap){
+      let pool=0;for(let k=0;k<3;k++)pool+=st[k];
+      if(pool>=s){
+        const tg=cs[0],need0=s-st[tg],ord=[0,1,2].filter(k=>k!==tg).sort((a,b)=>st[b]-st[a]);
+        let need=need0,main=-1;
+        for(const k of ord){if(need<=0)break;
+          if(st[k]>0){if(main<0)main=k;const m=Math.min(st[k],need);st[k]-=m;need-=m;}}
+        if(need<=0){st[tg]+=need0;tr++;trUsed++;w=tg;
+          const key=WHN[main]+'>'+WHN[tg];trs[key]=(trs[key]||0)+1;}}}
+    if(w>=0){dist+=D[w][z];served++;st[w]-=s;const key=w+'-'+z;pair[key]=(pair[key]||0)+1;}
+    else{failed++;fz[z]++;}}
+  return{cnt,init,rem:st.slice(),served,failed,fz,dist:served?Math.round(dist/served*10)/10:0,tr,trs,pair,dry:st.map(v=>v===0)};}
+function verdict(rs){const key=r=>r.failed*10000+r.dist*10+r.tr;
+  const ks=rs.map(key);let vi=0;
+  for(let i=1;i<3;i++)if(ks[i]<ks[vi])vi=i;
+  const win=[];for(let i=0;i<3;i++)if(ks[i]===ks[vi])win.push(i);
+  return win;}
+/*SIM-END*/
+let pol=0,tk=0,T=300,ck=1,last=null;
+const $=x=>document.getElementById(x);
+const svg=$('dia'),host=$('diaHost'),status=$('status');
+const NS='http://www.w3.org/2000/svg';
+function el(n,at){const e=document.createElementNS(NS,n);for(const a in at)e.setAttribute(a,at[a]);svg.appendChild(e);return e;}
+function txt(x,y,cls,s,anch){const e=el('text',{x,y,'class':cls});if(anch)e.setAttribute('text-anchor',anch);e.textContent=s;return e;}
+function tsp(t,cls,s){const sp=t.ownerDocument.createElementNS(NS,'tspan');if(cls)sp.setAttribute('class',cls);sp.textContent=s;t.appendChild(sp);}
+
+function compute(){last=[0,1,2].map(p=>run(p,T,tk,ck));}
+
+function drawWide(W){
+  const r=last[pol],ZW=Math.min(180,W*0.26),WW=Math.min(190,W*0.26);
+  const zx=[.16,.5,.84].map(f=>f*W),wx=[.16,.5,.84].map(f=>f*W);
+  const zy=4,ZH=60,wy=206,whh=86;
+  r.cnt.forEach((n,z)=>{const cx=zx[z];
+    el('rect',{x:cx-ZW/2,y:zy,width:ZW,height:ZH,rx:9,'class':'zbox'});
+    txt(cx,zy+18,'t12 w6 txt',ZONES[z],'middle');
+    txt(cx,zy+36,'t11 num mut','수요 '+n+'건','middle');
+    txt(cx,zy+52,'t11 num '+(r.fz[z]?'bad':'mut'),r.fz[z]?'품절 '+r.fz[z]+'건':'품절 없음','middle');});
+  for(const key in r.pair){const ia=key.split('-'),wi=+ia[0],zi=+ia[1],c=r.pair[key];
+    const x1=wx[wi],y1=wy,x2=zx[zi],y2=zy+ZH;
+    el('path',{d:'M'+x1+','+y1+' C'+x1+','+(y1-64)+' '+x2+','+(y2+64)+' '+x2+','+y2,'class':'flow','stroke-width':(1.2+c*0.55).toFixed(2)});
+    txt((x1+x2)/2,(y1+y2)/2+4,'t11 num mut halo',c+'건','middle');}
+  r.init.forEach((a,w)=>{const cx=wx[w],x=cx-WW/2;
+    el('rect',{x,y:wy,width:WW,height:whh,rx:9,'class':'whbox'});
+    txt(x+12,wy+20,'t12 w6 wh',WHN[w]+' 창고');
+    txt(x+12,wy+39,'t11 num mut','남은 재고 '+r.rem[w]+' / '+a+'개');
+    el('rect',{x:x+12,y:wy+49,width:WW-24,height:8,rx:4,'class':'barbg'});
+    if(a>0)el('rect',{x:x+12,y:wy+49,width:Math.max(0,(WW-24)*r.rem[w]/a),height:8,rx:4,'class':'barfill'});
+    if(r.dry[w])txt(x+12,wy+74,'t11 w6 bad','재고 바닥 — 보충 대기');
+    else if(r.rem[w]<20)txt(x+12,wy+74,'t11 num mut','잔여 '+r.rem[w]+'개');});
+  const lanes=Object.keys(r.trs),ay=wy+whh+14;
+  lanes.forEach((key,i)=>{const nm=key.split('>'),si=WHN.indexOf(nm[0]),ti=WHN.indexOf(nm[1]);
+    const y=ay+i*16,x1=wx[si],x2=wx[ti],dir=x2>x1?1:-1;
+    el('path',{d:'M'+x1+','+y+' Q'+((x1+x2)/2)+','+(y-16)+' '+x2+','+y,'class':'tra'});
+    el('path',{d:'M'+(x2-6*dir)+','+(y-3)+' L'+x2+','+y+' L'+(x2-6*dir)+','+(y+3)+' Z','class':'trh'});
+    txt((x1+x2)/2,y-8,'t11 num wh halo','보충 '+r.trs[key]+'회 · '+nm[0]+'→'+nm[1],'middle');});
+  return ay+Math.max(1,lanes.length)*16+14;
+}
+
+function drawNarrow(W){
+  const r=last[pol],PAD=10;let y=8;
+  for(let z=0;z<3;z++){
+    const t1=el('text',{x:PAD,y:y+12,'class':'t12 w6 txt'});
+    tsp(t1,'',ZONES[z]);tsp(t1,' num mut',' · 수요 '+r.cnt[z]+'건');
+    if(r.fz[z])tsp(t1,' num bad',' · 품절 '+r.fz[z]+'건');
+    y+=20;
+    for(let w=0;w<3;w++){const c=r.pair[w+'-'+z];if(!c)continue;
+      txt(PAD,y+11,'t11 num mut','← '+WHN[w]+' 창고에서 '+c+'건('+D[w][z]+'km)');y+=15;}
+    if(r.fz[z]){txt(PAD,y+11,'t11 num bad','품절 '+r.fz[z]+'건 — 하루 안에 보낼 창고가 없음');y+=15;}
+    y+=6;}
+  r.init.forEach((a,w)=>{const x=PAD;
+    txt(x,y+12,'t12 w6 wh',WHN[w]+' 창고');
+    txt(W-PAD,y+12,'t11 num mut','남은 '+r.rem[w]+' / '+a+'개'+(r.dry[w]?' · 바닥':''),'end');
+    el('rect',{x,y:y+17,width:W-2*PAD,height:7,rx:3,'class':'barbg'});
+    if(a>0)el('rect',{x,y:y+17,width:Math.max(0,(W-2*PAD)*r.rem[w]/a),height:7,rx:3,'class':'barfill'});
+    y+=32;});
+  const lanes=Object.keys(r.trs);
+  if(lanes.length){const t2=el('text',{x:PAD,y:y+12,'class':'t11 num wh'});
+    tsp(t2,'','창고 간 보충: ');
+    lanes.forEach((key,i)=>{if(i)tsp(t2,'',' · ');
+      tsp(t2,'',key.split('>').join('→')+' '+r.trs[key]+'회');});}
+  else txt(PAD,y+12,'t11 mut','창고 간 보충 없음');
+  return y+22;
+}
+
+function draw(){
+  const W=host.clientWidth;if(!W||W<40)return;
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+  const H=W>=620?drawWide(W):drawNarrow(W);
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  const r=last[pol];
+  svg.setAttribute('aria-label','창고 3곳(서울·대전·부산)에 재고 '+T+'개를 '+POLN[pol]+'으로 나눠 깔고 주문 30건을 처리한 결과 — 수요는 수도권 '+r.cnt[0]+'건·충청호남 '+r.cnt[1]+'건·영남 '+r.cnt[2]+'건, 평균 배송 거리 '+r.dist+'km, 품절 권역 주문 '+r.failed+'건, 창고 간 보충 '+r.tr+'회');
+}
+
+function renderStats(){
+  const card=(get,fmt,label)=>{const v=last.map(get),m=Math.min(...v);
+    const marks=last.map(x=>get(x)===m),names=POLN.filter((_,i)=>marks[i]).join(' · ');
+    return '<div class="stat"><b>'+fmt(get(last[pol]))+'</b><span>'+label+'</span>'+
+      (marks[pol]?'<span class="cmp good">이 배치가 1위</span>'
+        :'<span class="cmp">1위 <em>'+names+'</em> · '+fmt(get(last[marks.indexOf(true)]))+'</span>')+'</div>';};
+  $('stats').innerHTML=
+    card(r=>r.dist,v=>v.toFixed(1)+'km','평균 배송 거리 (km) — 주문 한 건이 창고에서 권역까지 가는 거리의 평균 · 짧을수록 좋음')+
+    card(r=>r.failed,v=>v+'건','품절 권역 주문 (건) — 하루 배달 권역 안에 보낼 창고가 없어 못 보낸 주문 · 0이 좋음')+
+    card(r=>r.tr,v=>v+'회','창고 간 보충 (회) — 바닥난 창고 주문을 다른 창고 재고로 메운 횟수 · 적을수록 좋음');
+}
+
+function render(){compute();
+  document.querySelectorAll('#segPol button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.v===pol)));
+  document.querySelectorAll('#segC button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.v===ck)));
+  const cnt=counts(tk),r=last[pol],vw=verdict(last);
+  $('lblS').textContent='수도권 '+cnt[0]+' / 30건 · '+(tk===0?'고르게':tk<100?'쏠리는 중':'서울 쏠림');
+  $('lblT').textContent=T+'개 · '+(T<240?'빠듯':T<360?'보통':'넉넉');
+  $('stock').innerHTML='<b>초기 배치('+POLN[pol]+')</b> — '+r.init.map((a,i)=>WHN[i]+' 창고 '+a+'개').join(' · ')+' · 총 '+T+'개';
+  draw();renderStats();
+  status.textContent=POLN[pol]+' 적용(이동 비용 '+COSTN[ck]+') · 평균 배송 거리 '+r.dist+'km · 품절 권역 주문 '+r.failed+'건 · 창고 간 보충 '+r.tr+'회 — 종합 1위 '+vw.map(i=>POLN[i]).join(' · ');
+}
+
+$('segPol').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  pol=+b.dataset.v;render();
+  const nb=$('segPol').querySelector('[data-v="'+pol+'"]');if(nb)nb.focus();});
+$('segC').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  ck=+b.dataset.v;render();
+  const nb=$('segC').querySelector('[data-v="'+ck+'"]');if(nb)nb.focus();});
+$('knS').addEventListener('input',()=>{tk=+$('knS').value;render();});
+$('knT').addEventListener('input',()=>{T=+$('knT').value;render();});
+new ResizeObserver(()=>{if(last)draw();}).observe(host);
+render();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

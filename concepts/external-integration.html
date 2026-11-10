@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>외부 시스템 연동 — EDI · API — 물류 개념 시각화</title>
+<meta name="description" content="OMS를 중심으로 쇼핑몰·계약 창고 WMS·운송사 TMS·회계 ERP와 하루 동안 주고받는 10단계 문서 릴레이를 단계별로 따라 가며, 연동 방식(API·EDI vs 수기)과 재전송 규칙 유무에 따라 평균 정보 지연·수작업·실패 미해결이 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.cnt{font-size:12.5px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+/* 주체·상대 칩 (레인 범례) */
+.lanes{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.c-erp,.c-oms{color:var(--viz-series-1)}.c-mall{color:var(--viz-series-2)}.c-wms{color:var(--viz-series-3)}.c-tms{color:var(--viz-series-4)}
+#dia{display:block;width:100%;height:auto}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 12px}
+/* 릴레이 단계 목록 */
+.relay{list-style:none;margin:0;padding:0}
+.rs{display:grid;grid-template-columns:22px minmax(0,1fr);gap:0 10px;padding:8px 10px;margin:0 0 6px;border-radius:10px;border:1px solid var(--border);transition:opacity .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+.rs .n{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;line-height:1.9}
+.rs .hd{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.rs .ar{font-size:12px;color:var(--muted-foreground)}
+.rs .t{grid-column:2;font-size:13.5px;line-height:1.5;margin-top:3px}
+.rs .tag{font-size:11.5px;line-height:1.6;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--muted-foreground) 12%,transparent);color:var(--muted-foreground)}
+.rs .t .fbad{color:var(--bad);font-weight:600}
+.rs.fut{opacity:.35}
+.rs.cur{border-color:var(--foreground);border-width:2px;background:var(--soft);padding:7px 9px;margin-bottom:5px}
+/* 숫자 카드 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+/* SVG 안의 텍스트·도형 */
+#dia text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.fbad{fill:var(--bad)}
+svg text.halo{stroke:var(--card);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+svg text.c-erp,svg text.c-oms{fill:var(--viz-series-1)}
+svg text.c-mall{fill:var(--viz-series-2)}
+svg text.c-wms{fill:var(--viz-series-3)}
+svg text.c-tms{fill:var(--viz-series-4)}
+svg .hdbox{stroke-width:1}
+svg .h-erp,svg .h-oms{fill:color-mix(in srgb,var(--viz-series-1) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-1) 42%,transparent)}
+svg .h-mall{fill:color-mix(in srgb,var(--viz-series-2) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-2) 42%,transparent)}
+svg .h-wms{fill:color-mix(in srgb,var(--viz-series-3) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 42%,transparent)}
+svg .h-tms{fill:color-mix(in srgb,var(--viz-series-4) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-4) 42%,transparent)}
+svg .ll{stroke:var(--border);stroke-dasharray:3 4;stroke-width:1}
+svg .ar{fill:none;stroke-width:1.5}
+svg .ar.d-done{stroke:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg .ar.d-on{stroke:var(--foreground);stroke-width:2}
+svg .ar.d-fut{stroke:var(--border);stroke-dasharray:4 3}
+svg path.hd{stroke:none}
+svg path.hd.d-done{fill:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg path.hd.d-on{fill:var(--foreground)}
+svg path.hd.d-fut{fill:var(--border)}
+svg .dot{fill:color-mix(in srgb,var(--muted-foreground) 55%,transparent)}
+svg .dot.on{fill:var(--foreground)}
+svg circle.c-erp,svg circle.c-oms{fill:var(--viz-series-1)}
+svg circle.c-mall{fill:var(--viz-series-2)}
+svg circle.c-wms{fill:var(--viz-series-3)}
+svg circle.c-tms{fill:var(--viz-series-4)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">시스템</span>
+  <p class="q">우리 시스템 밖의 상대와 어떤 문서를 어떤 순서로 주고받는가</p>
+  <h1>외부 시스템 연동 — EDI · API</h1>
+  <p class="def">운영사는 시스템 밖의 상대(쇼핑몰, 창고, 운송사, 회계)와 정해진 서식의 문서를 주고받는다 — 프로그램끼리 정해진 규칙으로 데이터를 주고받는 연결 창구가 <b>API</b>, 회사 사이 문서를 정해진 서식으로 주고받는 방식이 <b>EDI(전자 문서 교환)</b>이다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>시스템 셋</b> — <b>OMS(주문 관리 시스템)</b>은 주문을 받아 어느 창고에서 내보낼지 정하고, 주문의 상태를 끝까지 지켜보는 프로그램이다. <b>WMS(창고 관리 시스템)</b>은 창고 안의 입고·보관·피킹·출고 작업을 지시하고 기록하는 프로그램이다. <b>TMS(운송 관리 시스템)</b>은 어느 운송사가 어느 길로 옮길지 정하고 운송 상황을 지켜보는 프로그램이다. → <a href="system-landscape.html">물류 시스템 지도</a></p>
+  <p><b>시스템 연계</b> — 시스템끼리 문서를 정해진 순서로 넘겨 주는 연결이다. OMS·WMS·TMS 사이 안의 10단계 릴레이를 다룬다. → <a href="order-handoff.html">OMS → WMS → TMS 연계</a></p>
+  <p><b>주문 상태</b> — 주문이 접수된 뒤 배송이 끝날 때까지 어디까지 진행됐는지 나타내는 표시다. 이 페이지의 "상태 회신" 문서로 쇼핑몰에 돌아간다. → <a href="order-status.html">주문 한 건의 여정</a></p>
+</details>
+
+<div class="terms">
+  <p><b>API(Application Programming Interface)</b> — 프로그램끼리 정해진 규칙으로 데이터를 주고받는 연결 창구다.</p>
+  <p><b>EDI(Electronic Data Interchange, 전자 문서 교환)</b> — 회사 사이에 주문·통지 같은 문서를 정해진 서식으로 주고받는 방식이다.</p>
+  <p><b>ERP(Enterprise Resource Planning, 전사 자원 관리)</b> — 회사의 회계·구매·재무를 함께 관리하는 프로그램이다. 재고를 돈으로 기록하는 곳이다.</p>
+</div>
+
+<p class="cause"><b>비유 — 은행 이체</b> · 내가 쓰는 앱이 다른 은행과 약속된 양식으로 돈을 주고받는다. 약속이 어긋나면 이체가 실패하고 다시 시도한다. 다만 맞지 않는 지점이 하나 있다 — 은행 이체는 한 번 실패하면 끝나지만, 물류 문서는 재전송 규칙이 있다.</p>
+
+<div class="panel">
+  <h2>하루 문서 흐름 — OMS를 중심에 둔 10단계 릴레이</h2>
+  <div class="lanes" id="lanes"></div>
+  <div class="controls">
+    <div class="ctl">연동 방식
+      <div class="seg" id="segMode" role="group" aria-label="연동 방식">
+        <button type="button" data-v="auto" aria-pressed="true">자동 API·EDI</button>
+        <button type="button" data-v="man" aria-pressed="false">수기 이메일·전화</button>
+      </div>
+    </div>
+    <div class="ctl">실패 처리
+      <div class="seg" id="segRetry" role="group" aria-label="실패 처리">
+        <button type="button" data-v="on" aria-pressed="true">자동 재전송</button>
+        <button type="button" data-v="off" aria-pressed="false">없음</button>
+      </div>
+    </div>
+    <div class="ctl">단계
+      <button type="button" class="ghostb" id="prev">◀ 이전</button>
+      <button type="button" class="ghostb" id="next">다음 ▶</button>
+    </div>
+    <span class="cnt" id="cnt">1 / 10</span>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="쇼핑몰(화주)·계약 창고 WMS·운송사 TMS·회계 ERP와 OMS(운영사)의 하루 10단계 문서 릴레이"></svg>
+  </div>
+  <p class="patn">화살표 라벨 = 상대와 주고받는 문서이고, 그 아래 줄 = 연동 방식(API · EDI · 수기 — 수기는 이메일·전화로 문서를 옮기는 방식)입니다. OMS·회계 ERP는 운영사색, 쇼핑몰은 화주색, 창고 WMS는 창고색, 운송사 TMS는 운송사색입니다. 붉은 줄 = 하루 5건의 전송 실패(고정 시나리오)가 그 단계에서 생겼다는 표시이며, 재전송 규칙은 최대 3회 — 그래도 실패하면 사람에게 알립니다. 수기 연동에서는 다시 보내는 것도 사람이 합니다.</p>
+  <ol class="relay" id="relay"></ol>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 하루 주문 20건 기준, 문서 9종(주문당 7종 + 정산·청구는 하루 1건), 상대는 4곳으로 단순화했다. 릴레이는 10단계지만 창고 작업 한 단계는 시스템 안에서 일어나 문서가 오가지 않는다. 전송 실패 5건은 고정 시나리오(같은 설정이면 결과가 항상 같다)이고, 미해결 문서는 다음 날 오전 발견으로 보아 240분을 더해 잰다.</p>
+<p class="takeaway">서식과 순서를 정해 두면 문서가 저절로 흐르지만, 연결이 사람 손을 타면 그만큼 느리고 실패한 문서는 방치된다 — 그래서 재전송 규칙과 '3회 실패 시 사람에게' 기준을 정해 둔다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 상대별 연동 방식(API·EDI)과 문서 서식, 재전송 횟수·간격을 설정으로 갖는다. 이 규칙은 상대와 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="order-handoff.html">OMS → WMS → TMS 연계</a> — 시스템 안(안의 3종) 문서 릴레이</p>
+  <p>다음: <a href="allocation-atp.html">할당과 ATP</a> — 받은 주문에 팔 수 있는 재고를 묶어 주는 단계</p>
+  <p>같은 묶음: <a href="control-tower.html">컨트롤 타워</a> — 재전송에도 실패한 문서를 사람에게 모아 보여 주는 것</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="external-integration">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const LANES={
+    erp:{n:'회계 ERP',sub:'운영사 회계·정산',cls:'c-erp'},
+    mall:{n:'쇼핑몰',sub:'화주·판매 채널',cls:'c-mall'},
+    oms:{n:'OMS',sub:'운영사·주문 총괄',cls:'c-oms'},
+    wms:{n:'창고 WMS',sub:'계약 창고·출고',cls:'c-wms'},
+    tms:{n:'운송사 TMS',sub:'운송사·배송 실행',cls:'c-tms'}
+  };
+  const ORDER=['erp','mall','oms','wms','tms'];
+  const CHIP_ORDER=['mall','oms','wms','tms','erp'];
+  const WAY={'주문 수신':'API','출고 지시':'API','완료 보고':'API','운송 의뢰':'API','배송 추적':'API','배송 완료':'API','상태 회신':'API','정산 데이터':'EDI','청구':'EDI'};
+  // d:[자동, 수기] 문서 하나가 상대에게 닿기까지 걸리는 시간(분) · per: 하루 건수
+  const DOCS=[
+    {f:'mall',to:'oms',doc:'주문 수신',per:20,d:[1,45],desc:'쇼핑몰에서 결제된 주문이 API 창구로 OMS에 들어온다'},
+    {f:'oms',to:'wms',doc:'출고 지시',per:20,d:[1,40],desc:'OMS가 창고에 "이 주문을 내보내라"고 지시를 보낸다'},
+    {f:'wms',to:null,inwms:true,doc:'창고 작업',desc:'창고가 피킹·포장·출고를 실행한다 — 문서가 오가지 않는 시스템 안 단계다'},
+    {f:'wms',to:'oms',doc:'완료 보고',per:20,d:[1,40],desc:'출고가 끝났다고 창고가 OMS에 알린다'},
+    {f:'oms',to:'tms',doc:'운송 의뢰',per:20,d:[1,40],desc:'OMS가 "이 화물을 옮겨 달라"고 운송사에 요청한다'},
+    {f:'tms',to:'oms',doc:'배송 추적',per:20,d:[1,60],desc:'운송 상황이 TMS에서 OMS로 흘러온다'},
+    {f:'tms',to:'oms',doc:'배송 완료',per:20,d:[1,40],desc:'배송이 끝났다고 TMS가 OMS에 알린다'},
+    {f:'oms',to:'mall',doc:'상태 회신',per:20,d:[1,45],desc:'OMS가 주문 상태("배송 완료")를 쇼핑몰에 돌려 보낸다'},
+    {f:'oms',to:'erp',doc:'정산 데이터',per:1,d:[5,120],desc:'그날 물류 실적을 EDI 서식으로 회계 ERP에 넘긴다'},
+    {f:'erp',to:'mall',doc:'청구',per:1,d:[10,240],desc:'ERP가 화주(쇼핑몰)에 물류비를 청구한다'}
+  ];
+  // 하루 5건의 전송 실패 — 고정 시나리오(같은 설정이면 결과가 항상 같다)
+  const FAILS=[
+    {doc:'주문 수신',n:2,why:'쇼핑몰 응답 지연'},
+    {doc:'출고 지시',n:1,why:'네트워크 오류'},
+    {doc:'상태 회신',n:1,why:'쇼핑몰 서버 점검'},
+    {doc:'정산 데이터',n:1,why:'EDI 서식 불일치'}
+  ];
+  const TOT=142; // 주문 20건×문서 7종 + 정산·청구 2건
+  const LATER=240; // 미해결 문서를 다음 날 오전 발견으로 보고 더하는 시간(분)
+
+  let MODE='auto',RETRY='on',cur=0;
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+
+  function kpis(mode,retry){
+    const m=mode==='auto'?0:1;
+    let delay=0,man=0,unres=0;
+    DOCS.forEach(s=>{if(s.inwms)return;delay+=s.d[m]*s.per;if(m)man+=s.per;});
+    if(retry==='on'){
+      delay+=(m?45:10)*4+60;   // 일시 실패 4건은 재전송으로 해결, 정산 1건은 3회 재전송 뒤 사람이 서식을 고친다(+60분)
+      man+=m?5:1;              // 수기 연동은 실패 5건을 모두 사람이 다시 보낸다 / 자동은 정산 서식만 사람이 고친다
+    }else{
+      delay+=90+60+45+LATER*2; // 3건은 상대 문의로 같은 날 재발송, 2건은 다음 날까지 미해결
+      man+=3;unres=2;
+    }
+    return {d:Math.round(delay/TOT*10)/10,man,unres};
+  }
+  const COMBOS=[
+    {mode:'auto',retry:'on',label:'자동 API·EDI + 자동 재전송'},
+    {mode:'auto',retry:'off',label:'자동 연동 + 재전송 없음'},
+    {mode:'man',retry:'on',label:'수기 연동 + 자동 재전송'},
+    {mode:'man',retry:'off',label:'수기 연동 + 재전송 없음'}
+  ].map(c=>Object.assign(c,kpis(c.mode,c.retry)));
+  const BEST_D=Math.min.apply(null,COMBOS.map(c=>c.d));
+  const BEST_MAN=Math.min.apply(null,COMBOS.map(c=>c.man));
+  const bestDL=COMBOS.reduce((a,b)=>a.d<=b.d?a:b).label;
+  const bestML=COMBOS.reduce((a,b)=>a.man<=b.man?a:b).label;
+
+  const mIdx=()=>MODE==='auto'?0:1;
+  const curKpis=()=>kpis(MODE,RETRY);
+  const wayName=s=>s.inwms?'시스템 안':(MODE==='auto'?WAY[s.doc]:'수기');
+  function failNote(doc){
+    const f=FAILS.find(x=>x.doc===doc);if(!f)return '';
+    if(RETRY==='on')return doc==='정산 데이터'?'실패 1건 · 3회 재전송 뒤 사람이 서식을 고침':'실패 '+f.n+'건 · 재전송으로 해결';
+    if(doc==='주문 수신')return '실패 2건 · 1건은 미해결';
+    if(doc==='정산 데이터')return '실패 1건 · 미해결 (다음 날 발견)';
+    return '실패 '+f.n+'건 · 상대 문의로 재발송';
+  }
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function units(s){let u=0;for(const ch of s){const c=ch.codePointAt(0);
+    u+=((c>=0xAC00&&c<=0xD7A3)||(c>=0x3000&&c<=0x9FFF)||(c>=0xFF00&&c<=0xFF60))?1
+      :(ch===' '?0.34:(ch==='·'?0.58:((c>=48&&c<=57)||(c>=65&&c<=90)||(c>=97&&c<=122))?0.58:1));}
+    return u;}
+  function wrap(s,maxU){
+    const out=[];let line='';
+    const add=ch=>{if(line&&units(line+ch)>maxU){out.push(line);line=ch;}else line+=ch;};
+    for(const tok of s.split(' ')){
+      if(!line){for(const ch of tok)add(ch);continue;}
+      if(units(line+' '+tok)<=maxU){line+=' '+tok;continue;}
+      out.push(line);line='';
+      for(const ch of tok)add(ch);
+    }
+    if(line)out.push(line);
+    return out;}
+  function head(x,y,ang,cls){
+    const s=7,a1=ang+2.58,a2=ang-2.58;
+    el('path',{d:'M'+x+','+y+' L'+(x+Math.cos(a1)*s).toFixed(2)+','+(y+Math.sin(a1)*s).toFixed(2)+' L'+(x+Math.cos(a2)*s).toFixed(2)+','+(y+Math.sin(a2)*s).toFixed(2)+' Z',class:cls});}
+
+  function drawWide(W){
+    const PAD=12,N=5,BW=Math.min((W-2*PAD)/N-14,176),BH=46,TOP=BH+20,RH=60;
+    const H=TOP+DOCS.length*RH+12;
+    const cx=ORDER.map((k,i)=>PAD+(W-2*PAD)*(i+0.5)/N);
+    ORDER.forEach((k,i)=>{
+      el('rect',{x:cx[i]-BW/2,y:4,width:BW,height:BH,rx:9,class:'hdbox h-'+k});
+      el('text',{x:cx[i],y:22,'text-anchor':'middle',class:'t12 w6 '+LANES[k].cls}).textContent=LANES[k].n;
+      el('text',{x:cx[i],y:39,'text-anchor':'middle',class:'t11 mut'}).textContent=LANES[k].sub;
+      el('line',{x1:cx[i],y1:BH+12,x2:cx[i],y2:H-6,class:'ll'});
+    });
+    DOCS.forEach((s,i)=>{
+      const y=TOP+i*RH,ay=y+RH/2,st=i>cur?'d-fut':(i===cur?'d-on':'d-done');
+      if(s.inwms){
+        const lx=cx[ORDER.indexOf('wms')];
+        el('circle',{cx:lx,cy:ay,r:4.5,class:'dot'+(i===cur?' on':'')});
+        el('text',{x:lx-12,y:y+RH/2-2,'text-anchor':'end',class:'t12 halo '+(i===cur?'w6 txt':'txt')}).textContent=(i+1)+'. 창고 작업 · 피킹·포장·출고';
+        el('text',{x:lx-12,y:y+RH/2+15,'text-anchor':'end',class:'t11 halo mut'}).textContent='시스템 안 처리 — 문서가 오가지 않는다';
+        return;
+      }
+      const fx=cx[ORDER.indexOf(s.f)],tx=cx[ORDER.indexOf(s.to)],mx=(fx+tx)/2;
+      el('line',{x1:fx,y1:ay,x2:tx,y2:ay,class:'ar '+st});
+      head(tx,ay,tx>fx?0:Math.PI,'hd '+st);
+      el('text',{x:mx,y:ay-10,'text-anchor':'middle',class:'t12 halo '+(i===cur?'w6 txt':'txt')}).textContent=(i+1)+'. '+s.doc;
+      el('text',{x:mx,y:ay+15,'text-anchor':'middle',class:'t11 halo mut'}).textContent=wayName(s)+(s.per===1?' · 하루 1건':'');
+      if(i<=cur){
+        const fn=failNote(s.doc);
+        if(fn)el('text',{x:mx,y:ay+30,'text-anchor':'middle',class:'t11 halo fbad'}).textContent=fn;
+      }
+    });
+    return H;
+  }
+
+  function drawNarrow(W){
+    const PAD=10,maxU=Math.max(14,Math.floor((W-2*PAD-34)/10.5)),hl=15;
+    let y=PAD;
+    for(let i=0;i<=cur;i++){
+      const s=DOCS[i],LK=s.inwms?'wms':s.f;
+      const dl=wrap(s.desc,maxU);
+      const fn=failNote(s.doc);
+      const ch=34+hl*dl.length+(s.inwms?0:16)+(fn?15:0);
+      el('rect',{x:PAD,y:y,width:W-2*PAD,height:ch,rx:9,class:'hdbox h-'+LK});
+      el('circle',{cx:PAD+13,cy:y+15,r:3.5,class:'c-'+LK});
+      const t1=el('text',{x:PAD+22,y:y+19,class:'t11 w6 c-'+LK});
+      const sp=document.createElementNS(NS,'tspan');sp.textContent=LANES[LK].n;t1.appendChild(sp);
+      const sp2=document.createElementNS(NS,'tspan');sp2.setAttribute('class','txt');sp2.textContent=' · '+s.doc;t1.appendChild(sp2);
+      dl.forEach((ln,k)=>{el('text',{x:PAD+22,y:y+35+hl*k,class:'t11 mut'}).textContent=ln;});
+      const my=y+35+hl*dl.length;
+      if(s.inwms){
+        el('text',{x:PAD+22,y:my,class:'t11 mut'}).textContent='시스템 안 처리 — 문서가 오가지 않는다';
+      }else{
+        el('text',{x:PAD+22,y:my,class:'t11 c-'+LK}).textContent=wayName(s)+' · 지연 '+s.d[mIdx()]+'분'+(s.per===1?' · 하루 1건':'');
+        if(fn)el('text',{x:PAD+22,y:my+15,class:'t11 fbad'}).textContent=fn;
+      }
+      y+=ch+8;
+      if(i<cur){
+        el('line',{x1:PAD+16,y1:y+2,x2:PAD+16,y2:y+14,class:'ar d-done'});
+        head(PAD+16,y+14,Math.PI/2,'hd d-done');
+        y+=16;
+      }
+    }
+    return y+PAD;
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const H=W>=620?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    const s=DOCS[cur];
+    svg.setAttribute('aria-label','쇼핑몰(화주)·계약 창고 WMS·운송사 TMS·회계 ERP와 OMS(운영사)의 하루 10단계 문서 릴레이 — '+(cur+1)+'단계까지 진행, 현재 '+(cur+1)+'번 '+s.doc+(s.inwms?'':' ('+wayName(s)+')'));
+  }
+
+  function renderLanes(){
+    $('lanes').innerHTML=CHIP_ORDER.map(k=>'<span class="chip '+LANES[k].cls+' on">'+LANES[k].n+' · '+LANES[k].sub+'</span>').join('');
+  }
+  function renderRelay(){
+    $('relay').innerHTML=DOCS.map((s,i)=>{
+      const stc=i===cur?' cur':(i>cur?' fut':'');
+      const fn=i<=cur?failNote(s.doc):'';
+      const tag=s.inwms?'<span class="tag">시스템 안 처리</span>':'<span class="tag">'+wayName(s)+' · 지연 '+s.d[mIdx()]+'분'+(s.per===1?' · 하루 1건':'')+'</span>';
+      const hd='<span class="chip '+LANES[s.f].cls+'">'+LANES[s.f].n+'</span>'+(s.to?'<span class="ar">→</span><span class="chip '+LANES[s.to].cls+'">'+LANES[s.to].n+'</span>':'');
+      return '<li class="rs'+stc+'"><span class="n">'+(i+1)+'</span><div class="hd">'+hd+tag+'</div><div class="t">'+s.desc+(fn?' <b class="fbad">'+fn+'</b>':'')+'</div></li>';
+    }).join('');
+  }
+  function renderStats(){
+    const k=curKpis(),cLab=COMBOS.find(c=>c.mode===MODE&&c.retry===RETRY).label;
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+k.d+'분</b><span>평균 정보 지연 (분) — 문서 하나가 발생부터 상대에게 닿기까지 걸린 시간, 하루 평균 · 짧을수록 좋음</span>'+
+      (bestDL===cLab?'<span class="cmp good"><em>지금 설정</em>이 네 조합 가운데 가장 짧다</span>':'<span class="cmp bad">가장 짧은 <em>'+bestDL+'</em>(' + BEST_D + '분)의 약 '+Math.round(k.d/BEST_D*10)/10+'배다</span>')+'</div>'+
+      '<div class="stat"><b>'+k.man+'건</b><span>수작업 건수 (건) — 사람이 문서를 옮기거나 실패한 문서를 다시 보낸 횟수, 하루 합계 · 적을수록 좋음</span>'+
+      (bestML===cLab?'<span class="cmp good"><em>지금 설정</em>이 사람 손이 가장 적다</span>':'<span class="cmp bad">가장 적은 <em>'+bestML+'</em>(' + BEST_MAN + '건)보다 '+(k.man-BEST_MAN)+'건 많다</span>')+'</div>'+
+      '<div class="stat"><b>'+k.unres+'건</b><span>실패 미해결 (건) — 전송이 실패한 뒤 하루가 끝날 때까지 상대에게 닿지 못한 문서 · 0이 좋음</span>'+
+      (k.unres===0?'<span class="cmp good"><em>재전송 규칙</em>이 실패한 문서를 되살려 0건이다</span>':'<span class="cmp bad">재전송 규칙이 없어 2건이 다음 날까지 남는다 — 연동이 자동이어도 마찬가지다</span>')+'</div>';
+  }
+  function render(){
+    renderLanes();renderRelay();
+    $('cnt').textContent=(cur+1)+' / '+DOCS.length;
+    $('prev').disabled=cur<=0;
+    $('next').disabled=cur>=DOCS.length-1;
+    renderStats();draw();
+  }
+  function say(m){status.textContent=m;}
+  function stepMsg(){
+    const s=DOCS[cur];
+    return (cur+1)+'/'+DOCS.length+' · '+LANES[s.f].n+(s.to?' → '+LANES[s.to].n:'')+' · '+s.doc+(s.inwms?'':' ('+wayName(s)+')')+' — '+s.desc;
+  }
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+
+  $('segMode').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    MODE=b.dataset.v;setPressed('segMode',b);render();
+    const k=curKpis();
+    say('연동 방식: '+(MODE==='auto'?'자동 API·EDI — 하루 '+TOT+'건의 문서가 시스템끼리 오갑니다':'수기 이메일·전화 — 문서가 사람 손을 거듭니다')+' (평균 지연 '+k.d+'분 · 수작업 '+k.man+'건 · 미해결 '+k.unres+'건)');
+  });
+  $('segRetry').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    RETRY=b.dataset.v;setPressed('segRetry',b);render();
+    const k=curKpis();
+    say(RETRY==='on'
+      ?'실패 처리: 자동 재전송 — 최대 3회 다시 보내고, 그래도 실패하면 사람에게 알립니다 (미해결 '+k.unres+'건)'
+      :'실패 처리: 없음 — 하루 5건의 전송 실패 가운데 '+k.unres+'건이 아무도 모르는 채 다음 날까지 남습니다');
+  });
+  $('prev').addEventListener('click',()=>{cur=Math.max(0,cur-1);render();say(stepMsg());});
+  $('next').addEventListener('click',()=>{cur=Math.min(DOCS.length-1,cur+1);render();say(stepMsg());});
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+  say(stepMsg());
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

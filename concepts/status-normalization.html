@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상태 매핑 — 창고 작업 상태 → 화주용 주문 상태 — 물류 개념 시각화</title>
+<meta name="description" content="창고 WMS의 10개 세부 작업 상태가 OMS의 대응표(상태 매핑)를 거쳐 화주에게는 상품 준비중·배송 준비·배송 중 3개로 보이는 과정을, 대응표가 없을 때와 표에 없는 코드의 처리 방식(보류 표시·마지막 상태 유지)에 따라 화주 문의·상태 불일치·평균 상태 지연이 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+/* 주체 칩 (레인 범례) */
+.lanes{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.c-ops{color:var(--viz-series-1)}.c-own{color:var(--viz-series-2)}.c-wh{color:var(--viz-series-3)}
+.lanes .chip{opacity:.35;transition:opacity .15s ease-out}
+.lanes .chip.on{opacity:1}
+#dia{display:block;width:100%;height:auto}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+/* 숫자 카드 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+/* SVG 안의 텍스트·도형 */
+#dia text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.halo{stroke:var(--card);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+svg text.c-ops{fill:var(--viz-series-1)}
+svg text.c-own{fill:var(--viz-series-2)}
+svg text.c-wh{fill:var(--viz-series-3)}
+svg text.c-bad{fill:var(--bad)}
+svg .bxw{fill:color-mix(in srgb,var(--viz-series-3) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-3) 42%,transparent);stroke-width:1}
+svg .bxw.nm{stroke-dasharray:4 3}
+svg .bxu{fill:color-mix(in srgb,var(--viz-series-2) 11%,transparent);stroke:color-mix(in srgb,var(--viz-series-2) 42%,transparent);stroke-width:1}
+svg .bxf{fill:color-mix(in srgb,var(--bad) 8%,transparent);stroke:color-mix(in srgb,var(--bad) 45%,transparent);stroke-width:1;stroke-dasharray:4 3}
+svg .stall{fill:color-mix(in srgb,var(--bad) 7%,transparent);stroke:color-mix(in srgb,var(--bad) 40%,transparent);stroke-width:1;stroke-dasharray:3 3}
+svg .ln{fill:none;stroke-width:1.5}
+svg .ln.map{stroke:color-mix(in srgb,var(--viz-series-1) 65%,transparent)}
+svg .ln.raw{stroke:color-mix(in srgb,var(--muted-foreground) 55%,transparent);stroke-dasharray:3 4}
+svg .ln.bad{stroke:color-mix(in srgb,var(--bad) 65%,transparent);stroke-dasharray:4 3}
+svg path.hd{stroke:none}
+svg path.hd.map{fill:color-mix(in srgb,var(--viz-series-1) 80%,transparent)}
+svg path.hd.raw{fill:color-mix(in srgb,var(--muted-foreground) 60%,transparent)}
+svg path.hd.bad{fill:color-mix(in srgb,var(--bad) 75%,transparent)}
+svg circle.dotb{fill:var(--bad)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">시스템</span>
+  <p class="q">창고의 세부 작업 상태를 화주에게는 어떻게 보여줄 것인가</p>
+  <h1>상태 매핑 — 창고 작업 상태 → 화주용 주문 상태</h1>
+  <p class="def">창고는 '피킹 지시·피킹 중·검수 보류·포장 완료'처럼 잘게 쪼갠 상태를 쓰지만 화주에게는 통째로 옮기지 않는다 — <b>상태 매핑</b>으로 몇 개의 알아보기 쉬운 주문 상태로 옮겨 보여준다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>주문 상태</b> — 주문이 접수된 뒤 배송이 끝날 때까지 어디까지 진행됐는지 나타내는 표시다. → <a href="order-status.html">주문 한 건의 여정</a></p>
+  <p><b>OMS · WMS</b> — OMS(주문 관리 시스템)는 주문을 받아 어느 창고에서 내보낼지 정하고, 주문의 상태를 끝까지 지켜보는 프로그램이다. WMS(창고 관리 시스템)는 창고 안의 입고·보관·피킹·출고 작업을 지시하고 기록하는 프로그램이다. 창고는 작업이 끝날 때마다 상태를 완료 보고로 OMS에 알린다. → <a href="order-handoff.html">OMS → WMS → TMS 연계</a></p>
+  <p><b>피킹</b> — 주문에 맞는 물건을 창고 안의 자리에서 골라 내는 일이다. → <a href="warehouse-basics.html">창고의 하루</a></p>
+</details>
+
+<div class="terms">
+  <p><b>상태 매핑(status mapping)</b> — 창고의 세부 작업 상태를 화주에게 보여 주는 주문 상태로 옮겨 놓은 대응표다.</p>
+</div>
+
+<p class="cause"><b>비유 — 병원 수술 전광판</b> · 수술실 안에서는 마취·절개·봉합까지 여러 단계가 진행되지만 복도 전광판에는 보호자에게 '수술 중' 하나만 보입니다. 다만 맞지 않는 지점이 하나 있다 — 병원 전광판은 정해진 단계만 보이지만 주문 상태는 운영사가 직접 정의합니다.</p>
+
+<div class="panel">
+  <h2>주문 1건이 지나는 10단계 — 창고 상태와 화주 화면</h2>
+  <div class="lanes" id="lanes"></div>
+  <div class="controls">
+    <div class="ctl">매핑 적용
+      <div class="seg" id="segMap" role="group" aria-label="매핑 적용">
+        <button type="button" data-v="on" aria-pressed="true">규칙표 있음</button>
+        <button type="button" data-v="off" aria-pressed="false">규칙표 없음</button>
+      </div>
+    </div>
+    <div class="ctl">미매핑 상태 처리
+      <div class="seg" id="segFall" role="group" aria-label="미매핑 상태 처리">
+        <button type="button" data-v="show" aria-pressed="true">보류로 표시</button>
+        <button type="button" data-v="keep" aria-pressed="false">마지막 상태 유지</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="주문 1건이 창고 WMS에서 지나는 세부 작업 상태 10단계와, OMS의 대응표를 거쳐 화주에게 보이는 주문 상태 3개의 대응 그림"></svg>
+  </div>
+  <p class="patn" id="note"></p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 주문 1건·세부 상태 10단계, 화주용 상태는 3개로 단순화했다. 실제 정의는 운영사마다 다르다.</p>
+<p class="takeaway">매핑을 정리해 두면 화주는 알아보는 몇 개의 상태만 보고 문의가 줄지만, 매핑에 없는 상태가 나오면 그 순간 화면이 멈추거나 엉뚱한 상태가 보인다 — 그래서 미매핑 상태를 어떻게 처리할지도 규칙으로 정해 둔다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 창고가 보내온 상태 코드를 화주용 상태로 바꾸는 대응표를 갖고, 표에 없는 코드의 처리(보류/유지)를 규칙으로 정한다. 대응표는 운영사·화주마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="order-handoff.html">OMS → WMS → TMS 연계</a> — 창고가 상태를 완료 보고로 OMS에 알리는 연결</p>
+  <p>다음: <a href="master-data-mapping.html">마스터 데이터 표준화 — 상품코드 매핑</a> — 화주·창고가 같은 상품을 다르게 부르는 코드를 맞추는 것</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="status-normalization">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  // 주문 1건이 창고(WMS)에서 지나는 세부 작업 상태 10단계
+  // m: OMS 대응표에 있는 화주용 상태(null이면 대응표에 없는 코드) · t: 주문 접수 후 경과(분)
+  // q: 규칙표 없음 모드에서 화주가 낯설어 문의가 나오는 상태(7개)
+  const STEPS=[
+    {n:'피킹 지시',t:0,m:'상품 준비중',q:1},
+    {n:'피킹 중',t:25,m:'상품 준비중',q:1},
+    {n:'부분 피킹',t:60,m:'상품 준비중',q:1},
+    {n:'검수',t:95,m:'상품 준비중',q:1},
+    {n:'보류(재고 확인)',t:130,m:'상품 준비중',q:1},
+    {n:'재개',t:175,m:null,q:1},
+    {n:'포장',t:210,m:'상품 준비중',q:0},
+    {n:'출고 완료',t:260,m:'배송 준비',q:0},
+    {n:'인계',t:300,m:'배송 준비',q:1},
+    {n:'배송 중',t:380,m:'배송 중',q:0}
+  ];
+  const FB='보류(확인 중)';
+  // 조합별 KPI (시드 고정 — 파라미터가 같으면 결과도 같다)
+  // inq 화주 문의(건)=낯선 상태 raw+멈춤 stall · mism 상태 불일치(건) · lag 평균 상태 지연(분)
+  // lag: 있음·보류 표시 = 모든 이벤트 8분 / 있음·유지 = (9이벤트×8분+재개 85분(175→출고 완료 260반영))÷10 ≈ 16분 / 없음 = 원시 통과 5분
+  const KPI={
+    'on|show':{inq:1,raw:1,stall:0,mism:0,lag:8},
+    'on|keep':{inq:2,raw:0,stall:2,mism:2,lag:16},
+    'off|show':{inq:7,raw:7,stall:0,mism:0,lag:5}
+  };
+  const LANES=[['c-wh','창고 · WMS','세부 작업 상태를 기록'],['c-ops','운영사 · OMS','상태 대응표를 갖는다'],['c-own','화주','주문 상태를 본다']];
+  let MAP='on',FALL='show';
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+  const combo=()=>MAP+'|'+(MAP==='on'?FALL:'show');
+  const kpi=()=>KPI[combo()];
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function head(x,y,cls){
+    const s=7,a1=2.58,a2=-2.58;
+    el('path',{d:'M'+x+','+y+' L'+(x+Math.cos(a1)*s).toFixed(2)+','+(y+Math.sin(a1)*s).toFixed(2)+' L'+(x+Math.cos(a2)*s).toFixed(2)+','+(y+Math.sin(a2)*s).toFixed(2)+' Z',class:cls});
+  }
+  function units(s){let u=0;for(const ch of s){const c=ch.codePointAt(0);
+    u+=((c>=0xAC00&&c<=0xD7A3)||(c>=0x3000&&c<=0x9FFF)||(c>=0xFF00&&c<=0xFF60))?1
+      :(ch===' '?0.34:(ch==='·'?0.58:((c>=48&&c<=57)||(c>=65&&c<=90)||(c>=97&&c<=122))?0.58:1));}
+    return u;}
+  // i번째 세부 상태가 화주 화면에 표시되는 값
+  function rowDisp(i){
+    const s=STEPS[i];
+    if(MAP==='off')return{label:s.n,kind:'raw',q:!!s.q};
+    if(s.m)return{label:s.m,kind:'map',q:false};
+    if(FALL==='show')return{label:FB,kind:'fb',q:true};
+    return{label:'상품 준비중',kind:'keep',q:false};
+  }
+  // 오른쪽 열: 같은 표시가 이어지는 구간을 하나의 상태로 묶음
+  function groups(){
+    if(MAP==='off')return STEPS.map((s,i)=>({rows:[i],disp:rowDisp(i),stall:false}));
+    const out=[];
+    STEPS.forEach((s,i)=>{
+      const d=rowDisp(i),p=out[out.length-1];
+      if(p&&p.disp.label===d.label){p.rows.push(i);p.stall=p.stall||d.kind==='keep';}
+      else out.push({rows:[i],disp:d,stall:d.kind==='keep'});
+    });
+    return out;
+  }
+
+  function drawWide(W){
+    const PAD=14,H0=46,ROWH=42,N=STEPS.length;
+    const LX=PAD;
+    const LW=Math.max(170,Math.min(250,Math.round((W-2*PAD)*0.34)));
+    const RW=Math.max(170,Math.min(330,W-2*PAD-LW-90));
+    const RX=W-PAD-RW;
+    const AW=RX-(LX+LW);
+    const H=H0+N*ROWH+8;
+    el('text',{x:LX,y:20,class:'t12 w6 c-wh'}).textContent='WMS 세부 작업 상태';
+    el('text',{x:LX,y:36,class:'t11 mut'}).textContent='창고가 기록하는 10단계 · t+분 = 주문 접수 후 경과';
+    el('text',{x:RX,y:20,class:'t12 w6 c-own'}).textContent='화주에게 보이는 주문 상태';
+    el('text',{x:RX,y:36,class:'t11 mut'}).textContent=MAP==='on'?'OMS 대응표를 거친 표시':'창고 상태가 그대로 노출';
+    if(MAP==='on'){
+      el('text',{x:LX+LW+AW/2,y:20,'text-anchor':'middle',class:'t11 w6 c-ops'}).textContent='OMS 대응표';
+      el('text',{x:LX+LW+AW/2,y:36,'text-anchor':'middle',class:'t11 mut'}).textContent='없는 코드는 규칙으로 처리';
+    }
+    // 왼쪽: WMS 세부 상태 카드
+    STEPS.forEach((s,i)=>{
+      const y=H0+i*ROWH;
+      el('rect',{x:LX,y:y+4,width:LW,height:ROWH-10,rx:8,class:'bxw'+(s.m?'':' nm')});
+      const t=el('text',{x:LX+12,y:y+21,class:'t12'+(s.m?'':' w6')+' txt'});
+      const sp=document.createElementNS(NS,'tspan');sp.textContent=s.n;t.appendChild(sp);
+      if(!s.m){const b=document.createElementNS(NS,'tspan');b.setAttribute('class','t11 c-bad');b.textContent=' · 대응표에 없음';t.appendChild(b);}
+      el('text',{x:LX+LW-12,y:y+21,'text-anchor':'end',class:'t11 mut'}).textContent='t+'+s.t+'분';
+    });
+    // 오른쪽: 화주 화면 상태 (묶임)
+    const G=groups(),gidx=[];
+    G.forEach((g,gi)=>g.rows.forEach(r=>{gidx[r]=gi;}));
+    G.forEach(g=>{
+      const y1=H0+g.rows[0]*ROWH+4,y2=H0+g.rows[g.rows.length-1]*ROWH+4+(ROWH-10);
+      const fb=g.disp.kind==='fb';
+      el('rect',{x:RX,y:y1,width:RW,height:y2-y1,rx:8,class:fb?'bxf':'bxu'});
+      const cy=(y1+y2)/2;
+      let tx=RX+14;
+      if(MAP==='off'&&g.disp.q){el('circle',{cx:RX+19,cy:cy-6,r:3,class:'dotb'});tx=RX+27;}
+      el('text',{x:tx,y:cy+(g.rows.length>1||fb?-3:5),class:'t12 w6 '+(fb?'c-bad':(MAP==='off'?'mut':'c-own'))}).textContent=g.disp.label;
+      if(fb)el('text',{x:RX+14,y:cy+13,class:'t11 c-bad'}).textContent='대응표에 없는 코드';
+      else if(g.rows.length>1)el('text',{x:RX+14,y:cy+13,class:'t11 mut'}).textContent='WMS '+g.rows.length+'단계가 하나로';
+      if(g.stall)g.rows.forEach(r=>{
+        if(rowDisp(r).kind!=='keep')return;
+        const sy=H0+r*ROWH+6;
+        el('rect',{x:RX+2,y:sy,width:RW-4,height:ROWH-12,rx:6,class:'stall'});
+        el('text',{x:RX+RW-10,y:sy+16,'text-anchor':'end',class:'t11 c-bad halo'}).textContent='갱신 없음 · 마지막 상태 유지';
+      });
+    });
+    // 가운데: 대응표 화살표
+    STEPS.forEach((s,i)=>{
+      const y1=H0+i*ROWH+20,g=G[gidx[i]];
+      const gy1=H0+g.rows[0]*ROWH+4,gy2=H0+g.rows[g.rows.length-1]*ROWH+4+(ROWH-10);
+      const y2=(gy1+gy2)/2;
+      const cls=MAP==='off'?'raw':(s.m?'map':'bad');
+      el('line',{x1:LX+LW+2,y1:y1,x2:RX-7,y2:y2,class:'ln '+cls});
+      head(RX-1,y2,'hd '+cls);
+      if(cls==='bad')el('text',{x:LX+LW+AW/2,y:(y1+y2)/2-4,'text-anchor':'middle',class:'t11 c-bad halo'}).textContent='표에 없음';
+    });
+    return H;
+  }
+
+  function drawNarrow(W){
+    const PAD=10,H0=44,RH=36;
+    let y=H0;
+    el('text',{x:PAD,y:16,class:'t11 w6 mut'}).textContent='WMS(창고) 세부 상태 → 화주 화면 표시';
+    el('text',{x:PAD,y:32,class:'t11 mut'}).textContent=MAP==='on'?'OMS 대응표를 거쳐 알아보는 상태 3개로':'대응표 없음 — 창고 상태가 그대로 노출';
+    STEPS.forEach((s,i)=>{
+      const d=rowDisp(i);
+      const cls=MAP==='off'?'raw':(s.m?'map':'bad');
+      const ax=PAD+2+Math.round(units(s.n)*11.2)+12;
+      el('text',{x:PAD+2,y:y+15,class:'t12 txt w6'}).textContent=s.n;
+      el('text',{x:W-PAD-2,y:y+15,'text-anchor':'end',class:'t11 mut'}).textContent='t+'+s.t+'분';
+      el('line',{x1:ax,y1:y+11,x2:ax+14,y2:y+11,class:'ln '+cls});
+      head(ax+19,y+11,'hd '+cls);
+      let tx=ax+25;
+      if(d.q&&MAP==='off'){el('circle',{cx:tx+3,cy:y+11,r:3,class:'dotb'});tx+=12;}
+      el('text',{x:tx,y:y+15,class:'t12 w6 '+(d.kind==='fb'?'c-bad':(MAP==='off'?'mut':'c-own'))}).textContent=d.label;
+      let rh=RH;
+      if(d.kind==='fb'){el('text',{x:tx,y:y+29,class:'t11 c-bad'}).textContent='대응표에 없는 코드';rh=RH+14;}
+      else if(d.kind==='keep'){el('text',{x:tx,y:y+29,class:'t11 c-bad'}).textContent='갱신 없음 · 마지막 상태 유지';rh=RH+14;}
+      y+=rh;
+    });
+    return y+8;
+  }
+
+  function ariaText(){
+    const k=kpi();
+    let s='주문 1건이 창고 WMS에서 지나는 세부 작업 상태 10단계(왼쪽)와 화주에게 보이는 주문 상태(오른쪽). 규칙표 '+(MAP==='on'?'있음':'없음');
+    if(MAP==='on')s+=', 미매핑 상태 처리 '+(FALL==='show'?'보류로 표시':'마지막 상태 유지')+", '재개'는 대응표에 없어 "+(FALL==='show'?"'보류(확인 중)'로 표시된다":"마지막 상태에 머문다");
+    else s+=', 10개 상태가 모두 그대로 노출된다';
+    s+='. 화주 문의 '+k.inq+'건, 상태 불일치 '+k.mism+'건, 평균 상태 지연 '+k.lag+'분.';
+    return s;
+  }
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const H=W>=620?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('aria-label',ariaText());
+  }
+
+  function renderLanes(){
+    $('lanes').innerHTML=LANES.map(l=>'<span class="chip '+l[0]+((l[0]==='c-ops'&&MAP==='off')?'':' on')+'">'+l[1]+' · '+l[2]+'</span>').join('');
+  }
+  function renderNote(){
+    $('note').textContent=MAP==='on'
+      ?'왼쪽은 창고 WMS가 기록하는 세부 상태(창고색), 가운데 화살표는 OMS가 갖는 대응표(운영사색), 오른쪽은 화주 화면(화주색)입니다. 점선 테두리는 대응표에 없는 상태입니다.'
+      :'왼쪽은 창고 WMS가 기록하는 세부 상태(창고색), 오른쪽은 화주 화면(화주색)입니다. 대응표가 없어 모든 상태가 그대로 통과하고, 빨간 점은 화주가 낯설어 문의가 나오는 상태입니다.';
+  }
+  function renderStats(){
+    const k=kpi(),c=combo(),best='<em>규칙표 있음 · 보류로 표시</em>';
+    let inqCmp,mismCmp,lagCmp;
+    if(c==='on|show'){
+      inqCmp='<span class="cmp good">규칙표 없음이면 7건 — '+best+'이 문의가 가장 적다</span>';
+      mismCmp='<span class="cmp good">0건 — 화면이 실제 진행과 같다 (마지막 상태 유지는 2건)</span>';
+      lagCmp='<span class="cmp bad">규칙표 없음이면 5분 — 원시 통과가 가장 빠르다 (대신 문의 7건)</span>';
+    }else if(c==='on|keep'){
+      inqCmp='<span class="cmp bad">'+best+'이면 1건 — 낯선 말 문의는 없어지지만 멈춤 문의 2건이 생긴다</span>';
+      mismCmp='<span class="cmp bad">'+best+'이면 0건 — 유지는 화면이 멈춰 실제와 어긋난다</span>';
+      lagCmp='<span class="cmp bad">'+best+'이면 8분 — 재개 정보는 다음 표시 변화(출고 완료) 때야 닿는다</span>';
+    }else{
+      inqCmp='<span class="cmp bad">'+best+'이면 1건 — 낯선 상태 7개가 그대로 보여 문의가 늘어난다</span>';
+      mismCmp='<span class="cmp good">0건 — 그대로 보여주니 화면이 실제와 같다</span>';
+      lagCmp='<span class="cmp good"><em>규칙표 없음</em>이 가장 빠르다 — 대신 화주 문의가 7건이다</span>';
+    }
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+k.inq+'건</b><span>화주 문의 (건) — 낯선 상태 '+k.raw+'건 · 멈춰 보여 묻는 문의 '+k.stall+'건 · 적을수록 좋음</span>'+inqCmp+'</div>'+
+      '<div class="stat"><b>'+k.mism+'건</b><span>상태 불일치 (건) — 실제 진행과 화주 화면이 다른 구간 · 0이 좋음</span>'+mismCmp+'</div>'+
+      '<div class="stat"><b>'+k.lag+'분</b><span>평균 상태 지연 (분) — WMS 상태 발생부터 화주 화면 반영까지 · 짧을수록 좋음</span>'+lagCmp+'</div>';
+  }
+  function render(){renderLanes();renderNote();renderStats();draw();}
+  function say(m){status.textContent=m;}
+  function announce(){
+    const k=kpi();
+    if(MAP==='off'){say('규칙표 없음 — 세부 상태 10개가 화주 화면에 그대로 노출됩니다. 화주 문의 '+k.inq+'건 · 불일치 '+k.mism+'건 · 평균 지연 '+k.lag+'분. 규칙표가 없으면 미매핑 처리 규칙도 적용되지 않습니다.');return;}
+    const f=FALL==='show'?"'재개'는 대응표에 없어 '보류(확인 중)'로 표시됩니다":'마지막 알려진 상태가 유지되어 재개 시점에 화면이 멈춰 보입니다';
+    say('규칙표 있음 · '+(FALL==='show'?'보류로 표시':'마지막 상태 유지')+' — '+f+' 화주 문의 '+k.inq+'건 · 불일치 '+k.mism+'건 · 평균 지연 '+k.lag+'분.');
+  }
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+
+  $('segMap').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    MAP=b.dataset.v;setPressed('segMap',b);
+    document.querySelectorAll('#segFall button').forEach(x=>{x.disabled=(MAP==='off');});
+    render();announce();
+  });
+  $('segFall').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.disabled||b.getAttribute('aria-pressed')==='true')return;
+    FALL=b.dataset.v;setPressed('segFall',b);render();announce();
+  });
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();announce();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "tracks": [
     {
       "id": "first-steps",
@@ -218,6 +218,94 @@
       "tags": ["테넌트", "자사 운영", "자체 운영", "데이터 격리"]
     },
     {
+      "id": "status-normalization",
+      "title": "상태 매핑 (창고 작업 상태 → 화주용 주문 상태)",
+      "category": "시스템",
+      "summary": "창고의 잘게 쪼갠 작업 상태를 화주가 알아보는 몇 개의 주문 상태로 옮겨 보여준다 — 매핑 있음/없음, 미매핑 상태 처리를 바꾸며 화주 문의·상태 불일치·지연이 어떻게 달라지는지 본다.",
+      "file": "concepts/status-normalization.html",
+      "tags": ["상태 매핑", "OMS", "화주"]
+    },
+    {
+      "id": "master-data-mapping",
+      "title": "마스터 데이터 표준화 (상품코드 매핑)",
+      "category": "시스템",
+      "summary": "화주 상품코드와 창고 상품코드를 잇는 매핑표에서 행이 빠지면 하루 거래가 어느 단계에서 멈추는지 — 매핑 커버리지와 신상품 등록 시점 토글로 보류·자동 처리율·재작업 시간의 변화를 확인한다.",
+      "file": "concepts/master-data-mapping.html",
+      "tags": ["마스터 데이터", "매핑", "상품코드"]
+    },
+    {
+      "id": "external-integration",
+      "title": "외부 시스템 연동 (EDI · API)",
+      "category": "시스템",
+      "summary": "운영사 OMS를 중심으로 쇼핑몰·창고·운송사·회계와 오가는 문서의 순서 — 자동 연동과 수기 전달, 실패 시 재전송이 정보 지연·수작업·미해결을 어떻게 바꾸는지 단계별로 따라간다.",
+      "file": "concepts/external-integration.html",
+      "tags": ["EDI", "API", "재전송"]
+    },
+    {
+      "id": "allocation-atp",
+      "title": "할당과 ATP",
+      "category": "주문·이행",
+      "summary": "재고 100개에 주문 20건이 몰릴 때 — 전부 약속·선착순 할당·ATP 여유 분리 세 정책이 약속 이행률·파기·판매 기회 손실에서 어떻게 갈리는지 같은 주문 더미로 비교한다.",
+      "file": "concepts/allocation-atp.html",
+      "tags": ["ATP", "할당", "안전재고"]
+    },
+    {
+      "id": "multi-dc-inventory",
+      "title": "다중 창고 재고 배치",
+      "category": "재고",
+      "summary": "총 재고 300개를 창고 3곳에 어떻게 나눠 둘까 — 판매 비중 배분·균등 분산·한 곳 집중 세 정책이 수요 편중·총량·이동 비용에 따라 배송 거리·품절 권역·보충 횟수에서 승부를 가른다.",
+      "file": "concepts/multi-dc-inventory.html",
+      "tags": ["물류 센터", "배치", "품절"]
+    },
+    {
+      "id": "contract-rates",
+      "title": "계약과 요율 (화주 요율 · 창고 요율)",
+      "category": "전략",
+      "summary": "같은 한 달 작업 실적에 과금 기준(건당·팔레트당·시간당)을 바꿔 적용하면 청구액·지급액·마진이 달라진다 — 작업 특성과 단가 수준 손잡이로 기준별 유리함이 뒤집히는 것을 본다.",
+      "file": "concepts/contract-rates.html",
+      "tags": ["요율", "과금 기준", "마진"]
+    },
+    {
+      "id": "logistics-kpi",
+      "title": "물류 KPI (OTIF · 완전주문 · Dock-to-stock)",
+      "category": "전략",
+      "summary": "같은 한 달 실적을 두고 OTIF 납기 창과 완전주문 정의를 바꾸면 창고 3곳·운송사 2곳의 순위가 움직인다 — 숫자는 기준을 함께 말해야 의미가 있음을 보여준다.",
+      "file": "concepts/logistics-kpi.html",
+      "tags": ["OTIF", "완전주문", "KPI"]
+    },
+    {
+      "id": "sla-scorecard",
+      "title": "SLA · 창고별 스코어카드",
+      "category": "전략",
+      "summary": "창고 3곳·운송사 2곳의 한 달 실적을 가중치(납기·정확도·비용)로 점수 매기고 페널티 기준(80↔90점)을 움직인다 — 같은 실적의 우열이 무엇을 중시하느냐에 따라 뒤집힌다.",
+      "file": "concepts/sla-scorecard.html",
+      "tags": ["SLA", "스코어카드", "페널티"]
+    },
+    {
+      "id": "outbound-flow",
+      "title": "출고 플로우 (웨이브 → 피킹 → 패킹 → 출고)",
+      "category": "창고 운영",
+      "summary": "주문 20건을 웨이브 크기(건별↔묶어서)와 도착 간격을 바꿔 처리해 본다 — 촘촘할 때는 묶을수록 전체가 빠르고, 드문드문일 때는 건별이 응답성에서 이긴다.",
+      "file": "concepts/outbound-flow.html",
+      "tags": ["웨이브", "피킹", "마감"]
+    },
+    {
+      "id": "pack-hierarchy",
+      "title": "포장 단위와 UoM 변환 (낱개 · 박스 · 팔레트)",
+      "category": "식별·단위",
+      "summary": "주문 5박스 × 입수 24개 — 주문 단위(낱개↔박스)와 입수 등록(정상↔오류)을 바꾸면 수량이 어느 단계에서 몇 개나 틀어지는지 보여준다. UoM은 마스터 데이터로 한곳에서 관리해야 하는 이유.",
+      "file": "concepts/pack-hierarchy.html",
+      "tags": ["UoM", "입수", "수량 오차"]
+    },
+    {
+      "id": "safety-stock",
+      "title": "안전재고 · 재주문점 · EOQ",
+      "category": "재고",
+      "summary": "60일 시뮬레이션으로 세 가지 정책(여유 없음·고정 안전재고·변동 반영)을 비교 — 수요 변동과 리드타임이 커질수록 여유를 둔 정책이 품절에서 이기고, 안정적이면 최소 재고가 이긴다.",
+      "file": "concepts/safety-stock.html",
+      "tags": ["안전재고", "재주문점", "EOQ"]
+    },
+    {
       "id": "order-handoff",
       "title": "OMS → WMS → TMS 연계",
       "category": "주문·이행",
@@ -259,17 +347,6 @@
     }
   ],
   "planned": [
-    { "id": "status-normalization", "title": "상태 매핑 (창고 작업 상태 → 화주용 주문 상태)", "category": "시스템" },
-    { "id": "master-data-mapping", "title": "마스터 데이터 표준화 (상품코드 매핑)", "category": "시스템" },
-    { "id": "external-integration", "title": "외부 시스템 연동 (EDI · API)", "category": "시스템" },
-    { "id": "allocation-atp", "title": "할당과 ATP", "category": "주문·이행" },
-    { "id": "multi-dc-inventory", "title": "다중 창고 재고 배치", "category": "재고" },
-    { "id": "contract-rates", "title": "계약과 요율 (화주 요율 · 창고 요율)", "category": "전략" },
-    { "id": "logistics-kpi", "title": "물류 KPI (OTIF · 완전주문 · Dock-to-stock)", "category": "전략" },
-    { "id": "sla-scorecard", "title": "SLA · 창고별 스코어카드", "category": "전략" },
-    { "id": "outbound-flow", "title": "출고 플로우 (웨이브 → 피킹 → 패킹 → 출고)", "category": "창고 운영" },
-    { "id": "pack-hierarchy", "title": "포장 단위와 UoM 변환 (낱개 · 박스 · 팔레트)", "category": "식별·단위" },
-    { "id": "safety-stock", "title": "안전재고 · 재주문점 · EOQ", "category": "재고" },
     { "id": "channel-order-intake", "title": "판매 채널 연동 · 주문 수집", "category": "주문·이행" },
     { "id": "carrier-selection", "title": "운송사 선정 · 운임 비교", "category": "수송·네트워크" },
     { "id": "inventory-reconciliation", "title": "재고 대사 (OMS 재고 vs WMS 재고)", "category": "재고" },

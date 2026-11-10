@@ -1611,7 +1611,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 &lt;/script&gt;
 &lt;div id=&quot;viz-ilc&quot;&gt;
   &lt;h1&gt;입고 생애주기 · 문서 흐름&lt;/h1&gt;
-  &lt;p class=&quot;text-muted&quot; style=&quot;margin:2px 0 12px&quot;&gt;발주부터 가용 전환·대사까지 — 입고가 시스템을 통과하는 전체 순서&lt;/p&gt;
+  &lt;p class=&quot;text-muted&quot; style=&quot;margin:2px 0 12px&quot;&gt;발주부터 가용 전환(바로 팔거나 보낼 수 있는 재고가 되는 것)·3-way match 대조까지 — 입고가 시스템을 통과하는 전체 순서&lt;/p&gt;
 
   &lt;div id=&quot;ilc-panel&quot; role=&quot;tabpanel&quot;&gt;
     &lt;div class=&quot;viz-controls&quot; style=&quot;margin-top:10px&quot;&gt;
@@ -1660,7 +1660,7 @@ html&gt;body{padding:0}&lt;/style&gt;
     },
     {
       name: &#x27;검수&#x27;, doc: &#x27;입고전표&#x27;, status: &#x27;검수중&#x27;, erp: &#x27;GR 준비&#x27;, who: &#x27;창고&#x27;,
-      detail: &#x27;스캔·계수로 수량·품목·lot을 확인하고 ASN/PO와 대조합니다. 검수된 팔레트에 새 LPN이 부여됩니다.&#x27;
+      detail: &#x27;스캔·계수로 수량·품목·lot을 확인하고 ASN/PO와 대조합니다. 검수된 팔레트에 새 LPN(물건 묶음의 번호판)이 부여됩니다.&#x27;
     },
     {
       name: &#x27;검품 (QC)&#x27;, doc: &#x27;검사성적서&#x27;, status: &#x27;검사중&#x27;, erp: &#x27;전기 보류&#x27;, who: &#x27;품질팀&#x27;,
@@ -1668,7 +1668,7 @@ html&gt;body{padding:0}&lt;/style&gt;
     },
     {
       name: &#x27;가용 · 정산&#x27;, doc: &#x27;GR · 810&#x27;, status: &#x27;가용&#x27;, erp: &#x27;GR 전기&#x27;, who: &#x27;WMS → ERP → 재무&#x27;,
-      detail: &#x27;가용 재고로 전환하고 ERP에 GR을 전기합니다. 이후 송장이 오면 PO·GR·송장 3-way match로 대조해 지급합니다.&#x27;
+      detail: &#x27;가용 재고로 전환하고 ERP(전사 자원 관리)에 GR(입고 확인)을 전기합니다. 이후 송장이 오면 PO·GR·송장을 3-way match(세 문서 맞춰 보기)로 대조해 지급합니다.&#x27;
     }
   ];
   const AUTO = 3.2;
@@ -2357,6 +2357,16 @@ html&gt;body{padding:0}&lt;/style&gt;
 &lt;/body&gt;
 &lt;/html&gt;
 "></iframe>
+<style>
+.pl4{max-width:920px;margin:14px auto 0;padding:16px 18px;border:1px solid light-dark(#e4e6ec,#262a36);border-left:3px solid light-dark(#2c5ce5,#7aa5ff);border-radius:12px;background:light-dark(#ffffff,#161923);color:light-dark(#1a1c22,#e9eaf0);font:400 15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif}
+.pl4 h2{font-size:15px;font-weight:650;margin:0 0 6px;color:light-dark(#2c5ce5,#7aa5ff)}
+.pl4 p{margin:0;font-size:13.5px;line-height:1.6;color:light-dark(#5f6470,#9aa0ae)}
+.pl4 a{color:light-dark(#2c5ce5,#7aa5ff)}
+</style>
+<section class="pl4">
+<h2>4PL 시점에서는</h2>
+<p>이 흐름이 끝나면 OMS가 받아야 할 것은 입고 상태와 GR(입고 확인) 기록이고, 재고를 돈으로 기록하는 ERP 전기 시점은 운영사마다 다르게 정한다. 수량이 어긋난 채 확정되면 그 뒤의 3-way match와 지급이 모두 흔들린다 — 상태가 창고 말에서 화주 말로 바뀌는 모습은 <a href="status-normalization.html">상태 매핑</a>에서, 문서가 시스템 사이를 오가는 규칙은 <a href="external-integration.html">외부 시스템 연동</a>에서 본다.</p>
+</section>
 <script>(() => {
   const frame = document.getElementById("zcode-visualization");
   if (!(frame instanceof HTMLIFrameElement)) {

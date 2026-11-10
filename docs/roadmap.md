@@ -17,8 +17,8 @@
 | 차례 | 트랙 | 배우는 것 | 상태 |
 |------|------|-----------|------|
 | 1 | **첫걸음 트랙** | 물류가 무엇이고, 누가 등장하고, 창고·재고·주문·시스템이 무엇인지 | 완료 6편 |
-| 2 | **실행 층** (핵심 5개념 · 입고 · 챌린지) | 창고 안과 운송 구간에서 물건을 어떻게 다루나. 주로 WMS가 맡는다 | 완료 16편 · 보강 예정 6편 |
-| 3 | **4PL 트랙** (조율 층) | 화주·운영사·창고·운송사 사이에서 무엇이 오가고, 누가 결정하고, 어떻게 감시하나. 주로 OMS가 맡는다 | 진행 6/20편 |
+| 2 | **실행 층** (핵심 5개념 · 입고 · 챌린지) | 창고 안과 운송 구간에서 물건을 어떻게 다루나. 주로 WMS가 맡는다 | 완료 22편 (보강 6편 포함) |
+| 3 | **4PL 트랙** (조율 층) | 화주·운영사·창고·운송사 사이에서 무엇이 오가고, 누가 결정하고, 어떻게 감시하나. 주로 OMS가 맡는다 | 진행 14/20편 |
 
 실행 층과 조율 층은 모두 직접 만드는 대상이다. 첫걸음 트랙은 두 층의 페이지에 나오는 말을 미리 소개하는 바닥이다.
 
@@ -33,7 +33,7 @@
 | **선행** | 먼저 배워야 하는 개념의 slug. 제작 순서도 이 관계를 지킨다 |
 | **질문** | 그 페이지가 답하는 질문. 페이지 첫머리에 그대로 쓰므로, 물류를 모르는 사람도 읽을 수 있는 말로 적는다 |
 
-현황: 완료 28편 (4PL 1단계 6편 포함) · 4PL 트랙 예정 14편 · 실행 층 보강 예정 6편 · 4PL 박스 예정 4건
+현황: 완료 39편 (4PL 14/20편 포함) · 4PL 트랙 예정 6편 · 4PL 박스 예정 1건
 
 ## 첫걸음 트랙
 
@@ -65,9 +65,9 @@
 
 | slug | 개념 | 질문 | 형식 | 카테고리 | 선행 | 순서 | 상태 |
 |------|------|------|------|----------|------|------|------|
-| `status-normalization` | 상태 매핑 (창고 작업 상태 → 화주용 주문 상태) | 창고의 세부 작업 상태를 화주에게는 어떻게 보여줄 것인가 | 입력형 | 시스템 | `order-handoff` | 2-1 | ⬜ |
-| `master-data-mapping` | 마스터 데이터 표준화 (상품코드 매핑) | 화주의 상품코드와 창고가 쓰는 상품코드가 어긋나면 어디서 멈추는가 | 입력형 | 시스템 | `sku-lpn`, `tenant-structure` | 2-2 | ⬜ |
-| `external-integration` | 외부 시스템 연동 (EDI · API) | 우리 시스템 밖의 상대와 어떤 문서를 어떤 순서로 주고받는가 | 릴레이형 | 시스템 | `order-handoff` | 2-3 | ⬜ |
+| `status-normalization` | 상태 매핑 (창고 작업 상태 → 화주용 주문 상태) | 창고의 세부 작업 상태를 화주에게는 어떻게 보여줄 것인가 | 입력형 | 시스템 | `order-handoff` | 2-1 | ✅ |
+| `master-data-mapping` | 마스터 데이터 표준화 (상품코드 매핑) | 화주의 상품코드와 창고가 쓰는 상품코드가 어긋나면 어디서 멈추는가 | 입력형 | 시스템 | `sku-lpn`, `tenant-structure` | 2-2 | ✅ |
+| `external-integration` | 외부 시스템 연동 (EDI · API) | 우리 시스템 밖의 상대와 어떤 문서를 어떤 순서로 주고받는가 | 릴레이형 | 시스템 | `order-handoff` | 2-3 | ✅ |
 | `channel-order-intake` | 판매 채널 연동 · 주문 수집 | 쇼핑몰마다 다른 주문을 어떻게 한 형식으로 받는가 | 입력형 | 주문·이행 | `external-integration` | 3-1 | ⬜ |
 
 ### 3단계 · 배정 — 누구에게 맡길 것인가
@@ -76,8 +76,8 @@
 |------|------|------|------|----------|------|------|------|
 | `warehouse-assignment` | 계약 창고 물량 배정 | 이 물량을 어느 계약 창고에 맡길 것인가 | 배정형 | 주문·이행 | `tenant-structure` | 1-4 | ✅ |
 | `order-routing` | 주문 라우팅 (출고 창고 결정 · 분할 출고 · Backorder) | 이 주문을 어느 창고에서 내보낼 것인가 | 배정형 | 주문·이행 | `order-handoff`, `warehouse-assignment` | 1-5 | ✅ |
-| `allocation-atp` | 할당과 ATP | 팔 수 있다고 약속할 수 있는 재고는 얼마인가 | 배정형 | 주문·이행 | `inventory-basics`, `order-routing` | 2-4 | ⬜ |
-| `multi-dc-inventory` | 다중 창고 재고 배치 | 재고를 어느 창고에 얼마나 나눠 둘 것인가 | 배정형 | 재고 | `allocation-atp` | 2-5 | ⬜ |
+| `allocation-atp` | 할당과 ATP | 팔 수 있다고 약속할 수 있는 재고는 얼마인가 | 배정형 | 주문·이행 | `inventory-basics`, `order-routing` | 2-4 | ✅ |
+| `multi-dc-inventory` | 다중 창고 재고 배치 | 재고를 어느 창고에 얼마나 나눠 둘 것인가 | 배정형 | 재고 | `allocation-atp` | 2-5 | ✅ |
 | `carrier-selection` | 운송사 선정 · 운임 비교 | 이 출고를 어느 운송사에 실을 것인가 | 배정형 | 수송·네트워크 | `order-routing` | 3-2 | ⬜ |
 
 ### 4단계 · 감시 — 맡긴 일이 잘 되고 있는가
@@ -85,15 +85,15 @@
 | slug | 개념 | 질문 | 형식 | 카테고리 | 선행 | 순서 | 상태 |
 |------|------|------|------|----------|------|------|------|
 | `control-tower` | 컨트롤 타워 (통합 가시성 · 예외 알림) | 수많은 건 중 지금 사람이 봐야 할 것은 무엇인가 | 릴레이형 | 시스템 | `order-handoff` | 1-6 | ✅ |
-| `logistics-kpi` | 물류 KPI (OTIF · 완전주문 · Dock-to-stock) | 잘하고 있는지를 어떤 숫자로 말할 것인가 | 측정형 | 전략 | `control-tower` | 2-7 | ⬜ |
-| `sla-scorecard` | SLA · 창고별 스코어카드 | 창고와 운송사의 성과를 어떻게 비교하고 책임을 물을 것인가 | 측정형 | 전략 | `logistics-kpi` | 2-8 | ⬜ |
+| `logistics-kpi` | 물류 KPI (OTIF · 완전주문 · Dock-to-stock) | 잘하고 있는지를 어떤 숫자로 말할 것인가 | 측정형 | 전략 | `control-tower` | 2-7 | ✅ |
+| `sla-scorecard` | SLA · 창고별 스코어카드 | 창고와 운송사의 성과를 어떻게 비교하고 책임을 물을 것인가 | 측정형 | 전략 | `logistics-kpi` | 2-8 | ✅ |
 | `inventory-reconciliation` | 재고 대사 (OMS 재고 vs WMS 재고) | 시스템의 재고와 창고의 실물이 다르면 어느 쪽이 맞는가 | 측정형 | 재고 | `multi-dc-inventory` | 3-3 | ⬜ |
 
 ### 5단계 · 돈과 설계 — 구조를 바꿀 것인가
 
 | slug | 개념 | 질문 | 형식 | 카테고리 | 선행 | 순서 | 상태 |
 |------|------|------|------|----------|------|------|------|
-| `contract-rates` | 계약과 요율 (화주 요율 · 창고 요율) | 화주에게 받는 단가와 창고에 주는 단가는 무엇을 기준으로 매기는가 | 측정형 | 전략 | `warehouse-assignment` | 2-6 | ⬜ |
+| `contract-rates` | 계약과 요율 (화주 요율 · 창고 요율) | 화주에게 받는 단가와 창고에 주는 단가는 무엇을 기준으로 매기는가 | 측정형 | 전략 | `warehouse-assignment` | 2-6 | ✅ |
 | `cost-to-serve` | Cost-to-serve · 물류비 정산 | 화주에게 받을 돈과 창고·운송사에 줄 돈은 어떻게 맞추는가 | 측정형 | 전략 | `contract-rates`, `sla-scorecard` | 3-4 | ⬜ |
 | `network-design` | 네트워크 설계 (창고 수 · 위치) | 창고를 몇 곳, 어디와 계약할 것인가 | 배정형 | 수송·네트워크 | `hub-and-spoke`, `order-routing` | 3-5 | ⬜ |
 | `routing-game` | 주문 배정 챌린지 (미니게임) | 비용과 납기를 동시에 지키며 직접 배정할 수 있는가 | 배정형 | 주문·이행 | `order-routing`, `carrier-selection` | 3-6 | ⬜ |
@@ -114,13 +114,13 @@
 | `picking-methods` | 피킹 방식 4종 | 핵심 | ✅ | — | ✅ |
 | `fifo-lifo-fefo` | FIFO · LIFO · FEFO | 핵심 | ✅ | — | ✅ |
 | `hub-and-spoke` | 허브 앤 스포크 vs Point-to-Point | 핵심 | ✅ | ⬜ → `network-design` | ⬜ 3차 |
-| `inbound-lifecycle` | 입고 생애주기 · 문서 흐름 | 입고 | ✅ | ⬜ → `status-normalization` | ⬜ 2차 |
-| `asn` | ASN (사전 출하 통지) | 입고 | ✅ | ⬜ → `external-integration` | ⬜ 2차 |
+| `inbound-lifecycle` | 입고 생애주기 · 문서 흐름 | 입고 | ✅ | ✅ `status-normalization` | ✅ |
+| `asn` | ASN (사전 출하 통지) | 입고 | ✅ | ✅ `external-integration` | ✅ |
 | `asn-form` | OMS 입고 신청서 (ASN 입력 항목) | 입고 | ✅ | ✅ `order-handoff` | ✅ |
 | `yms-dock-scheduling` | YMS · 도크 스케줄링 | 입고 | ✅ | — | ✅ |
 | `blind-receiving` | 블라인드 입고 vs ASN 스캔 검수 | 입고 | ✅ | — | ✅ |
 | `qc-stock-status` | 입고 검품(QC) · 재고 상태 전환 | 입고 | ✅ | — | ✅ |
-| `osd-exceptions` | 입고 예외 처리 (OS&D) | 입고 | ✅ | ⬜ → `sla-scorecard` | ⬜ 2차 |
+| `osd-exceptions` | 입고 예외 처리 (OS&D) | 입고 | ✅ | ✅ `sla-scorecard` | ✅ |
 | `receiving-exception-map` | 입하·검수·적치 예외 지도 | 입고 | ✅ | — | ✅ |
 | `putaway-strategies` | Put-away 전략 (적치) | 입고 | ✅ | — | ✅ |
 | `import-inbound` | 수입 입고 체인 | 입고 | ✅ | — | ✅ |
@@ -135,9 +135,9 @@
 
 | slug | 개념 | 질문 | 형식 | 카테고리 | 받치는 개념 | 순서 | 상태 |
 |------|------|------|------|----------|-------------|------|------|
-| `outbound-flow` | 출고 플로우 (웨이브 → 피킹 → 패킹 → 출고) | 주문이 창고에 내려간 뒤 출고까지 무엇을 거치는가 | 흐름형 | 창고 운영 | `order-routing` | 보강-1 | ⬜ |
-| `pack-hierarchy` | 포장 단위와 UoM 변환 (낱개 · 박스 · 팔레트) | 같은 상품을 세는 단위가 다르면 어디서 틀어지는가 | 입력형 | 식별·단위 | `master-data-mapping` | 보강-2 | ⬜ |
-| `safety-stock` | 안전재고 · 재주문점 · EOQ | 얼마나 쌓아 두고 언제 다시 채울 것인가 | 배정형 | 재고 | `multi-dc-inventory` | 보강-3 | ⬜ |
+| `outbound-flow` | 출고 플로우 (웨이브 → 피킹 → 패킹 → 출고) | 주문이 창고에 내려간 뒤 출고까지 무엇을 거치는가 | 흐름형 | 창고 운영 | `order-routing` | 보강-1 | ✅ |
+| `pack-hierarchy` | 포장 단위와 UoM 변환 (낱개 · 박스 · 팔레트) | 같은 상품을 세는 단위가 다르면 어디서 틀어지는가 | 입력형 | 식별·단위 | `master-data-mapping` | 보강-2 | ✅ |
+| `safety-stock` | 안전재고 · 재주문점 · EOQ | 얼마나 쌓아 두고 언제 다시 채울 것인가 | 배정형 | 재고 | `multi-dc-inventory` | 보강-3 | ✅ |
 | `tl-ltl` | TL vs LTL · 화물 묶음 | 차 한 대를 통째로 쓸 것인가, 나눠 실을 것인가 | 흐름형 | 수송·네트워크 | `carrier-selection` | 보강-4 | ⬜ |
 | `last-mile` | 라스트마일 배송 | 마지막 구간이 왜 가장 비싼가 | 흐름형 | 수송·네트워크 | `carrier-selection` | 보강-5 | ⬜ |
 | `returns-flow` | 반품 · 역물류 | 되돌아오는 물건은 누가 받아 어떻게 판정하는가 | 릴레이형 | 전략 | `cost-to-serve` | 보강-6 | ⬜ |

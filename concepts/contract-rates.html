@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>계약과 요율 — 화주 요율 · 창고 요율 — 물류 개념 시각화</title>
+<meta name="description" content="같은 한 달 창고 실적에 화주에게 청구할 요율표와 창고 3곳(시장가 계약 · 할인 계약 · 대량 묶음 전문)에 지급할 요율표의 과금 기준(건당 · 팔레트당 · 시간당)을 곱해 보며, 기준과 작업 특성에 따라 최저가 창고 순위와 마진이 어떻게 뒤집히는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+#dia text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.f1{fill:var(--viz-series-1)}
+svg text.f2{fill:var(--viz-series-2)}
+svg text.f3{fill:var(--viz-series-3)}
+svg text.neg{fill:var(--bad)}
+svg .cbox{fill:color-mix(in srgb,var(--viz-series-2) 7%,transparent);stroke:var(--border);stroke-width:1}
+svg .wbox{fill:color-mix(in srgb,var(--viz-series-3) 7%,transparent);stroke:var(--border);stroke-width:1}
+svg .sel{stroke:var(--foreground);stroke-width:2}
+svg .cbar{fill:color-mix(in srgb,var(--viz-series-2) 55%,transparent)}
+svg .wbar{fill:color-mix(in srgb,var(--viz-series-3) 55%,transparent)}
+svg .recbox{fill:color-mix(in srgb,var(--viz-series-1) 8%,transparent);stroke:color-mix(in srgb,var(--viz-series-1) 35%,transparent);stroke-width:1}
+svg .mgnbox{fill:var(--soft);stroke:var(--border);stroke-width:1}
+svg .flow{stroke:var(--muted-foreground);stroke-width:1.5;fill:none}
+svg .flowh{fill:var(--muted-foreground)}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat b.neg{color:var(--bad)}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">전략</span>
+  <p class="q">화주에게 받는 단가와 창고에 주는 단가는 무엇을 기준으로 매기는가</p>
+  <h1>계약과 요율 — 화주 요율 · 창고 요율</h1>
+  <p class="def">창고 일의 단가는 단위마다 붙는다 — 건당, 팔레트당, 시간당. <b>요율</b>이 어떤 단위에 붙느냐에 따라 같은 작업의 값이 달라진다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>계약 창고 배정</b> — 운영사가 미리 계약해 둔 창고(계약 창고)에 화주의 물량을 나눠 맡기는 일이다. → <a href="warehouse-assignment.html">계약 창고 물량 배정</a></p>
+  <p><b>운영 구조와 계약</b> — 같은 시스템 안에서 운영사·화주가 각자의 데이터를 나눠 쓰는 입주 주체(테넌트)로 구분되고, 주체마다 계약과 요율이 따로 붙는다. → <a href="tenant-structure.html">운영 구조 (자사 운영 · 자체 운영)</a></p>
+  <p><b>창고의 하루</b> — 창고는 물건을 받아 보관하다가(입고·보관), 주문이 들어오면 골라 내보낸다(피킹·출고). → <a href="warehouse-basics.html">창고의 하루</a></p>
+</details>
+
+<div class="terms">
+  <p><b>요율(rate)</b> — 보관·작업·운송 같은 단위별로 매기는 단가다.</p>
+  <p><b>과금 기준(billing basis)</b> — 요율을 어떤 단위에 곱할지 정한 약속이다. 건당이면 출고 건수에, 팔레트당이면 보관 팔레트일에, 시간당이면 작업 시간에 곱한다.</p>
+</div>
+
+<p class="cause"><b>비유 — 이사 견적</b> · 같은 이사도 건당으로 부르냐, 시간으로 하냐, 트럭 대수로 하냐에 따라 값이 달라지고, 견적을 3개 업체에서 뽑아 나란히 놓으면 어느 업체가 싼지 보인다. 창고 요율도 같은 일을 어떤 단위에 붙이느냐로 매겨진다. 다만 맞지 않는 지점이 하나 있다 — 이사는 한 번 끝나지만 창고 요율은 매달 반복되어, 받는 기준과 주는 기준이 어긋난 채로는 매달 같은 간격으로 마진이 새어 나간다.</p>
+
+<div class="panel">
+  <h2>같은 한 달 실적 — 화주 청구 요율표 1장 · 창고 지급 비교판 3곳</h2>
+  <div class="controls">
+    <div class="ctl">작업 특성
+      <div class="seg" id="segProf" role="group" aria-label="작업 특성">
+        <button type="button" data-v="bulk" aria-pressed="false">대량 묶음 위주</button>
+        <button type="button" data-v="mid" aria-pressed="true">중간</button>
+        <button type="button" data-v="piece" aria-pressed="false">소량 건별 위주</button>
+      </div>
+    </div>
+    <div class="ctl">청구 과금 기준 (화주)
+      <div class="seg" id="segCb" role="group" aria-label="청구 과금 기준">
+        <button type="button" data-v="per" aria-pressed="true">건당</button>
+        <button type="button" data-v="plt" aria-pressed="false">팔레트당</button>
+        <button type="button" data-v="hr" aria-pressed="false">시간당</button>
+      </div>
+    </div>
+    <div class="ctl">지급 과금 기준 (창고 3곳)
+      <div class="seg" id="segPb" role="group" aria-label="지급 과금 기준">
+        <button type="button" data-v="per" aria-pressed="true">건당</button>
+        <button type="button" data-v="plt" aria-pressed="false">팔레트당</button>
+        <button type="button" data-v="hr" aria-pressed="false">시간당</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="같은 한 달 실적에 화주 청구 요율표와 창고 3곳 지급 비교판의 과금 기준을 곱해 청구액·지급액·마진을 비교하는 그림"></svg>
+  </div>
+  <p class="patn">위 표는 화주에게 청구할 요율표(화주색), 아래 판은 같은 실적을 창고 3곳에 맡길 때의 지급 비교판(창고색)입니다. 창고 A는 시장가 계약, 창고 B는 물량을 몰아주고 단가를 10% 깎은 할인 계약, 창고 C는 대량 묶음에 특화된 창고라 어느 과금 기준으로 곱하느냐에 따라 최저가 창고가 뒤집힙니다. 선택한 기준 칸과 최저가 창고는 굵은 테두리로 표시됩니다.</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 창고 3곳(시장가 계약 · 물량 몰아주기 할인 계약 · 대량 묶음 전문)이 같은 한 달 실적 1건(입고 팔레트 200 · 출고 5,000건 · 보관 6,000 팔레트일 · 작업 800시간)을 처리한다고 두고 요율만 비교한다. 요율 수치는 일반적인 3PL(제3자 물류) 계약을 단순화한 것이다.</p>
+<p class="takeaway">물량이 묶음으로 몰릴 때는 팔레트·시간 기준이, 소량 건별이 많을 때는 건당 기준이 값이 크게 달라진다 — <b>받는 요율과 주는 요율의 기준이 어긋나면 같은 일을 하고도 마진이 흔들린다.</b></p>
+<p class="sys"><b>시스템에서는</b> OMS(주문 관리 시스템)에서는 작업 실적(건·팔레트·시간)을 집계해 계약 요율표와 곱해 청구·지급을 만든다. 요율표와 과금 기준은 화주·창고마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="warehouse-assignment.html">계약 창고 물량 배정</a> — 이 요율이 붙을 물량을 어느 창고에 맡길지 정하는 바로 앞 단계</p>
+  <p>다음: <a href="logistics-kpi.html">물류 KPI — OTIF · 완전주문 · Dock-to-stock</a> — 요율로 정산된 창고 일을 잘하고 있는지 어떤 숫자로 판정하는지 보는 다음 단계</p>
+  <p>같은 묶음: <a href="control-tower.html">컨트롤 타워</a> — 요율로 정산되는 창고·운송사의 일을 한곳에 모아 감시하는 단계 · <a href="osd-exceptions.html">입고 예외 처리 (OS&amp;D)</a> — 정산 차감과 클레임으로 이어지는 사건</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="contract-rates">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const BASES=[['per','건당'],['plt','팔레트당'],['hr','시간당']];
+  const CNT={per:5000,plt:6000,hr:800};
+  const UNIT={per:'5,000건',plt:'6,000 팔레트일',hr:'800시간'};
+  // 원천 기록(고정): 입고 팔레트 200 · 출고 5,000건 · 보관 6,000 팔레트일 · 작업 800시간
+  // 단가(원): c = 화주 청구 요율표 / A = 시장가 계약 창고 / B = 10% 할인 계약 창고 / C = 대량 묶음 전문 창고
+  const RATES={
+    bulk:{c:{per:1800,plt:2000,hr:14000},A:{per:1700,plt:1850,hr:13500},B:{per:1530,plt:1665,hr:12150},C:{per:1900,plt:1600,hr:11500}},
+    mid:{c:{per:3000,plt:2000,hr:15000},A:{per:2800,plt:1850,hr:14000},B:{per:2520,plt:1665,hr:12600},C:{per:3300,plt:1700,hr:12000}},
+    piece:{c:{per:4600,plt:2100,hr:16000},A:{per:4900,plt:1850,hr:14500},B:{per:4410,plt:1665,hr:13050},C:{per:5600,plt:1800,hr:13500}}
+  };
+  const WH={A:{n:'창고 A',tag:'시장가 계약'},B:{n:'창고 B',tag:'할인 계약'},C:{n:'창고 C',tag:'대량 묶음 전문'}};
+  const WHS=['A','B','C'];
+  const PROF={bulk:'대량 묶음 위주',mid:'중간',piece:'소량 건별 위주'};
+  let prof='mid',cb='per',pb='per';
+  let MAX=1;
+  const PAD=12,GAP=16;
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+  const name=b=>BASES.find(x=>x[0]===b)[1];
+  const ko=n=>n.toLocaleString('ko-KR');
+  const sg=n=>(n<0?'-':'+')+ko(Math.abs(n));
+  const rate=(side,b)=>RATES[prof][side][b];
+  const amt=(side,b)=>Math.round(rate(side,b)*CNT[b]/10000);
+  const pays=()=>WHS.map(w=>amt(w,pb));
+  const winIdx=()=>{const q=pays();let i=0;q.forEach((v,j)=>{if(v<q[i])i=j;});return i;};
+  const margin=()=>amt('c',cb)-pays()[winIdx()];
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function tx(x,y,s,cls){const t=el('text',{x:x,y:y,class:cls});t.textContent=s;}
+
+  function chargeSection(y){
+    tx(PAD,y+16,'화주에게 청구하는 요율표','t12 w6 f2');
+    const top=y+26,narrow=W<560,gap=10;
+    const colW=narrow?(W-2*PAD):(W-2*PAD-2*gap)/3;
+    BASES.forEach((bs,i)=>{
+      const b=bs[0],a=amt('c',b),x=PAD+i*(colW+gap),x0=x+12;
+      el('rect',{x:x,y:top,width:colW,height:96,rx:10,class:'cbox'+(b===cb?' sel':'')});
+      tx(x0,top+20,bs[1],'t12 w6 f2');
+      if(colW<190){
+        tx(x0,top+36,UNIT[b],'t11 mut');
+        tx(x0,top+51,'× '+ko(rate('c',b))+'원','t11 mut');
+      }else{
+        tx(x0,top+37,UNIT[b]+' × '+ko(rate('c',b))+'원','t11 mut');
+      }
+      tx(x0,top+70,ko(a)+'만원','t12 w6 txt');
+      el('rect',{x:x0,y:top+78,width:Math.max(2,(colW-24)*a/MAX),height:8,rx:4,class:'cbar'});
+    });
+    return 122;
+  }
+
+  function record(y){
+    const h=W<560?64:46,x0=PAD+14;
+    el('rect',{x:PAD,y:y,width:W-2*PAD,height:h,rx:10,class:'recbox'});
+    tx(x0,y+19,'운영사가 쥔 한 달 실적 원천 기록 — 고정','t11 w6 f1');
+    if(W<560){
+      tx(x0,y+36,'입고 팔레트 200 · 출고 5,000건','t11 txt');
+      tx(x0,y+53,'보관 6,000 팔레트일 · 작업 800시간','t11 txt');
+    }else{
+      tx(x0,y+38,'입고 팔레트 200 · 출고 5,000건 · 보관 6,000 팔레트일 · 작업 800시간','t11 txt');
+    }
+    return h;
+  }
+
+  function whSection(y){
+    tx(PAD,y+16,'창고 3곳에 지급하는 비교판 — 같은 실적, 각자의 계약','t12 w6 f3');
+    const top=y+26,narrow=W<560,gap=10;
+    const colW=narrow?(W-2*PAD):(W-2*PAD-2*gap)/3;
+    const q=pays(),wi=winIdx();
+    WHS.forEach((w,i)=>{
+      const a=q[i],x=PAD+i*(colW+gap),x0=x+12,two=colW<250;
+      el('rect',{x:x,y:top,width:colW,height:96,rx:10,class:'wbox'+(i===wi?' sel':'')});
+      tx(x0,top+20,WH[w].n,'t12 w6 f3');
+      if(two){
+        tx(x0,top+35,WH[w].tag,'t11 mut');
+        tx(x0,top+50,name(pb)+' '+ko(rate(w,pb))+'원','t11 mut');
+      }else{
+        tx(x0,top+36,WH[w].tag+' · '+name(pb)+' '+ko(rate(w,pb))+'원','t11 mut');
+      }
+      tx(x0,top+70,ko(a)+'만원','t12 w6 txt');
+      el('rect',{x:x0,y:top+78,width:Math.max(2,(colW-24)*a/MAX),height:8,rx:4,class:'wbar'});
+    });
+    return 122;
+  }
+
+  function mismatch(){
+    return cb===pb
+      ?'받는 기준 = 주는 기준 ('+name(cb)+') — 같은 단위의 두 요율이 맞닿는 조합'
+      :'받는 '+name(cb)+' / 주는 '+name(pb)+' — 기준이 어긋난 조합';
+  }
+
+  function marginBand(y){
+    const m=margin(),neg=m<0,wi=winIdx(),h=W<560?66:48,x0=PAD+14;
+    el('rect',{x:PAD,y:y,width:W-2*PAD,height:h,rx:10,class:'mgnbox'});
+    if(W<560){
+      tx(x0,y+20,'마진 = 청구 '+ko(amt('c',cb))+'만원','t12 w6 txt');
+      tx(x0,y+38,'- '+WH[WHS[wi]].n+' 지급 '+ko(pays()[wi])+'만원 = '+sg(m)+'만원','t12 w6 '+(neg?'neg':'f1'));
+      tx(x0,y+56,mismatch(),'t11 mut');
+    }else{
+      tx(x0,y+20,'마진 = 청구 '+ko(amt('c',cb))+'만원 - '+WH[WHS[wi]].n+' 지급 '+ko(pays()[wi])+'만원 = '+sg(m)+'만원','t12 w6 '+(neg?'neg':'f1'));
+      tx(x0,y+40,mismatch(),'t11 mut');
+    }
+    return h;
+  }
+
+  function arrow(y){
+    const cx=W/2;
+    el('line',{x1:cx,y1:y+2,x2:cx,y2:y+GAP-5,class:'flow'});
+    el('path',{d:'M'+(cx-4)+','+(y+GAP-7)+' L'+(cx+4)+','+(y+GAP-7)+' L'+cx+','+(y+GAP-2)+' Z',class:'flowh'});
+  }
+
+  function draw(){
+    W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    MAX=Math.max.apply(null,BASES.map(b=>amt('c',b[0])).concat(pays()));
+    const wi=winIdx();
+    let y=PAD;
+    y+=chargeSection(y)+6;
+    arrow(y);y+=GAP;
+    y+=record(y)+6;
+    arrow(y);y+=GAP;
+    y+=whSection(y)+6;
+    arrow(y);y+=GAP;
+    y+=marginBand(y);
+    svg.setAttribute('viewBox','0 0 '+W+' '+(y+PAD));
+    svg.setAttribute('aria-label','같은 한 달 실적(입고 팔레트 200 · 출고 5,000건 · 보관 6,000 팔레트일 · 작업 800시간)에 청구 '+name(cb)+' 기준 '+ko(amt('c',cb))+'만원, 창고 3곳 지급('+WH.A.n+' '+ko(amt('A',pb))+' · '+WH.B.n+' '+ko(amt('B',pb))+' · '+WH.C.n+' '+ko(amt('C',pb))+'만원) — 가장 싼 '+WH[WHS[wi]].n+'에 맡기면 마진 '+sg(margin())+'만원');
+  }
+
+  function renderStats(){
+    const ch=BASES.map(b=>amt('c',b[0]));
+    let ic=0;ch.forEach((v,i)=>{if(v>ch[ic])ic=i;});
+    const q=pays(),wi=winIdx(),li=q.indexOf(Math.max.apply(null,q));
+    let bp={m:-Infinity},wp={m:Infinity};
+    BASES.forEach(x=>BASES.forEach(y2=>{
+      const lo=Math.min.apply(null,WHS.map(w=>amt(w,y2[0])));
+      const w=WHS.find(v=>amt(v,y2[0])===lo);
+      const mm=amt('c',x[0])-lo;
+      if(mm>bp.m)bp={c:x[0],p:y2[0],w,m:mm};
+      if(mm<wp.m)wp={c:x[0],p:y2[0],w,m:mm};
+    }));
+    const m=margin();
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+ko(amt('c',cb))+'만원</b><span>화주 청구액 (만원) — 지금 고른 기준: '+name(cb)+'</span>'+
+      '<span class="cmp good">세 기준 가운데 <em>'+BASES[ic][1]+'</em> 요율이 가장 크다</span></div>'+
+      '<div class="stat"><b>'+ko(q[wi])+'만원</b><span>창고 지급액 (만원) — '+WH[WHS[wi]].n+'('+WH[WHS[wi]].tag+')에 맡길 때 · 작을수록 좋음</span>'+
+      '<span class="cmp good">세 창고 가운데 <em>'+WH[WHS[wi]].n+'('+WH[WHS[wi]].tag+')</em>이 가장 싼다</span>'+
+      '<span class="cmp bad">가장 비싼 창고: '+WH[WHS[li]].n+' ('+ko(q[li])+'만원)</span></div>'+
+      '<div class="stat"><b class="'+(m<0?'neg':'')+'">'+sg(m)+'만원</b><span>마진 (만원) — 지급 대비 남긴 것 · 클수록 좋음</span>'+
+      '<span class="cmp good">가장 많이 남기는 조합: 청구 <em>'+name(bp.c)+'</em> · 지급 <em>'+name(bp.p)+'</em> — <em>'+WH[bp.w].n+'</em> ('+sg(bp.m)+'만원)</span>'+
+      '<span class="cmp bad">가장 얇은 조합: 청구 '+name(wp.c)+' · 지급 '+name(wp.p)+' — '+WH[wp.w].n+' ('+sg(wp.m)+'만원)</span></div>';
+  }
+
+  function render(){draw();renderStats();}
+  function summary(){
+    const wi=winIdx();
+    return '청구 '+ko(amt('c',cb))+'만원 · 지급 '+ko(pays()[wi])+'만원('+WH[WHS[wi]].n+') · 마진 '+sg(margin())+'만원';
+  }
+  function say(msg){status.textContent=msg;}
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+
+  $('segProf').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    prof=b.dataset.v;setPressed('segProf',b);render();
+    say('작업 특성 "'+PROF[prof]+'" — 창고 3곳과 화주 요율표의 단가가 이 성격에 맞게 다시 매겨졌습니다. '+summary()+' — 아래 비교판에서 창고 순위가 바뀌었는지 확인해 보세요.');
+  });
+  $('segCb').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    cb=b.dataset.v;setPressed('segCb',b);render();
+    say('청구(화주) 과금 기준: '+name(cb)+' — 같은 실적을 이 단위로 곱해 부릅니다. '+summary());
+  });
+  $('segPb').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    pb=b.dataset.v;setPressed('segPb',b);render();
+    say('지급(창고) 과금 기준: '+name(pb)+' — 창고 3곳의 지급액과 최저가가 다시 매겨졌습니다. '+summary());
+  });
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+  say(summary()+' — 토글로 작업 성격과 양쪽 과금 기준을 바꿔 창고 순위와 마진이 어떻게 뒤집히는지 비교해 보세요.');
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

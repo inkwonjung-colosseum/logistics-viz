@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마스터 데이터 표준화 — 상품코드 매핑 — 물류 개념 시각화</title>
+<meta name="description" content="화주 상품코드와 창고 상품코드를 잇는 매핑표에서 행이 빠지면 입고 등록→재고 반영→주문 접수→피킹 지시 4단계 중 어디서 보류로 멈추는지, 자동 처리율·보류 건수·재작업 시간으로 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+/* SVG 안의 텍스트·도형 */
+#dia text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.c1{fill:var(--viz-series-1)}
+svg text.c2{fill:var(--viz-series-2)}
+svg text.c3{fill:var(--viz-series-3)}
+svg text.bad{fill:var(--bad)}
+svg .bx{fill:color-mix(in srgb,var(--muted-foreground) 6%,transparent);stroke:var(--border);stroke-width:1}
+svg .bxb{fill:color-mix(in srgb,var(--bad) 8%,transparent);stroke:var(--bad);stroke-width:2}
+svg .rl{stroke:var(--border);stroke-width:1}
+svg .lo{stroke:var(--viz-series-1);stroke-width:1.5}
+svg .lm{stroke:var(--bad);stroke-width:1.5;stroke-dasharray:3 3}
+svg .fa{stroke:var(--muted-foreground);stroke-width:1.5}
+svg .fh{fill:var(--muted-foreground)}
+svg .h1c{fill:var(--viz-series-1)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">시스템</span>
+  <p class="q">화주의 상품코드와 창고가 쓰는 상품코드가 어긋나면 어디서 멈추는가</p>
+  <h1>마스터 데이터 표준화 — 상품코드 매핑</h1>
+  <p class="def">거래가 일어나기 전에 정해 두는 기준 정보를 <b>마스터 데이터</b>라 한다 — 상품·창고·거래처. 화주와 창고가 같은 상품을 다른 코드로 부르면, 둘을 잇는 매핑이 없는 곳에서 일이 멈춘다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>SKU(Stock Keeping Unit, 재고 단위)</b> — 상품을 구별하는 최소 단위로 "무엇"인지를 나타낸다. 같은 상품도 색깔이나 크기가 다르면 다른 SKU다. → <a href="sku-lpn.html">SKU vs SKU Instance vs LPN</a></p>
+  <p><b>테넌트(tenant)와 계약</b> — 테넌트는 같은 시스템 안에서 각자의 데이터를 나눠 쓰는 입주 주체(운영사·화주)다. → <a href="tenant-structure.html">운영 구조 (자사 운영 · 자체 운영)</a></p>
+  <p><b>입고 신청서(ASN, 사전 출하 통지)</b> — 물건이 도착하기 전에 "무엇이 언제 몇 개 오는지"를 미리 알려 주는 데이터다. → <a href="asn-form.html">OMS 입고 신청서 (ASN 입력 항목)</a></p>
+</details>
+
+<div class="terms">
+  <p><b>마스터 데이터(master data)</b> — 상품·창고·거래처처럼 거래가 일어나기 전에 정해 두는 기준 정보다.</p>
+  <p><b>매핑(mapping)</b> — 한 체계의 코드를 다른 체계의 코드로 이어 주는 대응표다. 이 페이지에서는 화주 상품코드와 창고 상품코드를 잇는 표를 가리킨다.</p>
+  <p><b>보류(hold)</b> — 검수나 판정이 끝날 때까지 팔거나 쓰지 못하게 잡아 둔 상태다.</p>
+  <p><b>OMS(주문 관리 시스템)</b> — 주문을 받아 어느 창고에서 내보낼지 정하고, 주문의 상태를 끝까지 지켜보는 프로그램이다.</p>
+</div>
+
+<p class="cause"><b>비유 — 학적부와 출석부</b> · 같은 학생인데 학적부 학번과 출석부 번호 체계가 달라 서류가 서로 안 맞으면, 행정 처리가 그 자리에서 멈춘다. 상품코드 매핑은 이 둘을 잇는 대조표다. 다만 맞지 않는 지점이 하나 있다 — 학교는 한 곳이 번호를 정해 주지만, 물류는 화주와 창고가 각자 자기 코드를 정한다.</p>
+
+<div class="panel">
+  <h2>상품코드 매핑표와 하루 거래 20건의 4단계 흐름</h2>
+  <div class="controls">
+    <div class="ctl">매핑 커버리지
+      <div class="seg" id="segCov" role="group" aria-label="매핑 커버리지">
+        <button type="button" data-v="full" aria-pressed="true">전부 매핑</button>
+        <button type="button" data-v="miss" aria-pressed="false">일부 누락 (3개)</button>
+      </div>
+    </div>
+    <div class="ctl">신상품 등록 시점
+      <div class="seg" id="segNew" role="group" aria-label="신상품 등록 시점">
+        <button type="button" data-v="pre" aria-pressed="true">사전 등록</button>
+        <button type="button" data-v="recv" aria-pressed="false">입고 때 신규</button>
+      </div>
+    </div>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div id="diaHost">
+    <svg id="dia" role="img" aria-label="상품코드 매핑표 8행과 입고 등록·재고 반영·주문 접수·피킹 지시 4단계 처리 흐름"></svg>
+  </div>
+  <p class="patn">왼쪽은 운영사의 OMS가 갖는 상품코드 매핑표 — 코드 색은 화주(초록)·창고(주황), 연결 선은 운영사(파랑)다. 오른쪽 흐름에서 붉은 보류는 매핑이 없어 그 단계를 통과하지 못한 거래고, 멈춘 단계의 테두리가 붉어진다. 신상품을 입고 때 등록하면 그 자리에서 수동 등록한 뒤 다시 흐른다.</p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 상품 8종·하루 거래 20건, 코드 체계는 화주·창고 각각 하나씩으로 단순화했다.</p>
+<p class="takeaway">매핑이 다 되어 있고 신상품도 미리 등록하면 거래가 끊기지 않지만, 코드 하나가 어긋나면 그 상품의 입고·주문이 그 자리에서 멈춘다 — 그래서 마스터 데이터는 거래 전에 맞춰 두는 것이 규칙이다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 화주 코드와 창고 코드를 잇는 매핑 테이블을 갖고, 없는 코드의 주문·입고를 보류한다. 매핑 시점(사전/입고 때)과 보류 알림은 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="sku-lpn.html">SKU vs SKU Instance vs LPN</a> · <a href="tenant-structure.html">운영 구조 (자사 운영 · 자체 운영)</a> · <a href="asn-form.html">OMS 입고 신청서 (ASN 입력 항목)</a></p>
+  <p>다음: <a href="external-integration.html">외부 시스템 연동 — EDI · API</a> — 매핑된 코드로 우리 시스템 밖의 상대와 문서를 주고받는 바로 다음 단계</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="master-data-mapping">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const P=[
+    {n:'머그컵 300ml',hc:'HJ-A101',wc:'WH-1101',tx:4},
+    {n:'텀블러 500ml',hc:'HJ-A102',wc:'WH-1102',tx:3},
+    {n:'볼펜 3색',hc:'HJ-B201',wc:'WH-2101',tx:3},
+    {n:'노트 B5',hc:'HJ-B202',wc:'WH-2102',tx:2},
+    {n:'수건 2장',hc:'HJ-C301',wc:'WH-3101',tx:2},
+    {n:'양말 3켤레',hc:'HJ-C302',wc:'WH-3102',tx:2},
+    {n:'폰케이스',hc:'HJ-D401',wc:'WH-4101',tx:2},
+    {n:'무선 이어폰',hc:'HJ-E501',wc:'WH-5101',tx:2,nw:true}
+  ];
+  const MISSI=[0,3,5]; // 매핑 누락(기존 상품) 행 — 거래 4+2+2=8건
+  const STAGES=[
+    {n:'입고 등록',d:'입고예정의 화주 코드를 창고 코드로 바꿔 접수한다'},
+    {n:'재고 반영',d:'창고 코드로 장부에 재고를 올린다'},
+    {n:'주문 접수',d:'주문의 화주 코드를 창고 코드로 바꿔 묶는다'},
+    {n:'피킹 지시',d:'창고 코드 자리에서 골라 내라고 지시한다'}
+  ];
+  const TOTAL=20;
+  let cov='full',nwm='pre';
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+
+  const covMiss=i=>MISSI.includes(i)&&cov==='miss';
+  const newMiss=()=>nwm==='recv';
+  const mappedN=()=>P.length-(cov==='miss'?MISSI.length:0)-(nwm==='recv'?1:0);
+  const passAuto=()=>P.filter((p,i)=>!covMiss(i)&&!(p.nw&&nwm==='recv'));
+  function calc(){
+    let auto=0,hold=0,rw=0;const held=[];
+    P.forEach((p,i)=>{
+      if(covMiss(i)){rw+=15;hold+=p.tx;held.push(p);}
+      else if(p.nw&&nwm==='recv'){rw+=15;}
+      else auto+=p.tx;
+    });
+    return {auto:auto,hold:hold,rw:rw,held:held};
+  }
+  function units(s){let u=0;for(const ch of s){const c=ch.codePointAt(0);
+    u+=((c>=0xAC00&&c<=0xD7A3)||(c>=0x3000&&c<=0x9FFF)||(c>=0xFF00&&c<=0xFF60))?1
+      :(ch===' '?0.34:(ch==='·'?0.58:((c>=48&&c<=57)||(c>=65&&c<=90)||(c>=97&&c<=122))?0.58:1));}
+    return u;}
+  function wrap(s,maxU){
+    const out=[];let line='';
+    const add=ch=>{if(line&&units(line+ch)>maxU){out.push(line);line=ch;}else line+=ch;};
+    for(const tok of s.split(' ')){
+      if(!line){for(const ch of tok)add(ch);continue;}
+      if(units(line+' '+tok)<=maxU){line+=' '+tok;continue;}
+      out.push(line);line='';
+      for(const ch of tok)add(ch);
+    }
+    if(line)out.push(line);
+    return out;}
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function txt(s,x,y,cls){const e=el('text',{x:x,y:y,'class':cls});e.textContent=s;return e;}
+  function txtE(s,x,y,cls){const e=txt(s,x,y,cls);e.setAttribute('text-anchor','end');return e;}
+  function nameTxt(p,x,y){
+    const e=el('text',{x:x,y:y,'class':'t11 txt'});e.textContent=p.n;
+    if(p.nw){const s=document.createElementNS(NS,'tspan');s.setAttribute('class','mut');s.textContent=' · 신상품';e.appendChild(s);}
+    return e;}
+  function head(x,y,ang,cls){
+    const s=6,a1=ang+2.6,a2=ang-2.6;
+    el('path',{d:'M'+x+','+y+' L'+(x+Math.cos(a1)*s).toFixed(2)+','+(y+Math.sin(a1)*s).toFixed(2)+' L'+(x+Math.cos(a2)*s).toFixed(2)+','+(y+Math.sin(a2)*s).toFixed(2)+' Z','class':cls});}
+  function codeLines(list,maxU){
+    const out=[];let line='';
+    list.forEach(cd=>{
+      if(!line){line=cd;return;}
+      if(units(line+' '+cd)<=maxU+0.4)line+=' '+cd;else{out.push(line);line=cd;}
+    });
+    if(line)out.push(line);
+    return out;}
+  function boxLines(k,c,maxU){
+    const lines=wrap(STAGES[k].d,maxU).map(t=>({t:t,cls:'mut'}));
+    lines.push({t:'통과 '+(k===0?passAuto().length:passAuto().length+(nwm==='recv'?1:0))+'상품',cls:'txt'});
+    lines.push({t:'거래 '+(k===0?c.auto:c.auto+(nwm==='recv'?P[7].tx:0))+'건',cls:'txt'});
+    if(k===0&&c.held.length){
+      lines.push({t:'보류 '+c.held.length+'상품 · '+c.hold+'건',cls:'bad w6'});
+      codeLines(c.held.map(p=>p.hc),maxU).forEach(l=>lines.push({t:l,cls:'bad'}));
+    }
+    if(k===0&&nwm==='recv')wrap('신상품: 수동 등록 뒤 재개',maxU).forEach(l=>lines.push({t:l,cls:'bad'}));
+    return lines;}
+
+  function drawTable(xN,xH,ar1,ar2,xW,xT,yTop,RH,endMode){
+    if(endMode){
+      txt('상품 (8종)',xN,yTop-14,'t11 mut');
+      txt('화주 코드',xH,yTop-14,'t11 c2 w6');
+      txt('창고 코드',xW,yTop-14,'t11 c3 w6');
+      txt('연결',xT,yTop-14,'t11 mut');
+    }else{
+      txt('상품 (8종)',xN,yTop-10,'t11 mut');
+      txt('화주 코드',xH,yTop-10,'t11 c2 w6');
+      txt('창고 코드',xW,yTop-10,'t11 c3 w6');
+      txtE('연결',xT,yTop-10,'t11 mut');
+    }
+    P.forEach((p,i)=>{
+      const bl=yTop+i*RH+13;
+      nameTxt(p,xN,bl);
+      txt(p.hc,xH,bl,'t11 c2');
+      txt(p.wc,xW,bl,'t11 c3');
+      const miss=covMiss(i)||(p.nw&&nwm==='recv');
+      if(miss){
+        el('line',{x1:ar1,y1:bl-4,x2:ar2,y2:bl-4,'class':'lm'});
+        if(endMode)txt(p.nw&&nwm==='recv'?'입고 때 등록':'매핑 없음',xT,bl,'t11 bad w6');
+        else txtE(p.nw&&nwm==='recv'?'입고 때 등록':'매핑 없음',xT,bl,'t11 bad w6');
+      }else{
+        el('line',{x1:ar1,y1:bl-4,x2:ar2-5,y2:bl-4,'class':'lo'});
+        head(ar2,bl-4,0,'h1c');
+        if(endMode)txt('연결됨',xT,bl,'t11 c1');else txtE('연결됨',xT,bl,'t11 c1');
+      }
+      el('line',{x1:xN,y1:yTop+i*RH+RH-3,x2:xT+(endMode?70:0),y2:yTop+i*RH+RH-3,'class':'rl'});
+    });
+    if(!endMode)el('line',{x1:xN,y1:yTop+8*RH-3,x2:xT,y2:yTop+8*RH-3,'class':'rl'});
+    txt('연결 '+mappedN()+' / 8',xN,yTop+8*RH+16,'t11 mut');
+  }
+
+  function drawWide(W){
+    const TOP=40,RH=26,PAD=12;
+    const xN=PAD,xH=PAD+108,ar1=xH+52,ar2=ar1+30,xW=ar2+4,xT=xW+64;
+    drawTable(xN,xH,ar1,ar2,xW,xT,TOP,RH,true);
+    const c=calc(),gap=12,by=40;
+    const fx0=xT+74,fw=W-PAD-fx0,bw=(fw-3*gap)/4;
+    const maxU=Math.max(6,Math.floor((bw-16)/11));
+    let BH=0;
+    const LS=STAGES.map((s,k)=>boxLines(k,c,maxU));
+    LS.forEach(L=>{BH=Math.max(BH,36+L.length*15+4);});
+    STAGES.forEach((s,k)=>{
+      const bx=fx0+k*(bw+gap),L=LS[k];
+      const stop=k===0&&(c.held.length||nwm==='recv');
+      el('rect',{x:bx,y:by,width:bw,height:BH,rx:10,'class':stop?'bxb':'bx'});
+      if(k===0){
+        const tag=c.held.length?'← 여기서 멈춘다 · 보류 '+c.hold+'건':(nwm==='recv'?'← 신상품만 잠시 멈춤':'');
+        if(tag)txt(tag,bx+2,by-8,'t11 bad w6');
+      }
+      txt((k+1)+'. '+s.n,bx+8,by+18,'t12 w6 txt');
+      let yy=by+36;
+      L.forEach(o=>{txt(o.t,bx+8,yy,'t11 '+o.cls);yy+=15;});
+      if(k<3){const ax=bx+bw;el('line',{x1:ax+2,y1:by+13,x2:ax+gap-4,y2:by+13,'class':'fa'});head(ax+gap-2,by+13,0,'fh');}
+    });
+    return Math.max(TOP+8*RH+28,by+BH+12);
+  }
+
+  function drawNarrow(W){
+    const TOP=24,RH=24;
+    const xN=10,xH=100,ar1=146,ar2=168,xW=172,xT=W-10;
+    drawTable(xN,xH,ar1,ar2,xW,xT,TOP,RH,false);
+    const c=calc();
+    let y=TOP+8*RH+30;
+    const bx=10,bw=W-20,maxU=Math.max(10,Math.floor((W-44)/11));
+    const LS=STAGES.map((s,k)=>boxLines(k,c,maxU));
+    STAGES.forEach((s,k)=>{
+      const L=LS[k];
+      const stop=k===0&&(c.held.length||nwm==='recv');
+      const hh=36+L.length*15+4;
+      el('rect',{x:bx,y:y,width:bw,height:hh,rx:10,'class':stop?'bxb':'bx'});
+      txt((k+1)+'. '+s.n,bx+10,y+17,'t12 w6 txt');
+      if(stop&&k===0)txtE('← '+(c.held.length?'여기서 멈춘다':'신상품 잠시 멈춤'),bx+bw-10,y+17,'t11 bad w6');
+      let yy=y+36;
+      L.forEach(o=>{txt(o.t,bx+10,yy,'t11 '+o.cls);yy+=15;});
+      y+=hh;
+      if(k<3){el('line',{x1:bx+20,y1:y+3,x2:bx+20,y2:y+13,'class':'fa'});head(bx+20,y+15,Math.PI/2,'fh');y+=19;}
+    });
+    return y+4;
+  }
+
+  function aria(){
+    const c=calc(),codes=c.held.map(p=>p.hc).join(' · ');
+    let s='상품코드 매핑표 8행 중 '+mappedN()+'행 연결. 처리 흐름 '+STAGES.map(x=>x.n).join('→')+'. ';
+    s+='하루 거래 '+TOTAL+'건 중 자동 처리 '+c.auto+'건, 보류 '+c.hold+'건, 재작업 '+c.rw+'분. ';
+    if(c.held.length)s+='매핑 없는 '+codes+'의 거래는 입고 등록에서 멈춘다. ';
+    if(nwm==='recv')s+='신상품은 입고 때 수동 등록 후 재개된다.';
+    return s;
+  }
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const H=W>=830?drawWide(W):drawNarrow(W);
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('aria-label',aria());
+  }
+  function renderStats(){
+    const c=calc(),pct=Math.round(c.auto/TOTAL*100),codes=c.held.map(p=>p.hc).join(' · ');
+    const autoCmp=cov==='full'
+      ?(nwm==='pre'
+        ?'<span class="cmp good">매핑 누락 3개가 생기면 60% — <em>전부 매핑</em>이 가장 높다</span>'
+        :'<span class="cmp bad">신상품 수동 등록 2건이 자동에서 빠진다 — <em>사전 등록</em>이면 100%</span>')
+      :(nwm==='pre'
+        ?'<span class="cmp bad">전부 매핑이면 100% — <em>전부 매핑</em>이 이긴다</span>'
+        :'<span class="cmp bad">전부 매핑 · 사전 등록이면 100% — 지금은 절반이 사람 손을 거친다</span>');
+    const holdCmp=c.hold
+      ?'<span class="cmp bad">'+codes+'의 거래가 입고 등록에 멈춰 있다</span>'
+      :(nwm==='recv'
+        ?'<span class="cmp bad">신상품이 입고 등록에서 잠시 보류 뒤 재개된다</span>'
+        :'<span class="cmp good">매핑 없는 상품이 없어 멈춘 곳이 없다</span>');
+    const rwCmp=c.rw===0
+      ?'<span class="cmp good">사람이 코드를 손으로 등록할 일이 없다</span>'
+      :(cov==='miss'
+        ?(nwm==='recv'
+          ?'<span class="cmp bad">누락 3건 + 신상품 1건 — <em>전부 매핑 · 사전 등록</em>이면 0분</span>'
+          :'<span class="cmp bad">누락 3건을 발견 뒤 손으로 등록 — <em>전부 매핑</em>이면 0분</span>')
+        :'<span class="cmp bad">신상품 매핑을 입고 때 손으로 등록 — <em>사전 등록</em>이면 0분</span>');
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+pct+'%</b><span>자동 처리율 (%) — 사람 손 없이 4단계를 끝낸 거래 비율 · 높을수록 좋음</span>'+autoCmp+'</div>'+
+      '<div class="stat"><b>'+c.hold+'건</b><span>보류 건수 (건) — 매핑이 없어 멈춰 있는 거래 · 0이 좋음</span>'+holdCmp+'</div>'+
+      '<div class="stat"><b>'+c.rw+'분</b><span>재작업 시간 (분) — 매핑을 사람이 손으로 등록하는 시간 · 적을수록 좋음</span>'+rwCmp+'</div>';
+  }
+  function say(m){status.textContent=m;}
+  function render(){draw();renderStats();}
+  function announce(){
+    const c=calc(),codes=c.held.map(p=>p.hc).join(' · ');
+    say('매핑 '+mappedN()+'/8 · 신상품 '+(nwm==='pre'?'사전 등록':'입고 때 등록')+' — 자동 처리 '+c.auto+'/'+TOTAL+'건 · 보류 '+c.hold+'건'+(c.held.length?' ('+codes+'이 입고 등록에서 멈춤)':'')+' · 재작업 '+c.rw+'분.');
+  }
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+
+  $('segCov').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    cov=b.dataset.v;setPressed('segCov',b);render();announce();
+    say(cov==='miss'
+      ?'매핑 커버리지: 일부 누락 — HJ-A101 · HJ-B202 · HJ-C302의 매핑이 없어 입고 등록에서 보류로 멈춥니다.'
+      :'매핑 커버리지: 전부 매핑 — 8개 상품이 모두 연결돼 있습니다.');
+  });
+  $('segNew').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    nwm=b.dataset.v;setPressed('segNew',b);render();announce();
+    say(nwm==='pre'
+      ?'신상품 등록 시점: 사전 등록 — 거래 전에 매핑이 있어 흐름이 끊기지 않습니다.'
+      :'신상품 등록 시점: 입고 때 신규 — 입고 등록에서 보류 뒤 담당자가 수동 등록하고 재개됩니다 (재작업 15분).');
+  });
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+  announce();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

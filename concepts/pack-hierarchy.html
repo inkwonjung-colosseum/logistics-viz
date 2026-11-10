@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>포장 단위와 UoM 변환 — 낱개 · 박스 · 팔레트 — 물류 개념 시각화</title>
+<meta name="description" content="주문 1건(박스 5개, 실제 박스당 24개)을 놓고 주문 단위와 시스템 입수(등록값)를 바꿔 가며 주문·입고·재고·피킹 4단계에서 수량이 어디서 어떻게 틀어지는지, 오차·재작업·자동 처리율이 어떻게 변하는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.cols{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:620px){.cols{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}}
+/* 단계 카드 */
+.stages{list-style:none;margin:0;padding:0}
+.stg{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 10px;padding:8px 10px;margin:0 0 6px;border-radius:10px;border:1px solid var(--border);transition:border-color .15s ease-out}
+.stg .n{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;line-height:1.9}
+.stg .hd{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.stg .t{grid-column:2;font-size:13.5px;line-height:1.55;margin-top:3px}
+.stg .num{font-variant-numeric:tabular-nums;font-weight:600}
+.stg .mark{font-size:12px;color:var(--muted-foreground)}
+.stg .mark.ok{color:var(--viz-series-2)}
+.stg.bad{border-color:var(--bad);border-width:2px;padding:7px 9px}
+.stg.bad .num{color:var(--bad)}
+.stg.bad .mark{color:var(--bad);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.c-oms{color:var(--viz-series-1)}.c-wms{color:var(--viz-series-3)}
+.unit{font-size:11.5px;line-height:1.7;padding:0 8px;border-radius:999px;background:color-mix(in srgb,var(--muted-foreground) 12%,transparent);color:var(--muted-foreground);white-space:nowrap}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+#pyr{display:block;width:100%;height:auto}
+/* SVG 안의 텍스트·도형 */
+#pyr text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.bad{fill:var(--bad)}
+svg text.good{fill:var(--viz-series-2)}
+svg text.halo{stroke:var(--card);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
+svg .lay{stroke-width:1.5}
+svg .lay-n{fill:color-mix(in srgb,var(--muted-foreground) 10%,transparent);stroke:var(--border)}
+svg .lay-ok{fill:color-mix(in srgb,var(--primary) 12%,transparent);stroke:color-mix(in srgb,var(--primary) 45%,transparent)}
+svg .lay-bad{fill:color-mix(in srgb,var(--bad) 12%,transparent);stroke:var(--bad)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--viz-series-2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">식별·단위</span>
+  <p class="q">같은 상품을 세는 단위가 다르면 어디서 틀어지는가</p>
+  <h1>포장 단위와 UoM 변환 — 낱개 · 박스 · 팔레트</h1>
+  <p class="def">같은 상품을 낱개·박스·팔레트처럼 세는 단위가 <b>UoM(포장 단위)</b>이다 — 한 박스에 낱개가 몇 개 들어가는지(입수)가 시스템마다 다르면 수량이 그 자리에서 틀어진다.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>SKU와 묶음(LPN)</b> — SKU(Stock Keeping Unit, 재고 단위)는 상품을 구별하는 최소 단위로 "무엇"인지를 나타낸다. LPN(License Plate Number, 번호판 번호)은 팔레트·박스 같은 물건 묶음에 붙이는 고유 번호다. → <a href="sku-lpn.html">SKU vs SKU Instance vs LPN</a></p>
+  <p><b>마스터 데이터</b> — 상품·창고·거래처처럼 거래가 일어나기 전에 정해 두는 기준 정보다. 이 페이지의 입수는 상품 마스터에 등록된다. → <a href="master-data-mapping.html">마스터 데이터 표준화 — 상품코드 매핑</a></p>
+  <p><b>입고 신청서(ASN, 사전 출하 통지)</b> — 물건이 도착하기 전에 "무엇이 언제 몇 개 오는지"를 미리 알려 주는 데이터다. → <a href="asn-form.html">OMS 입고 신청서 (ASN 입력 항목)</a></p>
+</details>
+
+<div class="terms">
+  <p><b>UoM(Unit of Measure, 포장 단위)</b> — 같은 상품을 낱개·박스·팔레트처럼 세는 단위다.</p>
+  <p><b>입수</b> — 한 박스에 들어가는 낱개 수다. "1박스 = 낱개 몇 개"로 바꾸는 환산식의 기준값이며, 이 페이지에서는 상품 마스터에 등록된 값과 실제 박스의 내용물을 비교한다.</p>
+</div>
+
+<p class="cause"><b>비유 — 계란 판</b> · 한 판이 30개인데 10개들이로 잘못 알고 세면 세 번째 판부터 개수가 어긋난다. 물류의 입수도 똑같이 작동한다. 다만 맞지 않는 지점이 하나 있다 — 계란은 판이 눈에 보이지만 시스템에서는 숫자만 있다.</p>
+
+<div class="panel">
+  <h2>한 주문이 주문 → 입고 → 재고 → 피킹을 지날 때</h2>
+  <div class="controls">
+    <div class="ctl">주문 단위
+      <div class="seg" id="segOrd" role="group" aria-label="주문 단위">
+        <button type="button" data-v="box" aria-pressed="true">박스 5개로 주문</button>
+        <button type="button" data-v="ea" aria-pressed="false">낱개 120개로 주문</button>
+      </div>
+    </div>
+    <div class="ctl">입수 등록
+      <div class="seg" id="segUom" role="group" aria-label="입수 등록값">
+        <button type="button" data-v="24" aria-pressed="true">정상 24</button>
+        <button type="button" data-v="28" aria-pressed="false">잘못 등록 28</button>
+      </div>
+    </div>
+    <button type="button" class="ghostb" id="reset">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div class="cols">
+    <section aria-labelledby="hFlow">
+      <h2 id="hFlow">4단계에서 세는 단위와 기록한 수량</h2>
+      <ol class="stages" id="stages"></ol>
+      <p class="patn">실제 박스에는 24개씩 들어 있고 오늘 물량은 5박스 = 120개다. 붉은 테두리·붉은 숫자 = 장부(기록)와 실제 물량이 어긋난 단계. OMS는 운영사색, WMS는 창고색 — 시스템이 주체의 색을 물려받는다.</p>
+    </section>
+    <section aria-labelledby="hPyr">
+      <h2 id="hPyr">단위 피라미드와 변환식</h2>
+      <div id="pyrHost">
+        <svg id="pyr" role="img" aria-label="단위 피라미드 — 위에서부터 팔레트, 박스, 낱개"></svg>
+      </div>
+      <p class="patn">팔레트는 여러 박스를 한 번에 옮기려고 함께 싣는 받침대 묶음이다. 아래로 내려올수록 잘게 쪼개고, 올라갈수록 입수를 곱해 다시 묶는다.</p>
+    </section>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 상품 1종·주문 1건, 낱개·박스·팔레트 3단계, 입수는 한 곳에만 등록된다고 단순화했다. 실제 박스당 24개는 고정이고, 토글로 바꾸는 값은 시스템에 등록된 입수와 주문을 세는 단위다.</p>
+<p class="takeaway">단위와 입수가 한곳에서 정확히 정해져 있으면 주문·재고·피킹이 같은 숫자를 말하지만, 입수 하나가 틀리면 모든 단계의 수량이 조금씩 어긋나 나중에 크게 터진다 — 그래서 UoM은 마스터 데이터로 한 곳에서 관리한다.</p>
+<p class="sys"><b>시스템에서는</b> OMS·WMS에서는 상품마다 낱개·박스·팔레트 변환식(입수)을 마스터 데이터로 갖고 주문·입고·피킹에서 같은 식으로 환산한다. 변환식은 상품마다, 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="sku-lpn.html">SKU vs SKU Instance vs LPN</a> · <a href="master-data-mapping.html">마스터 데이터 표준화 — 상품코드 매핑</a> · <a href="asn-form.html">OMS 입고 신청서 (ASN 입력 항목)</a></p>
+  <p>다음: <a href="safety-stock.html">안전재고 · 재주문점 · EOQ</a> — 입수처럼 상품마다 정해 두는 또 하나의 기준, 얼마나 쌓아 둘 것인가</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="pack-hierarchy">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const REAL=24, BOXES=5, TRUTH=BOXES*REAL, PAL=10; // 실제 입수 24 · 물량 5박스=120개 · 1팔레트=10박스
+  let ord='box', uom=24;
+  const $=x=>document.getElementById(x);
+  const svg=$('pyr'), host=$('pyrHost'), status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+
+  function calc(){
+    const orderEa = ord==='box' ? BOXES*uom : TRUTH;          // 주문 단계가 기록한 낱개 환산값
+    const recvEa  = BOXES*uom;                                 // 입고 접수(박스 스캔 × 등록 입수)
+    const stockErr = Math.abs(recvEa-TRUTH);                   // 재고 장부 vs 실물
+    let pickNeed, pickMix, pickGot;
+    if(uom===REAL){ pickNeed=TRUTH; pickMix=BOXES+'박스'; pickGot=TRUTH; }
+    else if(ord==='box'){ pickNeed=BOXES*uom; pickMix=BOXES+'박스'; pickGot=TRUTH; }
+    else { const b=Math.floor(TRUTH/uom), r=TRUTH-b*uom;
+           pickNeed=TRUTH; pickMix=b+'박스('+b*uom+') + '+r+'개'; pickGot=b*REAL+r; }
+    const pickShort = pickNeed-pickGot;                        // 피킹 검증에서 발견된 부족
+    return {orderEa, recvEa, stockErr, pickNeed, pickMix, pickGot, pickShort,
+      err: stockErr+pickShort, rework: pickShort>0?1:0, auto: pickShort>0?75:100};
+  }
+
+  function renderStages(c){
+    const ordQty = ord==='box' ? BOXES+'박스' : TRUTH+'개';
+    const ordUnit = ord==='box' ? '단위: 박스' : '단위: 낱개';
+    const ordConv = ord==='box' ? BOXES+'박스 × '+uom+' = '+c.orderEa+'개' : TRUTH+'개 (환산 없음)';
+    const ordNote = c.orderEa===TRUTH
+      ? '<span class="mark ok">실제 물량 '+TRUTH+'개와 같다</span>'
+      : '<span class="mark">실제 물량 '+TRUTH+'개와 어긋남</span>';
+    const recvNote = c.recvEa===TRUTH
+      ? '<span class="mark ok">실물 '+TRUTH+'개와 같다</span>'
+      : '<span class="mark">실물은 '+TRUTH+'개 — 장부가 '+c.stockErr+'개 많다</span>';
+    const stockNote = c.stockErr===0
+      ? '<span class="mark ok">장부와 실물이 같다</span>'
+      : '<span class="mark">대조로 '+c.stockErr+'개 어긋남이 드러난다</span>';
+    const pickNote = c.pickShort===0
+      ? '<span class="mark ok">개수를 세어 봐도 딱 맞다</span>'
+      : '<span class="mark">부족 '+c.pickShort+'개 발견 → 재계수·정정 재작업</span>';
+    $('stages').innerHTML=
+      '<li class="stg"><span class="n">1</span><div class="hd"><span class="chip c-oms">OMS · 운영사</span><span class="unit">'+ordUnit+'</span></div><div class="t">주문을 <b>'+ordQty+'</b>로 받고 낱개로 환산 — <span class="num">'+ordConv+'</span> '+ordNote+'</div></li>'+
+      '<li class="stg'+(c.recvEa===TRUTH?'':' bad')+'"><span class="n">2</span><div class="hd"><span class="chip c-wms">WMS · 창고</span><span class="unit">단위: 박스 스캔 → 낱개 기록</span></div><div class="t">입고된 박스 '+BOXES+'개를 스캔해 입수로 곱해 접수 — <span class="num">'+BOXES+' × '+uom+' = '+c.recvEa+'개</span> '+recvNote+'</div></li>'+
+      '<li class="stg'+(c.stockErr===0?'':' bad')+'"><span class="n">3</span><div class="hd"><span class="chip c-wms">WMS · 창고</span><span class="unit">단위: 낱개 (장부)</span></div><div class="t">장부 <span class="num">'+c.recvEa+'개</span> vs 실물 <span class="num">'+TRUTH+'개</span> '+stockNote+'</div></li>'+
+      '<li class="stg'+(c.pickShort===0?'':' bad')+'"><span class="n">4</span><div class="hd"><span class="chip c-wms">WMS · 창고</span><span class="unit">단위: 낱개 지시 → 박스+낱개 혼합</span></div><div class="t">지시 <span class="num">'+c.pickNeed+'개 = '+c.pickMix+'</span> → 실제 <span class="num">'+c.pickGot+'개</span> 출고 '+pickNote+'</div></li>';
+  }
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;}
+  function txt(s,x,y,cls){const e=el('text',{x:x,y:y,'class':cls,'text-anchor':'middle'});e.textContent=s;return e;}
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const LH=48, GAP=10, TOP=6;
+    const layers=[
+      {w:.34, name:'팔레트', f:'1팔레트 = '+PAL+'박스', cls:'lay lay-n', fc:'mut'},
+      {w:.58, name:'박스', f: uom===REAL ? '1박스 = '+REAL+'개 (입수)' : '1박스 = '+uom+'개 (등록) · 실제는 '+REAL,
+       cls: uom===REAL?'lay lay-ok':'lay lay-bad', fc: uom===REAL?'txt':'bad'},
+      {w:.88, name:'낱개', f:'오늘 물량 '+BOXES+'박스 = '+TRUTH+'개', cls:'lay lay-n', fc:'mut'}
+    ];
+    layers.forEach((L,i)=>{
+      const y=TOP+i*(LH+GAP), lw=Math.max(60,W*L.w), x=(W-lw)/2;
+      el('rect',{x:x.toFixed(1),y:y,width:lw.toFixed(1),height:LH,rx:9,'class':L.cls});
+      txt(L.name,x+lw/2,y+18,'t12 w6 halo txt');
+      txt(L.f,x+lw/2,y+35,'t11 halo '+L.fc);
+    });
+    let noteY=TOP+3*(LH+GAP)+10;
+    if(W<420){
+      txt('기준 — 실제 박스당 '+REAL+'개',W/2,noteY,'t11 halo mut');
+      txt('내려올수록 쪼개고 올라갈수록 입수를 곱해 묶는다',W/2,noteY+15,'t11 halo mut');
+      noteY+=15;
+    }else{
+      txt('기준 — 실제 박스당 '+REAL+'개 · 내려올수록 쪼개고 올라갈수록 입수를 곱해 묶는다',W/2,noteY,'t11 halo mut');
+    }
+    const H=noteY+12;
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('aria-label','단위 피라미드 — 팔레트 1은 박스 '+PAL+'개, 박스 1은 시스템 등록상 낱개 '+uom+'개(실제 '+REAL+'개), 오늘 물량 박스 '+BOXES+'개는 실제 낱개 '+TRUTH+'개'+(uom===REAL?'':' — 등록 입수가 틀어 박스마다 '+(uom-REAL)+'개씩 어긋난다'));
+  }
+
+  function renderStats(c){
+    const win='<em>입수 정상(24)</em>', lose='잘못 등록(28)';
+    const other = uom===REAL ? calc2(ord,28).err : calc2(ord,REAL).err;
+    const ordTail = uom===28 ? (ord==='box' ? '박스 주문이라 장부·피킹 모두 20개씩 어긋난다' : '낱개 주문이라 피킹 환산이 틀어져 부족이 16개로 줄어든다') : '';
+    $('stats').innerHTML=
+      '<div class="stat"><b>'+c.err+'개</b><span>수량 오차(개) — 재고 대조와 피킹 검증에서 드러난 장부-실물 어긋남의 합 · 0이 좋음</span>'+
+      (c.err===0?'<span class="cmp good">'+lose+'이면 '+other+'개 — '+win+'이 오차 0</span>':'<span class="cmp bad">'+win+'이면 0개 — 지금 '+c.err+'개가 어긋난다</span>'+(ordTail?'<span class="cmp">'+ordTail+'</span>':''))+'</div>'+
+      '<div class="stat"><b>'+c.rework+'건</b><span>재작업 건수(건) — 수량이 안 맞아 다시 세거나 정정한 일 · 0이 좋음</span>'+
+      (c.rework===0?'<span class="cmp good">'+lose+'이면 1건 — '+win+'은 다시 셀 일이 없다</span>':'<span class="cmp bad">'+win+'이면 0건 — 피킹 부족 재계수가 지금 설정의 몫이다</span>')+'</div>'+
+      '<div class="stat"><b>'+c.auto+'%</b><span>자동 처리율(%) — 주문·입고·재고·피킹 4단계 중 사람 손을 다시 타지 않고 지나간 단계 비율 · 높을수록 좋음</span>'+
+      (c.auto===100?'<span class="cmp good">'+lose+'이면 75% — '+win+'은 4단계를 그대로 통과한다</span>':'<span class="cmp bad">'+win+'이면 100% — 피킹 1단계가 사람 손으로 돌아온다</span>')+'</div>';
+  }
+  // 다른 손잡이 값의 결과(비교 표시용) — 화면 상태를 바꾸지 않고 계산만 한다
+  function calc2(o,u){const bo=ord;ord=o;const pu=uom;uom=u;const r=calc();ord=bo;uom=pu;return r;}
+
+  function render(){const c=calc();renderStages(c);draw();renderStats(c);}
+  function say(prefix){
+    const c=calc();
+    status.textContent=(prefix?prefix+' — ':'')+(ord==='box'?'박스 5개로 주문':'낱개 120개로 주문')+' · 입수 '+uom+(uom===REAL?' (정상)':' (잘못 등록)')+' — 수량 오차 '+c.err+'개 · 재작업 '+c.rework+'건 · 자동 처리율 '+c.auto+'%';
+  }
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+
+  $('segOrd').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    ord=b.dataset.v;setPressed('segOrd',b);render();
+    say(ord==='box'?'주문 단위: 박스 5개 — 주문 단계부터 박스 × 입수로 환산합니다':'주문 단위: 낱개 120개 — 환산 없이 낱개로 기록하고 피킹에서 박스로 바꿉니다');
+  });
+  $('segUom').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    uom=Number(b.dataset.v);setPressed('segUom',b);render();
+    say(uom===REAL?'입수 등록: 정상 24 — 모든 단계가 실제 물량 120개를 가리킵니다':'입수 등록: 잘못 등록 28 — 실제는 24개라 입고·재고·피킹에서 수량이 어긋납니다');
+  });
+  $('reset').addEventListener('click',()=>{
+    ord='box';uom=REAL;setPressed('segOrd',$('segOrd').querySelector('[data-v="box"]'));setPressed('segUom',$('segUom').querySelector('[data-v="24"]'));
+    render();say('초기화');
+  });
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();say('');
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

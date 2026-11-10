@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물류 KPI — OTIF · 완전주문 · Dock-to-stock — 물류 개념 시각화</title>
+<meta name="description" content="같은 한 달 원천 기록 40건을 납기 창(당일·±1일)과 완전주문 정의(수량만·수량+포장+서류) 기준 토글로 다시 세어 창고 3곳·운송사 2곳의 OTIF·완전주문율·Dock-to-stock 순위가 어떻게 바뀌는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --viz-series-1:light-dark(#2c5ce5,#7aa5ff);
+  --viz-series-2:light-dark(#1a8a55,#4fbf8a);
+  --viz-series-3:light-dark(#c47a2a,#e0a35c);
+  --viz-series-4:light-dark(#7a55c4,#b49ae8);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 14px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+em{font-style:normal;font-weight:650}
+.pre{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.pre summary{cursor:pointer;font-weight:600;color:var(--foreground)}
+.pre p{margin:8px 0 0}
+.pre a{color:var(--primary);text-decoration:none}
+.pre a:hover{text-decoration:underline}
+.terms{margin:0 0 12px;padding:10px 14px;border:1px solid var(--border);border-radius:12px;font-size:13.5px;color:var(--muted-foreground)}
+.terms p{margin:2px 0}
+.terms b{color:var(--foreground);font-weight:600}
+.cause{font-size:13.5px;margin:0 0 18px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.cols{display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:780px){.cols{grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr)}}
+.raw{list-style:none;margin:0;padding:0}
+.raw li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.55}
+.raw li:last-child{border-bottom:0}
+.raw .nm{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap;align-self:start}
+.raw .nm::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.raw .nm.wh{color:var(--viz-series-3)}.raw .nm.car{color:var(--viz-series-4)}
+.raw .n{color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.raw li.tot{border-top:2px solid var(--border);color:var(--muted-foreground);font-size:12.5px}
+.raw li.tot .nm{color:var(--muted-foreground)}
+#dia{display:block;width:100%;height:auto}
+#dia text{font-variant-numeric:tabular-nums}
+svg text.t11{font-size:11px}
+svg text.t12{font-size:12px}
+svg text.w6{font-weight:600}
+svg text.txt{fill:var(--foreground)}
+svg text.mut{fill:var(--muted-foreground)}
+svg text.c-wh{fill:var(--viz-series-3)}
+svg text.c-car{fill:var(--viz-series-4)}
+svg .track{fill:color-mix(in srgb,var(--muted-foreground) 10%,transparent)}
+svg .b-wh{fill:color-mix(in srgb,var(--viz-series-3) 62%,transparent)}
+svg .b-car{fill:color-mix(in srgb,var(--viz-series-4) 62%,transparent)}
+svg .win{stroke:var(--foreground);stroke-width:2}
+svg .ll{stroke:var(--border);stroke-dasharray:3 4;stroke-width:1}
+.patn{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">전략</span>
+  <p class="q">잘하고 있는지를 어떤 숫자로 말할 것인가</p>
+  <h1>물류 KPI — OTIF · 완전주문 · Dock-to-stock</h1>
+  <p class="def">잘하고 있는지는 숫자로 말한다 — 약속한 날, 약속한 수량을 채운 비율인 <b>OTIF</b>, 늦지 않게 다 담아 망가지지 않게 배송된 <b>완전주문</b>, 도착부터 팔 수 있는 상태까지의 시간인 <b>Dock-to-stock</b>.</p>
+</header>
+
+<details class="pre">
+  <summary>처음이라면 — 이 페이지가 전제하는 말</summary>
+  <p><b>컨트롤 타워</b> — 여러 창고·운송사의 상황을 한곳에서 모아 보고, 사람이 봐야 할 문제를 골라 알려 주는 시스템이다. → <a href="control-tower.html">컨트롤 타워</a></p>
+  <p><b>주문 상태</b> — 주문이 접수된 뒤 배송이 끝날 때까지 어디까지 진행됐는지 나타내는 표시다. → <a href="order-status.html">주문 한 건의 여정</a></p>
+  <p><b>창고</b> — 물건을 받아 보관하다가, 주문이 들어오면 다시 내보내는 곳이다. → <a href="warehouse-basics.html">창고의 하루</a></p>
+</details>
+
+<div class="terms">
+  <p><b>물류 KPI(KPI, Key Performance Indicator, 핵심 성과 지표)</b> — 물류가 잘 되고 있는지를 숫자로 말하게 하는 핵심 성과 지표다. OTIF·완전주문·Dock-to-stock 같은 개별 지표가 모여 이룬다.</p>
+  <p><b>OTIF(On Time In Full)</b> — 약속한 날짜에, 약속한 수량을 모두 채워 배송한 주문의 비율이다.</p>
+  <p><b>완전주문(perfect order)</b> — 늦지 않게, 다 담아, 망가지지 않게, 알맞은 서류로 배송된 주문이다.</p>
+  <p><b>Dock-to-stock time(도크 투 스톡)</b> — 물건이 도크에 도착한 뒤 팔 수 있는 상태(가용 재고)가 되기까지 걸리는 시간이다.</p>
+</div>
+
+<p class="cause"><b>비유 — 학교 성적표</b> · 과목 점수만 놓고 보면 반 평균·석차 같은 채점 기준에 따라 순위가 달라진다. 물류 KPI도 납기 창·완전주문 정의라는 채점 기준에 따라 같은 기록이 다른 순위를 만듭니다. 다만 맞지 않는 지점이 하나 있다 — 성적은 한 사람의 것이지만 물류 KPI는 주체 간 약속을 잰다.</p>
+
+<div class="panel">
+  <h2>같은 원천 기록 40건을 두 기준으로 다시 세기</h2>
+  <div class="controls">
+    <div class="ctl">OTIF 납기 창
+      <div class="seg" id="segWin" role="group" aria-label="OTIF 납기 창 기준">
+        <button type="button" data-v="0" aria-pressed="true">당일 (엄격)</button>
+        <button type="button" data-v="1" aria-pressed="false">±1일 (관대)</button>
+      </div>
+    </div>
+    <div class="ctl">완전주문 정의
+      <div class="seg" id="segPf" role="group" aria-label="완전주문 정의 기준">
+        <button type="button" data-v="0" aria-pressed="true">수량만 (느슨)</button>
+        <button type="button" data-v="1" aria-pressed="false">수량+포장+서류 (엄격)</button>
+      </div>
+    </div>
+    <button type="button" class="ghostb" id="reset">⟲ 처음 기준</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+  <div class="cols">
+    <section aria-labelledby="hRaw">
+      <h2 id="hRaw">원천 기록 — 한 달 40건 (고정)</h2>
+      <ul class="raw" id="raw"></ul>
+    </section>
+    <section aria-labelledby="hAgg">
+      <h2 id="hAgg">집계 결과 — 창고 3곳 · 운송사 2곳 나란히 비교</h2>
+      <div id="diaHost">
+        <svg id="dia" role="img" aria-label="창고 3곳과 운송사 2곳의 OTIF·완전주문율·Dock-to-stock 비교 막대"></svg>
+      </div>
+      <p class="patn">막대 = 지금 고른 기준으로 집계한 값 · 굵은 테두리와 1등 표시 = 그 지표의 1등 · Dock-to-stock은 막대가 짧을수록 좋고 창고만 잽니다(운송사 —) · 납기는 약속일과 실제 출고일의 차이로 셉니다.</p>
+    </section>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 한 달 주문 40건·창고 3곳·운송사 2곳, 원천 기록은 고정 시나리오다. 납기는 약속일과 실제 출고일의 차이로 잰다(배송이 출고와 같은 날 끝난다고 단순화 — 운송사 숫자는 맡은 주문 구성을 따라간다). Dock-to-stock은 창고 지표라 운송사는 비교에서 뺐다.</p>
+<p class="takeaway">기준을 엄격히 잡으면 모두의 수치가 내려가고 우열이 뚜렷해지며, 관대하게 잡으면 격차가 줄어 순위가 뒤집히기도 한다 — 숫자는 기준을 함께 말해야 의미가 있다. 그래서 실무에서는 지표를 말할 때 납기 창·완전주문 정의 같은 기준을 함께 붙인다.</p>
+<p class="sys"><b>시스템에서는</b> OMS에서는 약속일·실적·검수 기록을 모아 지표별 기준(납기 창, 완전주문 정의)으로 집계한다. 기준값은 운영사마다 다르게 설정한다.</p>
+<div class="next">
+  <p>선행: <a href="control-tower.html">컨트롤 타워</a> — 이 숫자들이 모여 오는 자리</p>
+  <p>다음: <a href="sla-scorecard.html">SLA · 스코어카드</a> — 이 숫자를 가지고 창고·운송사와 약속 이행을 따지는 다음 단계</p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="logistics-kpi">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  // 원천 기록 40건 [창고, 운송사, 약속일, 실제 출고일, 수량 정상, 포장 정상, 서류 정상] — 고정 시나리오
+  const REC=[
+    ["A","G",1,1,1,1,1],["A","G",3,3,1,1,1],["A","G",5,5,1,1,1],["A","G",7,7,1,1,1],["A","G",9,9,1,1,1],
+    ["A","E",11,11,1,1,1],["A","E",13,13,0,1,1],["A","E",15,15,1,1,1],["A","E",17,17,1,1,1],
+    ["A","G",19,20,1,1,1],["A","G",21,23,1,1,1],["A","G",23,25,0,1,1],
+    ["B","E",1,1,1,1,1],["B","E",3,3,1,1,1],["B","E",5,5,1,1,1],
+    ["B","G",7,8,1,1,1],["B","G",9,10,1,1,1],["B","E",11,12,0,1,1],["B","G",13,14,1,1,1],["B","G",15,16,1,1,1],
+    ["B","E",17,18,1,1,1],["B","E",19,20,1,1,1],["B","E",21,22,1,0,1],["B","E",23,24,1,1,1],["B","E",1,2,1,1,1],["B","E",3,4,1,1,1],
+    ["C","G",5,5,1,1,1],["C","G",7,7,1,0,1],["C","G",9,9,1,1,1],["C","G",11,11,1,1,0],["C","G",13,13,1,1,1],
+    ["C","G",15,15,1,1,1],["C","G",17,17,1,1,1],["C","G",19,19,1,0,1],
+    ["C","E",21,21,1,0,1],["C","E",23,23,1,0,1],["C","E",1,1,1,1,0],["C","E",3,4,1,0,1],["C","E",5,8,1,0,1],["C","E",7,10,1,1,1]
+  ];
+  const SUBJ=[
+    {k:'A',n:'창고 A',wh:1},{k:'B',n:'창고 B',wh:1},{k:'C',n:'창고 C',wh:1},
+    {k:'G',n:'운송사 갑',wh:0},{k:'E',n:'운송사 을',wh:0}
+  ];
+  const D2S={A:[12,15,13,16,14,14],B:[19,22,20,24,21,22],C:[26,30,27,32,28,29]};
+  let WIN=0,PF=0; // 납기 창 0=당일 1=±1일 · 완전주문 0=수량만 1=수량+포장+서류
+  const $=x=>document.getElementById(x);
+  const svg=$('dia'),host=$('diaHost'),status=$('status');
+  const NS='http://www.w3.org/2000/svg';
+
+  const orders=k=>REC.filter(r=>r[0]===k||r[1]===k);
+  const pct=(n,d)=>n/d*100;
+  const otif=k=>{const o=orders(k),n=o.filter(r=>r[3]-r[2]<=WIN&&r[4]===1).length;return{n,d:o.length,v:pct(n,o.length)};};
+  const pf=k=>{const o=orders(k),n=o.filter(r=>PF?r[4]&&r[5]&&r[6]:r[4]).length;return{n,d:o.length,v:pct(n,o.length)};};
+  const d2s=k=>D2S[k].reduce((a,b)=>a+b,0)/D2S[k].length;
+  const f1=v=>v.toFixed(1);
+  const rank=fn=>SUBJ.map(s=>[s,fn(s.k)]).sort((a,b)=>b[1].v-a[1].v);
+  const d2sRank=()=>SUBJ.filter(s=>s.wh).map(s=>[s,d2s(s.k)]).sort((a,b)=>a[1]-b[1]);
+
+  function el(n,at){const e=document.createElementNS(NS,n);for(const x in at)e.setAttribute(x,at[x]);svg.appendChild(e);return e;}
+  function txt(x,y,cls,s,anch){const t=el('text',{x:x,y:y,'class':cls});if(anch)t.setAttribute('text-anchor',anch);t.textContent=s;return t;}
+
+  function renderRaw(){
+    const row=k=>{
+      const o=orders(k),c=i=>o.filter(r=>r[i]===0).length;
+      const d1=o.filter(r=>r[3]-r[2]===1).length,d2=o.filter(r=>r[3]-r[2]>=2).length;
+      const z=v=>v?v+'건':'없음';
+      const s=SUBJ.find(x=>x.k===k);
+      return `<li><span class="nm ${s.wh?'wh':'car'}">${s.n}</span><span class="n">${o.length}건 — 납기 지연 +1일 ${z(d1)} · +2일 이상 ${z(d2)} · 수량 미달 ${z(c(4))} · 포장 문제 ${z(c(5))} · 서류 누락 ${z(c(6))}${s.wh?` · 입고→가용 평균 ${f1(d2s(k))}시간`:''}</span></li>`;
+    };
+    const d1=REC.filter(r=>r[3]-r[2]===1).length,d2=REC.filter(r=>r[3]-r[2]>=2).length;
+    const c=i=>REC.filter(r=>r[i]===0).length;
+    $('raw').innerHTML=['A','B','C','G','E'].map(row).join('')
+      +`<li class="tot"><span class="nm">합계</span><span class="n">40건 — 납기 지연 +1일 ${d1}건 · +2일 이상 ${d2}건 · 수량 미달 ${c(4)}건 · 포장 문제 ${c(5)}건 · 서류 누락 ${c(6)}건</span></li>`;
+  }
+
+  function draw(){
+    const W=host.clientWidth;
+    if(!W||W<40)return;
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    const narrow=W<620,GAP=18,PAD=2;
+    const pw=narrow?W-2*PAD:(W-2*PAD-2*GAP)/3;
+    const panels=[
+      {id:'o',t:'OTIF (%)',sub:WIN===0?'납기 창: 약속일 당일 (엄격)':'납기 창: ±1일 (관대)',dir:'높을수록 좋음',get:k=>otif(k),max:100},
+      {id:'p',t:'완전주문율 (%)',sub:PF===0?'정의: 수량만 (느슨)':'정의: 수량+포장+서류 (엄격)',dir:'높을수록 좋음',get:k=>pf(k),max:100},
+      {id:'s',t:'Dock-to-stock (시간)',sub:'도크 도착 → 가용 재고 · 창고 지표',dir:'짧을수록 좋음',get:k=>({v:d2s(k)}),max:30}
+    ];
+    const oTop=rank(otif)[0],pTop=rank(pf)[0],sTop=d2sRank()[0];
+    const LABEL=72,VZONE=60,BH=13,Y0=48,PITCH=24;
+    const H=Y0+5*PITCH+10;
+    let Htot=narrow?H*3+GAP*2:H;
+    svg.setAttribute('viewBox','0 0 '+W+' '+Htot);
+    svg.setAttribute('aria-label','창고 3곳·운송사 2곳의 OTIF·완전주문율·Dock-to-stock 비교 — 납기 창 '+(WIN?'±1일(관대)':'당일(엄격)')+', 완전주문 정의 '+(PF?'수량+포장+서류(엄격)':'수량만(느슨)')+' · OTIF 1등 '+oTop[0].n+' '+f1(oTop[1].v)+'%, 완전주문율 1등 '+pTop[0].n+' '+f1(pTop[1].v)+'%, Dock-to-stock 1등 '+sTop[0].n+' '+f1(sTop[1])+'시간');
+    panels.forEach((p,pi)=>{
+      const px=PAD+pi*(pw+GAP);
+      const py=narrow?pi*(H+GAP):0;
+      txt(px,py+16,'t12 w6 txt',p.t);
+      txt(px,py+32,'t11 mut',p.sub+' · '+p.dir);
+      const bw=pw-LABEL-VZONE-6;
+      const winners=p.id==='o'?[oTop[0].k]:p.id==='p'?[pTop[0].k]:[sTop[0].k];
+      const isD=p.id==='s';
+      SUBJ.forEach((s,i)=>{
+        const y=py+Y0+i*PITCH;
+        txt(px,y+4,'t12 '+(s.wh?'c-wh':'c-car'),s.n);
+        const isCar=!s.wh&&isD;
+        if(isCar){
+          el('line',{x1:px+LABEL,y1:y-2,x2:px+LABEL+bw,y2:y-2,class:'ll'});
+          txt(px+pw-6,y+4,'t11 mut','—','end');
+          return;
+        }
+        el('rect',{x:px+LABEL,y:y-BH+2,width:bw,height:BH,rx:3,class:'track'});
+        const v=p.get(s.k).v,w=Math.max(2,v/p.max*bw),win=winners.includes(s.k);
+        el('rect',{x:px+LABEL,y:y-BH+2,width:w.toFixed(1),height:BH,rx:3,class:(s.wh?'b-wh':'b-car')+(win?' win':'')});
+        txt(px+pw-6,y+4,'t11 '+(win?'w6 txt':'mut'),f1(v)+(win?' · 1등':''),'end');
+      });
+    });
+  }
+
+  function renderStats(){
+    const o=rank(otif),p=rank(pf),s=d2sRank();
+    const oAlt=(()=>{const keep=WIN;WIN=keep===0?1:0;const r=rank(otif)[0];WIN=keep;return r;})();
+    const pAlt=(()=>{const keep=PF;PF=keep===0?1:0;const r=rank(pf)[0];PF=keep;return r;})();
+    $('stats').innerHTML=
+      `<div class="stat"><b>${f1(o[0][1].v)}%</b><span>OTIF (%) — 약속한 날에 약속한 수량을 채운 비율 · 높을수록 좋음</span><span class="cmp">1등 <em>${o[0][0].n}</em> · ${WIN===0?'±1일 관대 창이면':'당일 엄격 창이면'} 1등 <em>${oAlt[0].n}</em> ${f1(oAlt[1].v)}%</span></div>`
+      +`<div class="stat"><b>${f1(p[0][1].v)}%</b><span>완전주문율 (%) — ${PF===0?'수량만 (느슨)':'수량+포장+서류 (엄격)'} 정의로 잰 비율 · 높을수록 좋음</span><span class="cmp">1등 <em>${p[0][0].n}</em> · ${PF===0?'엄격 정의면':'느슨 정의면'} 1등 <em>${pAlt[0].n}</em> ${f1(pAlt[1].v)}%</span></div>`
+      +`<div class="stat"><b>${f1(s[0][1])}시간</b><span>Dock-to-stock (시간) — 도크 도착부터 가용 재고까지 · 짧을수록 좋음</span><span class="cmp">1등 <em>${s[0][0].n}</em> · 창고 지표라 운송사는 비교에서 뺐다</span></div>`;
+  }
+
+  function announce(){
+    const o=rank(otif)[0],p=rank(pf)[0],s=d2sRank()[0];
+    status.textContent='기준: 납기 창 '+(WIN===0?'당일(엄격)':'±1일(관대)')+' · 완전주문 '+(PF===0?'수량만(느슨)':'수량+포장+서류(엄격)')+' — OTIF 1등 '+o[0].n+' '+f1(o[1].v)+'% · 완전주문율 1등 '+p[0].n+' '+f1(p[1].v)+'% · Dock-to-stock 1등 '+s[0].n+' '+f1(s[1])+'시간';
+  }
+
+  function setPressed(id,b){document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}
+  function render(){renderRaw();renderStats();draw();announce();}
+
+  $('segWin').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    const before=rank(otif)[0][0].n,v=+b.dataset.v;
+    WIN=v;setPressed('segWin',b);render();
+    const after=rank(otif)[0][0].n;
+    status.textContent=(v===1?'납기 창을 ±1일(관대)로 넓혔습니다 — 모두의 OTIF가 올라갑니다. ':'납기 창을 당일(엄격)으로 좁혔습니다 — 지연 +1일 주문이 다시 빠집니다. ')
+      +(before!==after?'OTIF 1등이 '+before+'에서 '+after+'로 바뀌었습니다.':'OTIF 1등은 그대로 '+after+'입니다.');
+  });
+  $('segPf').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.getAttribute('aria-pressed')==='true')return;
+    const before=rank(pf)[0][0].n,v=+b.dataset.v;
+    PF=v;setPressed('segPf',b);render();
+    const after=rank(pf)[0][0].n;
+    status.textContent=(v===1?'완전주문 정의를 엄격히(수량+포장+서류) — 포장·서류 문제가 반영돼 등락이 갈립니다. ':'완전주문 정의를 수량만(느슨)으로 — 포장·서류 문제를 다시 빼고 셉니다. ')
+      +(before!==after?'완전주문율 1등이 '+before+'에서 '+after+'로 바뀌었습니다.':'완전주문율 1등은 그대로 '+after+'입니다.');
+  });
+  $('reset').addEventListener('click',()=>{
+    WIN=0;PF=0;
+    document.querySelectorAll('#segWin button,#segPf button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v==='0')));
+    render();
+    status.textContent='기준을 처음(당일 엄격 · 수량만)으로 되돌렸습니다 — 같은 원천 기록이므로 결과도 처음과 같습니다.';
+  });
+
+  new ResizeObserver(()=>draw()).observe(host);
+  render();
+})();
+</script>
+
+<script>
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>
