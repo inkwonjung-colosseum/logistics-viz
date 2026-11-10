@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>입하·검수·적치 예외 지도 — 물류 개념 시각화</title>
+<meta name="description" content="입하·검수·적치 각 단계의 정상 흐름과 예외 분기를 나란히 보며, 이상을 즉시 기록했을 때와 확정 뒤에 발견했을 때 가용 재고와 책임 주체가 어떻게 달라지는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --s4:light-dark(#7a55c4,#b49ae8);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+.q{margin:6px 0 2px;font-size:15px;font-weight:600}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 18px;color:var(--muted-foreground);font-size:15px;max-width:66ch}
+.def b{color:var(--foreground)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+.scen{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.scen button{border:1px solid var(--border);background:transparent;color:var(--foreground);border-radius:10px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out}
+.scen button:hover{background:var(--soft)}
+.scen button[aria-pressed="true"]{border-color:var(--foreground);border-width:2px;padding:5px 11px;font-weight:600}
+.scen button.ok{color:var(--s2)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover:not(:disabled){color:var(--foreground)}
+button.ghostb:disabled{opacity:.45;cursor:not-allowed}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.cause{font-size:13.5px;margin:0 0 14px;padding:8px 12px;border-radius:10px;background:var(--soft)}
+.cause b{font-weight:600}
+.cols{display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:780px){.cols{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}}
+/* 정상 흐름 레일 */
+.rail{list-style:none;margin:0;padding:0}
+.rail li{position:relative;padding:3px 0 9px 22px;font-size:13.5px;line-height:1.45}
+.rail li::before{content:"";position:absolute;left:5px;top:10px;width:9px;height:9px;border-radius:50%;background:var(--s2)}
+.rail li::after{content:"";position:absolute;left:9px;top:21px;bottom:-3px;width:1px;background:var(--border)}
+.rail li:last-child::after{display:none}
+.rail li.skip{color:var(--muted-foreground);text-decoration:line-through;text-decoration-color:var(--border)}
+.rail li.skip::before{background:transparent;border:1px dashed var(--muted-foreground)}
+.rail li.branch::before{background:var(--bad)}
+.rail .bm{display:block;font-size:12px;color:var(--bad);font-weight:600;text-decoration:none}
+.rail .bm.ok{color:var(--s2)}
+/* 공통 패턴 */
+.pat{display:flex;flex-wrap:wrap;gap:4px;margin:14px 0 4px;align-items:center}
+.pat span{font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px dashed var(--border);color:var(--muted-foreground);transition:all .15s ease-out}
+.pat span.on{border:1px solid var(--s2);color:var(--s2);background:color-mix(in srgb,var(--s2) 10%,transparent)}
+.pat i{font-style:normal;color:var(--muted-foreground);font-size:12px}
+.patn{font-size:12px;color:var(--muted-foreground);margin:0}
+/* 릴레이 */
+.lanes{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.6;padding:0 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.a-ctr{color:var(--primary)}.a-own{color:var(--s2)}.a-car{color:var(--s3)}.a-ven{color:var(--s4)}
+.lanes .chip{opacity:.4;transition:opacity .15s ease-out}
+.lanes .chip.on{opacity:1}
+.relay{list-style:none;margin:0;padding:0}
+.rs{display:grid;grid-template-columns:22px minmax(0,1fr);gap:0 10px;padding:8px 10px;margin:0 0 6px;border-radius:10px;border:1px solid var(--border);transition:opacity .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+.rs .n{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums;line-height:1.9}
+.rs .hd{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.rs .ar{font-size:12px;color:var(--muted-foreground)}
+.rs .t{grid-column:2;font-size:13.5px;line-height:1.5;margin-top:3px}
+.rs .tag{font-size:11.5px;line-height:1.6;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--s2) 14%,transparent);color:var(--s2)}
+.rs .tag.bad{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad)}
+.rs.fut{opacity:.35}
+.rs.cur{border-color:var(--foreground);background:var(--soft)}
+.rs.warn .t b{color:var(--bad);font-weight:600}
+/* 재고 막대 */
+.bar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:16px 0 6px;background:color-mix(in srgb,var(--muted-foreground) 10%,transparent)}
+.bar div{transition:flex-grow .2s ease-out}
+.k-avail{background:color-mix(in srgb,var(--s2) 70%,transparent)}
+.k-risk{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--bad) 55%,transparent) 0 6px,color-mix(in srgb,var(--s2) 45%,transparent) 6px 12px)}
+.k-hold{background:color-mix(in srgb,var(--s3) 60%,transparent)}
+.k-bad{background:color-mix(in srgb,var(--bad) 65%,transparent)}
+.k-ret{background:color-mix(in srgb,var(--muted-foreground) 40%,transparent)}
+.k-ghost{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--bad) 30%,transparent) 0 4px,transparent 4px 8px);outline:1px dashed var(--bad);outline-offset:-1px}
+.k-miss{background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--s3) 50%,transparent) 0 6px,transparent 6px 10px)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted-foreground);margin:0}
+.legend span{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.legend span i{display:inline-block;width:12px;height:10px;border-radius:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground);line-height:1.45;display:block}
+.stat .cmp{margin-top:2px}
+.stat .cmp.bad{color:var(--bad)}
+.stat .cmp.good{color:var(--s2)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:72ch}
+.takeaway{margin:6px 0 12px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.sys{margin:0 0 18px;font-size:13.5px;color:var(--muted-foreground);max-width:72ch}
+.sys b{color:var(--foreground);font-weight:600}
+.next{margin:0 0 22px;font-size:13.5px;color:var(--muted-foreground)}
+.next a{color:var(--primary);text-decoration:none}
+.next a:hover{text-decoration:underline}
+.next p{margin:2px 0}
+#mv-done-btn{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:all .15s ease-out}
+#mv-done-btn.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">창고 운영</span>
+  <p class="q">입하·검수·적치에서 이상이 생기면 흐름은 어디서 갈라지고, 손실은 누가 떠안는가?</p>
+  <h1>입하·검수·적치 예외 지도</h1>
+  <p class="def">입고 세 단계는 각각 <b>정상 흐름</b>이 있고, 이상이 생기면 <b>발견 → 격리 → 기록 → 통보 → 결정 → 처리</b>로 갈라집니다. 같은 이상이라도 <b>그 자리에서 기록했는지, 입고 확정 뒤에 발견했는지</b>에 따라 손실을 떠안는 주체가 운송사·공급사에서 3PL(센터)로 바뀝니다.</p>
+</header>
+
+<div class="panel">
+  <div class="controls">
+    <div class="ctl">단계
+      <div class="seg" id="segStage" role="group" aria-label="입고 단계">
+        <button type="button" data-v="arr" aria-pressed="false">입하</button>
+        <button type="button" data-v="chk" aria-pressed="true">검수</button>
+        <button type="button" data-v="put" aria-pressed="false">적치</button>
+      </div>
+    </div>
+    <div class="ctl">이상을 알아챈 시점
+      <div class="seg" id="segWhen" role="group" aria-label="이상을 알아챈 시점">
+        <button type="button" data-v="early" aria-pressed="true">그 자리에서 기록</button>
+        <button type="button" data-v="late" aria-pressed="false">확정 뒤에 발견</button>
+      </div>
+    </div>
+  </div>
+  <div class="scen" id="scen" role="group" aria-label="상황 선택"></div>
+  <p class="cause" id="cause"></p>
+
+  <div class="cols">
+    <section aria-labelledby="hRail">
+      <h2 id="hRail">정상 흐름 (<span id="stageName"></span>)</h2>
+      <ol class="rail" id="rail"></ol>
+      <div class="pat" id="pat" aria-label="예외 처리 공통 패턴 충족 여부"></div>
+      <p class="patn">초록 = 이 경로에서 지킨 단계 · 점선 = 빠진 단계</p>
+    </section>
+    <section aria-labelledby="hRelay">
+      <h2 id="hRelay">이 상황의 처리 경로</h2>
+      <div class="lanes" id="lanes"></div>
+      <div class="controls" style="margin-bottom:10px">
+        <button type="button" class="ghostb" id="prev">◀ 이전</button>
+        <button type="button" class="ghostb" id="next">다음 ▶</button>
+        <button type="button" class="ghostb" id="all">전체 보기</button>
+        <span id="status" aria-live="polite"></span>
+      </div>
+      <ol class="relay" id="relay"></ol>
+    </section>
+  </div>
+
+  <div class="bar" id="bar" role="img" aria-label=""></div>
+  <p class="legend" id="legend"></p>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 예정 수량은 240 EA(10박스 × 입수 24)로 두었습니다. 책임 구분은 일반적인 관행을 단순화한 것이며, 실제로는 화주·운송사와의 계약, 센터 운영 규칙, 보험 조건에 따라 달라집니다.</p>
+<p class="takeaway">입하·검수의 이상은 <b>그 자리에서 기록하면 운송사·공급사</b> 몫이고, <b>확정 뒤에 발견하면 증빙이 없어 센터</b> 몫이 됩니다. 적치의 이상은 언제 발견해도 센터 몫이라 손실 크기만 달라집니다. 그래서 실무에서는 입고 확정 전에 수량·외관·기한을 막는 검증 단계를 두고, 적치는 로케이션 스캔을 강제합니다.</p>
+<p class="sys"><b>시스템에서는</b> 차이 사유 코드, 사진 첨부, 보류·불량 재고 상태, 입고 허용 오차(과다 %)와 잔여 유통기한 기준, 적치 로케이션 스캔 강제와 화주 구역 규칙이 이 분기를 만드는 장치입니다.</p>
+<div class="next">
+  <p>선행: <a href="inbound-lifecycle.html">입고 생애주기</a> · <a href="asn-form.html">OMS 입고 신청서</a></p>
+  <p>단계별 깊이 보기: <a href="yms-dock-scheduling.html">도크 스케줄링</a>(입하) · <a href="osd-exceptions.html">과다·부족·파손 처리</a> · <a href="qc-stock-status.html">검품과 재고 상태</a> · <a href="blind-receiving.html">블라인드 입고</a>(검수) · <a href="putaway-strategies.html">적치 전략</a>(적치)</p>
+  <p>흐름이 달라지는 입고 유형: <a href="import-inbound.html">수입 입고</a> · <a href="crossdock.html">크로스독</a></p>
+</div>
+<button id="mv-done-btn" type="button" data-slug="receiving-exception-map">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const ACT={ctr:'3PL (센터)',own:'화주',car:'운송사',ven:'공급사'};
+  const PAT=[['find','발견'],['iso','격리'],['rec','기록'],['notify','통보'],['decide','결정'],['act','처리']];
+  const KINDS=[
+    ['avail','가용 (정상)'],['risk','가용이지만 문제 재고'],['hold','보류'],['bad','불량'],
+    ['ret','반송·미입고'],['ghost','장부에만 있음'],['miss','위치 오류 (찾을 때까지 출고 불가)']
+  ];
+  const PLAN=240;
+  const STAGES={
+    arr:{name:'입하',normal:['도착 등록 · 예약 확인','서류와 입고예정 매칭','봉인 · 차량 온도 확인','하차 · 외관 점검','박스 수 대조 · 인수 서명','입고장 배치 (화주 · 입고 건별)']},
+    chk:{name:'검수',normal:['검품 수준 결정 (박스 · 샘플 · 전수)','바코드 스캔 · 수량 대조','품질 확인 (파손 · 유통기한 · 로트)','입고 확정 · LPN 라벨 발행','입고 결과 전송 (→ 화주 OMS)']},
+    put:{name:'적치',pat:['find','rec','act'],normal:['적치 지시 (WMS 추천 로케이션)','LPN 스캔 · 이동','로케이션 바코드 스캔','적치 확정 → 가용 재고','입고 건 마감']}
+  };
+  const OK_RESULT={avail:PLAN};
+  const okPath=stage=>STAGES[stage].normal.map(t=>({a:'ctr',t}));
+
+  // s: 상황 / at: 정상 흐름에서 갈라지는 단계 index
+  // early/late: {steps:[{a,to,t,k,w}], res:{재고 구성}, own:[책임 주체], why:'이유'}
+  const SC={
+    arr:[
+      {id:'ok',n:'정상',cause:'예약대로 도착했고 서류 · 봉인 · 외관 · 박스 수가 모두 맞습니다.'},
+      {id:'damage',n:'박스 파손',at:3,cause:'10박스 중 2박스가 찌그러진 채 도착했습니다.',
+        early:{steps:[
+          {a:'ctr',t:'하차 중 박스 2개 찌그러짐 발견',k:'find'},
+          {a:'ctr',t:'파손 박스를 따로 내려 표시',k:'iso'},
+          {a:'ctr',to:'car',t:'사진 촬영 후 인수증에 "파손 2박스" 유보 기재하고 서명',k:'rec'},
+          {a:'ctr',to:'own',t:'파손 내역과 사진 통보',k:'notify'},
+          {a:'own',to:'car',t:'운송사에 손해 청구하기로 결정',k:'decide'},
+          {a:'ctr',t:'파손 48 EA는 불량 재고, 나머지 192 EA는 검수로 진행',k:'act'}],
+          res:{avail:192,bad:48},own:['car'],why:'인수증의 유보 기재가 운송 중 파손의 증빙'},
+        late:{steps:[
+          {a:'ctr',to:'car',t:'외관 점검 없이 박스 수만 세고 인수 서명'},
+          {a:'ctr',t:'검품 중 박스 2개 내품 파손 발견',k:'find'},
+          {a:'ctr',to:'own',t:'파손 통보',k:'notify'},
+          {a:'own',to:'car',t:'운송사에 청구 → <b>"인수 서명 때 이상 없었음"으로 거절</b>',w:1},
+          {a:'own',to:'ctr',t:'<b>센터 보관 중 파손으로 보고 배상 요구</b>',w:1}],
+          res:{avail:192,bad:48},own:['ctr'],why:'서명한 순간 이상 없이 받은 것으로 인정됨'}},
+      {id:'short',n:'박스 수 부족',at:4,cause:'송장은 10박스인데 9박스만 실려 왔습니다.',
+        early:{steps:[
+          {a:'ctr',t:'박스 수 대조 결과 9/10',k:'find'},
+          {a:'ctr',to:'car',t:'인수증에 실제 "9박스" 기재하고 서명',k:'rec'},
+          {a:'ctr',to:'own',t:'부족 1박스 통보',k:'notify'},
+          {a:'own',to:'ven',t:'공급사 출고 기록 확인 → 9박스만 보냈으면 공급사, 10박스 보냈으면 운송사에 청구',k:'decide'},
+          {a:'ctr',t:'216 EA로 검수 진행, 부족 24 EA는 입고예정에 잔량으로 남김',k:'act'}],
+          res:{avail:216,ret:24},own:['ven','car'],why:'출고 기록과 인수증 수량으로 둘 중 하나를 가림'},
+        late:{steps:[
+          {a:'ctr',to:'car',t:'송장대로 "10박스" 인수 서명'},
+          {a:'ctr',t:'검수에서 216 EA 확인',k:'find'},
+          {a:'ctr',to:'own',t:'부족 통보',k:'notify'},
+          {a:'own',to:'car',t:'운송사에 청구 → <b>"10박스 인수 서명 있음"으로 거절</b>',w:1},
+          {a:'own',to:'ctr',t:'<b>10박스를 받았다고 서명했으니 부족분 배상 요구</b>',w:1}],
+          res:{avail:216,ret:24},own:['ctr'],why:'서명한 수량이 곧 센터가 받은 수량'}},
+      {id:'seal',n:'봉인 불일치',at:2,cause:'컨테이너 봉인 번호가 서류와 다릅니다. 운송 중 개봉됐을 수 있습니다.',
+        early:{steps:[
+          {a:'ctr',t:'봉인 번호가 서류와 다름을 발견',k:'find'},
+          {a:'ctr',to:'car',t:'하차 전에 봉인과 적재 상태를 촬영하고 기사 확인 서명',k:'rec'},
+          {a:'ctr',to:'own',t:'즉시 통보',k:'notify'},
+          {a:'own',to:'ctr',t:'박스 단위 대신 전수 검품 지시',k:'decide'},
+          {a:'ctr',t:'전수 검품 결과 1박스 내품 비어 있음 → 216 EA 확정',k:'act'}],
+          res:{avail:216,ret:24},own:['car'],why:'봉인 훼손 증빙으로 운송 구간 책임 입증'},
+        late:{steps:[
+          {a:'ctr',t:'봉인 확인 생략하고 하차'},
+          {a:'ctr',to:'car',t:'박스 수 10/10 맞음, 인수 서명'},
+          {a:'ctr',t:'박스 단위 검품으로 240 EA 확정'},
+          {a:'ctr',t:'피킹 때 1박스 내품이 비어 있음을 발견',k:'find'},
+          {a:'own',to:'ctr',t:'<b>장부 240 EA 중 24 EA 없음 → 배상 요구</b>',w:1}],
+          res:{avail:216,ghost:24},own:['ctr'],why:'언제 비었는지 입증할 증빙이 없음'}},
+      {id:'temp',n:'냉장 온도 이탈',at:2,cause:'냉장 상품(기준 0~10℃)인데 적재함 온도가 14℃입니다.',
+        early:{steps:[
+          {a:'ctr',t:'적재함 온도 14℃ 확인',k:'find'},
+          {a:'ctr',t:'하차 보류',k:'iso'},
+          {a:'ctr',t:'온도 기록지 출력, 품온 측정, 사진 촬영',k:'rec'},
+          {a:'ctr',to:'own',t:'온도 이탈 통보',k:'notify'},
+          {a:'own',to:'car',t:'수령 거부 · 반송 결정',k:'decide'},
+          {a:'ctr',to:'car',t:'차량 반송, 240 EA 입고하지 않음',k:'act'}],
+          res:{ret:240},own:['car'],why:'온도 기록이 운송 중 품질 사고의 증빙'},
+        late:{steps:[
+          {a:'ctr',t:'온도 확인 없이 하차 · 입고 확정'},
+          {a:'ctr',t:'냉장 구역에 적치'},
+          {a:'own',t:'다음 날 품질 점검에서 변질 발견',k:'find'},
+          {a:'own',to:'ctr',t:'<b>입하 때 온도 증빙이 없으니 센터 보관 문제로 보고 배상 요구</b>',w:1}],
+          res:{bad:240},own:['ctr'],why:'센터 보관 온도가 정상이어도 입하 시점 증빙이 없음'}}
+    ],
+    chk:[
+      {id:'ok',n:'정상',cause:'스캔 수량, 품질, 유통기한이 모두 입고예정과 맞습니다.'},
+      {id:'short',n:'부족',at:1,cause:'입고예정 240 EA인데 스캔해 보니 216 EA입니다.',
+        early:{steps:[
+          {a:'ctr',t:'스캔 결과 216 EA (차이 -24)',k:'find'},
+          {a:'ctr',t:'차이 사유 코드와 함께 차이 보고서 작성',k:'rec'},
+          {a:'ctr',to:'own',t:'차이 보고서 전송',k:'notify'},
+          {a:'own',to:'ven',t:'잔량 24 EA 추가 입고를 기다릴지 마감할지 결정, 공급사에 클레임',k:'decide'},
+          {a:'ctr',to:'own',t:'216 EA로 입고 확정 후 결과 전송',k:'act'}],
+          res:{avail:216,ret:24},own:['ven'],why:'차이 보고서가 공급사 클레임의 근거'},
+        late:{steps:[
+          {a:'ctr',t:'박스 수만 보고 예정 수량 240 EA 그대로 확정'},
+          {a:'ctr',to:'own',t:'240 EA 입고 결과 전송 → 화주 쇼핑몰에 240 EA 판매 개시'},
+          {a:'ctr',t:'피킹 때 24 EA 결품 발견',k:'find'},
+          {a:'own',to:'ctr',t:'<b>장부에 있는 재고가 없으니 배상 요구</b>',w:1}],
+          res:{avail:216,ghost:24},own:['ctr'],why:'확정 수량이 곧 센터가 받은 수량'}},
+      {id:'over',n:'과다',at:1,cause:'입고예정 240 EA인데 264 EA가 들어왔습니다 (허용 오차 +2% 초과).',
+        early:{steps:[
+          {a:'ctr',t:'스캔 결과 264 EA (+24, 허용 오차 초과)',k:'find'},
+          {a:'ctr',t:'초과분 24 EA를 보류 구역으로 분리',k:'iso'},
+          {a:'ctr',to:'own',t:'초과 내역 기록 · 통보',k:'notify'},
+          {a:'own',to:'ven',t:'초과분 반송 결정 (반송비는 공급사 부담)',k:'decide'},
+          {a:'ctr',t:'240 EA 확정, 24 EA 반송',k:'act'}],
+          res:{avail:240,ret:24},own:['ven'],why:'발주보다 많이 보낸 쪽이 처리 비용 부담'},
+        late:{steps:[
+          {a:'ctr',t:'264 EA 그대로 확정'},
+          {a:'ctr',to:'own',t:'264 EA 결과 전송 → 화주 장부의 발주 240과 맞지 않음'},
+          {a:'own',to:'ven',t:'대금은 240 EA만 지급 → 24 EA는 소유가 불분명'},
+          {a:'own',t:'월말 재고 대사에서 차이 발견',k:'find'},
+          {a:'own',to:'ctr',t:'<b>차이 해명과 정정 작업 요구</b>',w:1}],
+          res:{avail:240,risk:24},own:['ctr'],why:'확정한 쪽이 차이를 해명해야 함'}},
+      {id:'uom',n:'입수 불일치',at:1,cause:'마스터에는 박스당 24 EA인데 실제 박스에는 20 EA씩 들어 있습니다.',
+        early:{steps:[
+          {a:'ctr',t:'샘플 박스 개봉 결과 20 EA',k:'find'},
+          {a:'ctr',t:'나머지 박스도 낱개로 다시 계수',k:'iso'},
+          {a:'ctr',t:'실측 200 EA 기록',k:'rec'},
+          {a:'ctr',to:'own',t:'차이와 마스터 입수 수정 필요 통보',k:'notify'},
+          {a:'own',to:'ven',t:'마스터 입수를 20으로 수정, 부족 40 EA는 공급사에 확인',k:'decide'},
+          {a:'ctr',t:'200 EA로 입고 확정',k:'act'}],
+          res:{avail:200,ret:40},own:['ven'],why:'포장 단위가 바뀐 것을 알리지 않은 쪽 책임'},
+        late:{steps:[
+          {a:'ctr',t:'박스 10 × 마스터 입수 24 = 240 EA로 확정'},
+          {a:'ctr',to:'own',t:'240 EA 결과 전송'},
+          {a:'ctr',t:'피킹 때 반복 결품 → 재고 조사로 입수 불일치 확인',k:'find'},
+          {a:'own',to:'ctr',t:'<b>결품 40 EA 배상 요구, 다음 입고도 같은 오류 반복</b>',w:1}],
+          res:{avail:200,ghost:40},own:['ctr'],why:'박스 단위 검품을 선택한 센터가 확인 책임'}},
+      {id:'exp',n:'유통기한 미달',at:2,cause:'잔여 유통기한이 55%인데 화주 입고 기준은 70% 이상입니다.',
+        early:{steps:[
+          {a:'ctr',t:'유통기한 입력 시 기준 미달 경고',k:'find'},
+          {a:'ctr',t:'240 EA 보류 재고로 분리',k:'iso'},
+          {a:'ctr',t:'로트 · 유통기한 사진 기록',k:'rec'},
+          {a:'ctr',to:'own',t:'기준 미달 통보',k:'notify'},
+          {a:'own',to:'ven',t:'반송 결정',k:'decide'},
+          {a:'ctr',t:'240 EA 반송',k:'act'}],
+          res:{ret:240},own:['ven'],why:'화주 입고 기준을 어긴 공급사 책임'},
+        late:{steps:[
+          {a:'ctr',t:'유통기한 확인 없이 정상 확정 → 가용 240 EA'},
+          {a:'ctr',t:'고객 주문으로 출고'},
+          {a:'own',t:'고객의 "유통기한 임박" 클레임 접수',k:'find'},
+          {a:'own',to:'ctr',t:'<b>입고 기준 점검 누락으로 배상 요구</b>',w:1}],
+          res:{risk:240},own:['ctr'],why:'기준 점검은 계약상 센터 업무'}},
+      {id:'nomaster',n:'미등록 바코드',at:1,cause:'패키지가 리뉴얼되며 바코드가 바뀌어 마스터에 없습니다.',
+        early:{steps:[
+          {a:'ctr',t:'스캔 결과 "미등록 바코드"',k:'find'},
+          {a:'ctr',t:'240 EA 보류',k:'iso'},
+          {a:'ctr',to:'own',t:'마스터 등록 요청',k:'notify'},
+          {a:'own',t:'기존 SKU에 새 바코드를 보조 바코드로 추가',k:'decide'},
+          {a:'ctr',t:'검수 재개, 240 EA 확정',k:'act'}],
+          res:{avail:240},own:['own'],why:'손실 없이 입고만 늦어짐 (마스터 관리는 화주 몫)'},
+        late:{steps:[
+          {a:'ctr',t:'비슷해 보이는 기존 SKU로 수기 확정'},
+          {a:'ctr',t:'고객 주문으로 출고'},
+          {a:'own',t:'고객이 다른 옵션을 받았다는 오출고 클레임',k:'find'},
+          {a:'own',to:'ctr',t:'<b>오출고 회수 · 재발송 비용 배상 요구</b>',w:1}],
+          res:{risk:240},own:['ctr'],why:'임의로 SKU를 정한 쪽 책임'}}
+    ],
+    put:[
+      {id:'ok',n:'정상',cause:'추천 로케이션이 비어 있고 스캔과 확정이 모두 이뤄집니다.'},
+      {id:'full',n:'추천 로케이션이 꽉 참',at:2,cause:'WMS가 비었다고 추천한 로케이션에 이미 다른 재고가 있습니다.',
+        early:{steps:[
+          {a:'ctr',t:'로케이션 도착, 다른 재고가 있음을 발견',k:'find'},
+          {a:'ctr',t:'로케이션 스캔 → 시스템 재고와 불일치 보고',k:'rec'},
+          {a:'ctr',t:'WMS 재추천 로케이션에 적치 확정',k:'act'},
+          {a:'ctr',t:'원래 로케이션은 재고 조사 작업 생성',k:'act'}],
+          res:{avail:240},own:['ctr'],why:'내부 처리, 손실 없음'},
+        late:{steps:[
+          {a:'ctr',t:'근처 빈 칸에 두고 추천 로케이션으로 확정'},
+          {a:'ctr',t:'피킹 지시가 추천 로케이션으로 나감 → 결품',k:'find'},
+          {a:'ctr',t:'재고 조사로 찾을 때까지 출고 지연'},
+          {a:'own',to:'ctr',t:'<b>출고 지연 페널티</b>',w:1}],
+          res:{miss:240},own:['ctr'],why:'센터 내부 작업 오류'}},
+      {id:'unconfirmed',n:'적치 확정 누락',at:3,cause:'실물은 로케이션에 넣었는데 적치 확정을 누르지 않았습니다.',
+        early:{steps:[
+          {a:'ctr',t:'입고장 체류 점검(2시간 초과 목록)에서 발견',k:'find'},
+          {a:'ctr',t:'누락 사유와 작업자 기록',k:'rec'},
+          {a:'ctr',t:'로케이션 확인 후 적치 확정',k:'act'}],
+          res:{avail:240},own:['ctr'],why:'내부 처리, 손실 없음'},
+        late:{steps:[
+          {a:'ctr',t:'시스템상 입고장 재고로 남음'},
+          {a:'ctr',t:'피킹 지시가 입고장으로 나감 → 결품',k:'find'},
+          {a:'ctr',t:'재고 조사로 찾아 뒤늦게 확정'},
+          {a:'own',to:'ctr',t:'<b>마감 시간 미준수로 출고 지연 페널티</b>',w:1}],
+          res:{miss:240},own:['ctr'],why:'센터 내부 작업 오류'}},
+      {id:'owner',n:'다른 화주 구역',at:0,cause:'같은 상품을 파는 다른 화주의 구역에 적치하려 합니다.',
+        early:{steps:[
+          {a:'ctr',t:'로케이션 스캔 시 "다른 화주 구역" 차단',k:'find'},
+          {a:'ctr',t:'차단 내역이 작업 로그에 남음',k:'rec'},
+          {a:'ctr',t:'해당 화주 구역으로 재추천 후 적치',k:'act'}],
+          res:{avail:240},own:['ctr'],why:'화주 구역 규칙이 미리 막음'},
+        late:{steps:[
+          {a:'ctr',t:'공용 로케이션에 다른 화주 재고와 섞어 적치'},
+          {a:'ctr',t:'B 화주 주문에 A 화주 재고가 출고됨'},
+          {a:'own',t:'재고 대사에서 화주별 수량 차이 발견',k:'find'},
+          {a:'own',to:'ctr',t:'<b>소유권 침해 · 차이 수량 배상 요구</b>',w:1}],
+          res:{risk:240},own:['ctr'],why:'멀티 화주 센터의 소유권 분리는 센터 책임'}},
+      {id:'lot',n:'로트 섞임',at:2,cause:'유통기한이 다른 로트를 같은 로케이션에 넣으려 합니다.',
+        early:{steps:[
+          {a:'ctr',t:'로케이션 스캔 시 "로트 혼합 금지" 경고',k:'find'},
+          {a:'ctr',t:'경고 내역이 작업 로그에 남음',k:'rec'},
+          {a:'ctr',t:'빈 로케이션 재추천 후 적치',k:'act'}],
+          res:{avail:240},own:['ctr'],why:'로트 혼합 규칙이 미리 막음'},
+        late:{steps:[
+          {a:'ctr',t:'같은 칸에 섞어 적치 → 새 로트가 앞쪽에 놓임'},
+          {a:'ctr',t:'앞쪽 새 로트부터 출고되며 선입선출(FEFO)이 깨짐'},
+          {a:'ctr',t:'뒤쪽 오래된 로트 48 EA 유통기한 경과 발견',k:'find'},
+          {a:'own',to:'ctr',t:'<b>폐기 손실 배상 요구</b>',w:1}],
+          res:{avail:192,bad:48},own:['ctr'],why:'적치 규칙 위반은 센터 책임'}}
+    ]
+  };
+
+  let S='chk', W='early', id='short', cur=-1;
+  const $=x=>document.getElementById(x);
+  const status=$('status');
+
+  const scen=()=>SC[S].find(x=>x.id===id);
+  const path=()=>{const s=scen();return s.id==='ok'?{steps:okPath(S),res:OK_RESULT,own:[],why:'이상 없음'}:s[W];};
+  const tot=r=>Object.values(r).reduce((a,b)=>a+b,0);
+
+  function renderScen(){
+    $('scen').innerHTML=SC[S].map(s=>`<button type="button" data-id="${s.id}" class="${s.id==='ok'?'ok':''}" aria-pressed="${s.id===id}">${s.n}</button>`).join('');
+  }
+
+  function render(){
+    const s=scen(), p=path(), steps=p.steps, isOk=s.id==='ok';
+    $('stageName').textContent=STAGES[S].name;
+    $('cause').innerHTML=`<b>${isOk?'정상':'상황'}</b> · ${s.cause}`;
+    document.querySelectorAll('#segWhen button').forEach(b=>b.disabled=isOk);
+
+    // 정상 흐름 레일
+    $('rail').innerHTML=STAGES[S].normal.map((t,i)=>{
+      if(isOk) return `<li>${t}</li>`;
+      if(i===s.at) return `<li class="branch">${t}<span class="bm">⤷ 여기서 예외 경로로 갈라짐</span></li>`;
+      if(i>s.at) return `<li class="skip">${t}</li>`;
+      return `<li>${t}</li>`;
+    }).join('');
+
+    // 공통 패턴
+    const ks=new Set(steps.map(x=>x.k).filter(Boolean));
+    const need=PAT.filter(([k])=>!STAGES[S].pat||STAGES[S].pat.includes(k));
+    $('pat').innerHTML=isOk
+      ?'<i>이상이 없어 예외 처리 패턴이 필요 없습니다.</i>'
+      :(STAGES[S].pat?'<i>센터 안에서 끝나는 처리 →</i> ':'')+need.map(([k,n],i)=>`${i?'<i>→</i>':''}<span class="${ks.has(k)?'on':''}">${n}</span>`).join('');
+
+    // 레인
+    const used=new Set(steps.flatMap(x=>[x.a,x.to]).filter(Boolean));
+    $('lanes').innerHTML=Object.entries(ACT).map(([k,n])=>`<span class="chip a-${k}${used.has(k)?' on':''}">${n}</span>`).join('');
+
+    // 릴레이
+    $('relay').innerHTML=steps.map((x,i)=>{
+      const state=cur<0?'':(i<cur?'':(i===cur?' cur':' fut'));
+      const tag=x.k?`<span class="tag">${PAT.find(p=>p[0]===x.k)[1]}</span>`:(x.w?'<span class="tag bad">분쟁</span>':'');
+      return `<li class="rs${state}${x.w?' warn':''}"><span class="n">${i+1}</span><div class="hd"><span class="chip a-${x.a}">${ACT[x.a]}</span>${x.to?`<span class="ar">→</span><span class="chip a-${x.to}">${ACT[x.to]}</span>`:''}${tag}</div><div class="t">${x.t}</div></li>`;
+    }).join('');
+    $('prev').disabled=cur<=0;
+    $('next').disabled=cur>=steps.length-1;
+
+    // 재고 막대
+    const r=p.res, T=tot(r);
+    $('bar').innerHTML=KINDS.filter(([k])=>r[k]).map(([k])=>`<div class="k-${k}" style="flex-grow:${r[k]}"></div>`).join('');
+    const desc=KINDS.filter(([k])=>r[k]).map(([k,n])=>`${n} ${r[k]} EA`).join(', ');
+    $('bar').setAttribute('aria-label',`최종 재고 구성 (예정 ${PLAN} EA 기준): ${desc}`);
+    $('legend').innerHTML=KINDS.filter(([k])=>r[k]).map(([k,n])=>`<span><i class="k-${k}"></i>${n} ${r[k]} EA</span>`).join('');
+
+    // KPI
+    const nPat=isOk?need.length:need.filter(([k])=>ks.has(k)).length;
+    const ownName=p.own.length?p.own.map(o=>ACT[o]).join(' 또는 '):'없음';
+    let cmp='';
+    if(!isOk){
+      const other=s[W==='early'?'late':'early'];
+      const same=other.own.join()===p.own.join();
+      cmp=`<span class="cmp ${W==='early'&&!same?'good':W==='late'&&!same?'bad':''}">${same?'발견 시점을 바꿔도 같은 주체':`반대 시점이면 ${other.own.map(o=>ACT[o]).join(' 또는 ')}`}</span>`;
+    }
+    const otherAvail=isOk?null:(s[W==='early'?'late':'early'].res.avail||0);
+    $('stats').innerHTML=
+      `<div class="stat"><b>${r.avail||0} / ${PLAN} EA</b><span>정상 가용 재고 (많을수록 좋음)</span>${isOk?'':`<span class="cmp">반대 시점이면 ${otherAvail} EA</span>`}</div>`+
+      `<div class="stat"><b>${nPat} / ${need.length}</b><span>지킨 예외 처리 단계 (${need.map(x=>x[1]).join(' · ')}) — 많을수록 증빙이 남음</span></div>`+
+      `<div class="stat"><b>${ownName}</b><span>손실 · 비용을 떠안는 주체 — ${p.why}</span>${cmp}</div>`;
+  }
+
+  function announce(){
+    const s=scen();
+    status.textContent=s.id==='ok'
+      ?`${STAGES[S].name} 정상 흐름 — 이전·다음으로 한 단계씩 볼 수 있습니다.`
+      :`${STAGES[S].name} · ${s.n} · ${W==='early'?'그 자리에서 기록':'확정 뒤에 발견'} — 책임: ${path().own.map(o=>ACT[o]).join(' 또는 ')}`;
+  }
+
+  $('segStage').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    S=b.dataset.v;id=SC[S][1].id;cur=-1;
+    document.querySelectorAll('#segStage button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    renderScen();render();announce();
+  });
+  $('segWhen').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.disabled)return;
+    W=b.dataset.v;cur=-1;
+    document.querySelectorAll('#segWhen button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    render();announce();
+  });
+  $('scen').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    id=b.dataset.id;cur=-1;renderScen();render();announce();
+    const nb=$('scen').querySelector(`[data-id="${id}"]`);if(nb)nb.focus();
+  });
+  $('next').addEventListener('click',()=>{
+    const st=path().steps;cur=Math.min(cur+1,st.length-1);render();
+    const x=st[cur];status.textContent=`${cur+1}/${st.length} · ${ACT[x.a]}${x.to?' → '+ACT[x.to]:''}: ${x.t.replace(/<[^>]+>/g,'')}`;
+  });
+  $('prev').addEventListener('click',()=>{
+    const st=path().steps;cur=Math.max(cur-1,0);render();
+    const x=st[cur];status.textContent=`${cur+1}/${st.length} · ${ACT[x.a]}${x.to?' → '+ACT[x.to]:''}: ${x.t.replace(/<[^>]+>/g,'')}`;
+  });
+  $('all').addEventListener('click',()=>{cur=-1;render();status.textContent='전체 경로를 표시합니다.';});
+
+  renderScen();render();announce();
+})();
+
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+  try{if(localStorage.getItem(k)){b.classList.add('on');b.textContent='✓ 학습 완료됨';}}catch(_){}
+  b.addEventListener('click',function(){try{localStorage.setItem(k,'1');}catch(_){}b.classList.add('on');b.textContent='✓ 학습 완료됨';});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMS 입고 신청서 (ASN 입력 항목) — 물류 개념 시각화</title>
+<meta name="description" content="화주가 OMS에서 입고 신청할 때 채우는 헤더·라인 항목을 직접 비워 보며, 빈칸 하나가 WMS의 어느 처리 단계를 멈추는지 확인하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 18px;color:var(--muted-foreground);font-size:15px;max-width:62ch}
+.def b{color:var(--foreground)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.controls{display:flex;gap:12px 16px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground);flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+#status{flex:1 1 100%;min-height:1.65em;font-size:13px;color:var(--muted-foreground)}
+.cols{display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:780px){
+  .cols{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+  .pipe{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow:auto}
+}
+.grp{margin:14px 0 6px;font-size:12px;font-weight:600;color:var(--muted-foreground);letter-spacing:.03em}
+.grp:first-child{margin-top:0}
+.fld{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:1px 10px;align-items:start;width:100%;text-align:left;border:1px solid var(--border);background:transparent;color:var(--foreground);border-radius:10px;padding:8px 10px;margin:0 0 6px;font:inherit;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out}
+.fld:hover{background:var(--soft)}
+.fld .ck{grid-row:1/4;font-size:13px;line-height:1.6;color:var(--s2);font-weight:600}
+.fld .nm{font-size:14px;font-weight:600;line-height:1.5}
+.fld .bd{font-size:12px;line-height:1.5;padding:0 8px;border-radius:999px;white-space:nowrap}
+.k-req{background:var(--soft);color:var(--primary)}
+.k-cond{background:color-mix(in srgb,var(--s3) 16%,transparent);color:var(--s3)}
+.k-opt{background:color-mix(in srgb,var(--muted-foreground) 14%,transparent);color:var(--muted-foreground)}
+.fld .vl{grid-column:2/4;font-size:13px;color:var(--foreground);font-variant-numeric:tabular-nums}
+.fld .vl i{font-style:normal;color:var(--muted-foreground)}
+.fld .ms{grid-column:2/4;font-size:12px;line-height:1.5;color:var(--muted-foreground)}
+.fld .ms b{font-weight:600}
+.fld.off{border-style:dashed}
+.fld.off .ck{color:var(--muted-foreground)}
+.fld.off .vl{color:var(--muted-foreground);font-style:italic}
+.fld.off.lv-block,.fld.off.lv-hold{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,transparent)}
+.fld.off.lv-manual{border-color:var(--s3);background:color-mix(in srgb,var(--s3) 8%,transparent)}
+.fld.off.lv-block .ck,.fld.off.lv-hold .ck{color:var(--bad)}
+.fld.off.lv-manual .ck{color:var(--s3)}
+.fld.off.lv-block .ms b,.fld.off.lv-hold .ms b{color:var(--bad)}
+.fld.off.lv-manual .ms b{color:var(--s3)}
+.verdict{border-radius:10px;padding:10px 12px;margin:0 0 10px;font-size:14px;line-height:1.5;background:color-mix(in srgb,var(--s2) 12%,transparent);transition:background-color .15s ease-out}
+.verdict b{font-weight:600;color:var(--s2)}
+.verdict.v-manual{background:color-mix(in srgb,var(--s3) 12%,transparent)}
+.verdict.v-manual b{color:var(--s3)}
+.verdict.v-hold,.verdict.v-reject{background:color-mix(in srgb,var(--bad) 11%,transparent)}
+.verdict.v-hold b,.verdict.v-reject b{color:var(--bad)}
+.steps{list-style:none;margin:0;padding:0}
+.step{border-left:3px solid var(--s2);padding:4px 0 6px 12px;margin:0 0 8px;transition:border-color .15s ease-out}
+.step.s-manual{border-left-color:var(--s3)}
+.step.s-hold,.step.s-block{border-left-color:var(--bad)}
+.step.s-idle{border-left-color:var(--border)}
+.sh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sh .sn{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.sh b{font-size:14px;font-weight:600}
+.pill{margin-left:auto;font-size:12px;line-height:1.5;padding:0 9px;border-radius:999px;background:color-mix(in srgb,var(--s2) 15%,transparent);color:var(--s2)}
+.s-manual .pill{background:color-mix(in srgb,var(--s3) 16%,transparent);color:var(--s3)}
+.s-hold .pill,.s-block .pill{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.s-idle .pill{background:color-mix(in srgb,var(--muted-foreground) 14%,transparent);color:var(--muted-foreground)}
+.sd{font-size:12.5px;color:var(--muted-foreground);line-height:1.5}
+.su{font-size:12.5px;line-height:1.5;margin-top:2px}
+.su span{color:var(--muted-foreground)}
+.su s{color:var(--muted-foreground)}
+.si{list-style:none;margin:4px 0 0;padding:0;font-size:12.5px;line-height:1.5}
+.si li{margin:2px 0}
+.si b{font-weight:600}
+.si .lv-block b,.si .lv-hold b{color:var(--bad)}
+.si .lv-manual b{color:var(--s3)}
+.si .lv-none{color:var(--muted-foreground)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground)}
+.foot{margin:0 0 14px;font-size:12.5px;color:var(--muted-foreground);max-width:70ch}
+.takeaway{margin:6px 0 22px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:all .15s ease-out}
+.done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">창고 운영</span>
+  <h1>OMS 입고 신청서 (ASN 입력 항목)</h1>
+  <p class="def">화주가 OMS에서 올리는 <b>입고 신청서</b>는 건 전체 정보인 <b>헤더</b>와 상품별 정보인 <b>라인</b>으로 이뤄집니다. 모든 항목은 WMS의 어느 단계가 읽어 쓰기 때문에 존재합니다 — 항목을 눌러 비워 보면 어느 단계가 멈추는지 보입니다.</p>
+</header>
+
+<div class="panel">
+  <div class="controls">
+    <div class="ctl">입고 유형
+      <div class="seg" id="segType" role="group" aria-label="입고 유형">
+        <button type="button" data-v="normal" aria-pressed="true">일반입고</button>
+        <button type="button" data-v="return" aria-pressed="false">반품입고</button>
+        <button type="button" data-v="import" aria-pressed="false">수입입고</button>
+      </div>
+    </div>
+    <div class="ctl">상품 유형
+      <div class="seg" id="segProd" role="group" aria-label="상품 유형">
+        <button type="button" data-v="general" aria-pressed="true">일반 잡화</button>
+        <button type="button" data-v="food" aria-pressed="false">식품·화장품</button>
+        <button type="button" data-v="elec" aria-pressed="false">가전·고가품</button>
+      </div>
+    </div>
+    <button type="button" class="ghostb" id="reset">모두 채우기</button>
+    <span id="status" aria-live="polite">항목을 눌러 비우면 WMS 처리 단계가 어떻게 바뀌는지 보입니다.</span>
+  </div>
+
+  <div class="cols">
+    <section aria-labelledby="hForm">
+      <h2 id="hForm">입고 신청서 (항목을 눌러 비우기 · 다시 누르면 채우기)</h2>
+      <div id="form"></div>
+    </section>
+    <section class="pipe" aria-labelledby="hPipe">
+      <h2 id="hPipe">WMS 처리 6단계</h2>
+      <div class="verdict" id="verdict"></div>
+      <ol class="steps" id="steps"></ol>
+    </section>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="foot">전제: 항목 구성과 누락 시 처리(반려·보류·수작업)는 일반적인 WMS 동작을 단순화한 예시입니다. 실제 필수 여부와 처리 방식은 WMS·3PL 계약마다 다릅니다.</p>
+<p class="takeaway">빈칸 하나는 곧 <b>그 항목을 읽는 WMS 단계의 정지</b>입니다 — 그래서 OMS 입고 신청 화면은 필수·조건부 필수를 입력 단계에서 막고, 마스터에 없는 SKU는 신청 전에 먼저 등록하게 해야 합니다.</p>
+<button class="done" id="done">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const SLUG='asn-form';
+  const TYPES={normal:'일반입고','return':'반품입고','import':'수입입고'};
+  const KIND={req:'필수',cond:'조건부',opt:'선택'};
+  const SEV={block:'반려',hold:'보류',manual:'수작업',none:'흐름 유지'};
+  const PILL={auto:'자동',manual:'수작업',hold:'확인 대기',block:'진행 불가',idle:'진행 전'};
+  const STEPS=[
+    {n:'접수·검증',d:'신청을 받아 화주·센터·상품 마스터와 대조'},
+    {n:'도크·인력 배정',d:'예정 시간과 작업량으로 도크·인력을 배정'},
+    {n:'도착·하차 확인',d:'도착한 차량을 입고 건과 맞춰 하차'},
+    {n:'검수 대조',d:'예정 수량·단위와 실물을 대조'},
+    {n:'로트·기한·시리얼 관리',d:'추적 정보를 기록 (해당 상품만)'},
+    {n:'적치·재고 반영',d:'상태별 위치에 적치하고 가용 재고에 반영'}
+  ];
+  const byT=m=>t=>m[t];
+  const byP=m=>(t,p)=>m[p];
+
+  // kind: req 필수 / cond 조건부 / opt 선택 / null 이 조합에서는 해당 없음(숨김)
+  // level: 비웠을 때 결과 — block 반려 / hold 보류 / manual 수작업 / none 흐름 유지
+  const F=[
+    {id:'cust',g:'h',label:'화주 코드',ex:'CUST-001',kind:'req',level:'block',steps:[0],use:'재고 소유자 식별',miss:'재고를 누구 소유로 잡을지 알 수 없습니다.'},
+    {id:'type',g:'h',label:'입고 유형',ex:byT(TYPES),kind:'req',level:'block',steps:[0],use:'유형별 검수·정산 경로 결정',miss:'검수 절차와 정산 기준을 정할 수 없습니다.'},
+    {id:'center',g:'h',label:'입고 센터',ex:'이천 1센터',kind:'req',level:'block',steps:[0,1],use:'작업할 창고 지정',miss:'어느 창고 작업인지 알 수 없습니다.'},
+    {id:'ref',g:'h',label:t=>t==='return'?'반품 신청번호 (외부 참조번호)':'발주번호 PO (외부 참조번호)',ex:byT({normal:'PO-261112-07','return':'RTN-261112-03','import':'PO-IMP-2611-02'}),kind:'req',level:'hold',steps:[0],use:'중복 신청 방지 · 결과 회신 매칭',miss:'중복 신청을 막지 못하고, 결과를 OMS 주문과 잇지 못합니다.'},
+    {id:'eta',g:'h',label:'입고 예정일·시간대',ex:'11/12 오전 9–11시',kind:'req',level:'hold',steps:[1],use:'도크·인력 배정',miss:'도크·인력을 배정할 수 없어 도착해도 순서를 기다립니다.'},
+    {id:'carrier',g:'h',label:'운송 정보 (차량·운송장)',ex:byT({normal:'12가3456 · 5톤 윙바디','return':'택배 운송장 6890-1234-5678','import':'트레일러 88허1234'}),kind:'req',level:'manual',steps:[2],use:'도착 차량 ↔ 입고 건 매칭',miss:'도착한 차량이 어느 입고 건인지 전화로 확인해야 합니다.'},
+    {id:'pack',g:'h',label:'포장 요약 (박스·팔레트 수)',ex:byT({normal:'팔레트 4 · 박스 96','return':'박스 12','import':'컨테이너 1 · 팔레트 20'}),kind:'req',level:'manual',steps:[1,2],use:'작업량 추정 · 하차 1차 수량 확인',miss:'작업량을 가늠 못 해 인력을 넉넉히 잡고, 하차 직후 수량 확인도 못 합니다.'},
+    {id:'bl',g:'h',label:'B/L · 컨테이너 번호',ex:'B/L ONE-261105 · MSKU1234567',kind:(t)=>t==='import'?'cond':null,note:'수입 건',level:'hold',steps:[2],use:'통관·보세 반입 건과 연결',miss:'통관 건과 연결이 안 돼 컨테이너 반입 확인이 막힙니다.'},
+    {id:'orig',g:'h',label:'원주문번호',ex:'ORD-8841203',kind:(t)=>t==='return'?'cond':null,note:'반품 건',level:'hold',steps:[0],use:'환불·재고 복구 매칭',miss:'어느 주문의 반품인지 몰라 환불·재고 복구 연결이 막힙니다.'},
+    {id:'packlist',g:'h',label:'패킹리스트 첨부',ex:'packing_list.xlsx',kind:'cond',note:'박스 혼적 시',level:'manual',steps:[3],use:'박스별 상품 내역 대조',miss:'박스를 열어 봐야 내용물을 알 수 있어 검수가 느려집니다.'},
+    {id:'vendor',g:'h',label:'공급처 연락처',ex:'샘플상사 · 02-000-0000',kind:'opt',level:'none',steps:[3],use:'수량 차이 발생 시 문의',miss:'수량 차이가 생기면 연락처부터 찾아야 합니다.'},
+    {id:'memo',g:'h',label:'비고 · 작업 지시',ex:'오전 하차 요청 · 파손 주의',kind:'opt',level:'none',steps:[2],use:'작업자 전달 사항',miss:'특이 사항이 현장에 전달되지 않습니다.'},
+
+    {id:'sku',g:'l',label:'SKU 코드',ex:byP({general:'TS-1001 · 면 티셔츠 M',food:'FD-2204 · 컵라면 6입',elec:'EL-7730 · 무선 이어폰'}),kind:'req',level:'block',steps:[0],use:'상품 마스터 대조',miss:'어떤 상품인지 알 수 없고, 마스터에 없는 SKU도 같은 이유로 거부됩니다.'},
+    {id:'qty',g:'l',label:'예정 수량',ex:byP({general:'240 EA',food:'1,200 EA',elec:'120 EA'}),kind:'req',level:'block',steps:[0,3],use:'검수 대조의 기준',miss:'검수 때 비교할 기준 수량이 없습니다.'},
+    {id:'uom',g:'l',label:'단위·입수',ex:byP({general:'1 BOX = 24 EA',food:'1 BOX = 20 EA',elec:'1 BOX = 10 EA'}),kind:'req',level:'hold',steps:[3],use:'BOX → EA 단위 변환',miss:'BOX로 받아 EA로 보관하는 단위 변환을 할 수 없습니다.'},
+    {id:'lot',g:'l',label:'로트번호',ex:'L261104-A',kind:(t,p)=>p==='food'?'cond':null,note:'로트 관리 상품',level:'hold',steps:[4],use:'리콜·품질 추적',miss:'로트별 추적(리콜 대응)이 안 됩니다.'},
+    {id:'exp',g:'l',label:'유통기한·제조일자',ex:'제조 2026-10-28 · 유통 2027-04-27',kind:(t,p)=>p==='food'?'cond':null,note:'기한 관리 상품',level:'hold',steps:[4],use:'FEFO 출고 · 잔여기한 입고 기준 점검',miss:'잔여 유통기한 점검과 FEFO 출고를 할 수 없습니다.'},
+    {id:'serial',g:'l',label:'시리얼번호',ex:'120개 (S/N 목록 첨부)',kind:(t,p)=>p==='elec'?'cond':null,note:'시리얼 관리 상품',level:'hold',steps:[4],use:'개체 단위 재고 추적',miss:'개체 단위 재고 추적이 안 됩니다.'},
+    {id:'cond',g:'l',label:'상품 상태',ex:t=>t==='return'?'미개봉 · 정상품':'정상품',kind:t=>t==='return'?'cond':'opt',note:t=>t==='return'?'반품 건':'',level:t=>t==='return'?'hold':'none',steps:[5],use:'정상·B급 구분',miss:t=>t==='return'?'정상품·B급 구분이 안 돼 가용 재고 전환이 막힙니다.':'정상품으로 간주합니다.'},
+    {id:'price',g:'l',label:'단가',ex:byP({general:'12,500원/EA',food:'1,100원/EA',elec:'49,000원/EA'}),kind:'opt',level:'none',steps:[5],use:'보험·손망실 보상 기준',miss:'파손 시 보상 기준 금액이 없습니다.'}
+  ];
+
+  let T='normal', P='general';
+  const empty=new Set();
+  const val=x=>typeof x==='function'?x(T,P):x;
+  const $=id=>document.getElementById(id);
+  const form=$('form'), steps=$('steps'), verdict=$('verdict'), stats=$('stats'), status=$('status');
+
+  const items=()=>F.map(f=>({f,kind:val(f.kind),level:val(f.level),off:empty.has(f.id)})).filter(x=>x.kind);
+
+  function evaluate(list){
+    const missing=list.filter(x=>x.off);
+    const blocked=missing.some(x=>x.level==='block');
+    const st=STEPS.map((s,i)=>{
+      const mine=list.filter(x=>x.f.steps.includes(i));
+      let issues=mine.filter(x=>x.off);
+      let state;
+      if(blocked){
+        if(i===0){state='block';issues=missing.filter(x=>x.level==='block');}
+        else{state='idle';issues=[];}
+      }else{
+        state=issues.some(x=>x.level==='hold')?'hold':issues.some(x=>x.level==='manual')?'manual':'auto';
+      }
+      return {state,mine,issues};
+    });
+    const need=list.filter(x=>x.kind!=='opt');
+    const level=blocked?'reject':missing.some(x=>x.level==='hold')?'hold':missing.some(x=>x.level==='manual')?'manual':'auto';
+    return {st,level,
+      filled:need.filter(x=>!x.off).length,needN:need.length,
+      auto:st.filter(s=>s.state==='auto').length,
+      human:missing.filter(x=>x.level!=='none').length};
+  }
+
+  const VERDICT={
+    auto:['자동 접수','6단계가 사람 개입 없이 흐릅니다.'],
+    manual:['수작업 접수','진행은 되지만 사람이 메워야 하는 단계가 있습니다.'],
+    hold:['보류','접수는 됐지만 확인 전까지 멈춘 단계가 있습니다.'],
+    reject:['반려','필수 항목이 없어 접수되지 않고, 이후 단계는 시작도 못 합니다.']
+  };
+
+  function render(){
+    const list=items(), ev=evaluate(list);
+    const active=document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.id:null;
+
+    // 신청서 폼
+    let html='',g='';
+    list.forEach(x=>{
+      const f=x.f;
+      if(f.g!==g){g=f.g;html+=`<div class="grp">${g==='h'?'헤더 · 입고 건 전체':'라인 · 상품별 (예시 1행)'}</div>`;}
+      const note=val(f.note||'');
+      html+=`<button type="button" class="fld${x.off?' off lv-'+x.level:''}" data-id="${f.id}" aria-pressed="${!x.off}">`+
+        `<span class="ck" aria-hidden="true">${x.off?'✕':'✓'}</span>`+
+        `<span class="nm">${val(f.label)}</span>`+
+        `<span class="bd k-${x.kind}">${KIND[x.kind]}</span>`+
+        `<span class="vl">${x.off?'비어 있음':val(f.ex)}${note?` <i>· ${note}</i>`:''}</span>`+
+        `<span class="ms">${x.off?`<b>${SEV[x.level]}</b> · ${val(f.miss)}`:`용도 · ${f.use}`}</span>`+
+      `</button>`;
+    });
+    form.innerHTML=html;
+
+    // 파이프라인
+    const V=VERDICT[ev.level];
+    verdict.className='verdict v-'+ev.level;
+    verdict.innerHTML=`<b>${V[0]}</b> — ${V[1]}`;
+    steps.innerHTML=STEPS.map((s,i)=>{
+      const r=ev.st[i];
+      const uses=r.mine.length
+        ?r.mine.map(x=>x.off?`<s>${val(x.f.label)}</s>`:val(x.f.label)).join(' · ')
+        :'<span>쓰는 항목 없음 — 이 상품은 이 단계를 건너뜁니다</span>';
+      const body=r.state==='idle'
+        ?'<div class="su"><span>앞 단계에서 반려되어 시작되지 않습니다.</span></div>'
+        :`<div class="su"><span>읽는 항목 </span>${uses}</div>`+
+          (r.issues.length?`<ul class="si">${r.issues.map(x=>`<li class="lv-${x.level}"><b>${SEV[x.level]}</b> ${val(x.f.label)} 없음 — ${val(x.f.miss)}</li>`).join('')}</ul>`:'');
+      return `<li class="step s-${r.state}"><div class="sh"><span class="sn">${i+1}</span><b>${s.n}</b><span class="pill">${PILL[r.state]}</span></div><div class="sd">${s.d}</div>${body}</li>`;
+    }).join('');
+
+    // KPI
+    stats.innerHTML=
+      `<div class="stat"><b>${ev.filled}/${ev.needN}</b><span>필수·조건부 항목 입력 수</span></div>`+
+      `<div class="stat"><b>${ev.auto}/6</b><span>사람 개입 없이 자동 처리되는 단계</span></div>`+
+      `<div class="stat"><b>${ev.human}건</b><span>사람이 확인·보완해야 하는 누락 항목</span></div>`;
+
+    if(active){const el=form.querySelector(`[data-id="${active}"]`);if(el)el.focus();}
+  }
+
+  // 이 조합에서 숨겨진 항목의 '비움' 상태는 버린다 (유형을 바꾸면 해당 없는 항목은 초기 상태로)
+  function prune(){const shown=new Set(items().map(x=>x.f.id));[...empty].forEach(id=>{if(!shown.has(id))empty.delete(id);});}
+
+  form.addEventListener('click',e=>{
+    const b=e.target.closest('.fld');if(!b)return;
+    const id=b.dataset.id, f=F.find(x=>x.id===id);
+    if(empty.has(id))empty.delete(id);else empty.add(id);
+    render();
+    const lvl=val(f.level);
+    status.textContent=empty.has(id)
+      ?`「${val(f.label)}」 비움 — ${SEV[lvl]}: ${val(f.miss)}`
+      :`「${val(f.label)}」 다시 입력함`;
+  });
+
+  function seg(id,set,label){
+    $(id).addEventListener('click',e=>{
+      const b=e.target.closest('button');if(!b)return;
+      set(b.dataset.v);
+      document.querySelectorAll('#'+id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+      prune();render();
+      status.textContent=`${label}: ${b.textContent} — 필수·조건부 항목 구성이 바뀌었습니다.`;
+    });
+  }
+  seg('segType',v=>{T=v;},'입고 유형');
+  seg('segProd',v=>{P=v;},'상품 유형');
+
+  $('reset').addEventListener('click',()=>{empty.clear();render();status.textContent='모든 항목을 채웠습니다.';});
+
+  // 진도
+  const db=$('done');
+  const key='mv-done:'+SLUG;
+  try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
+  db.addEventListener('click',()=>{
+    try{localStorage.setItem(key,'1');}catch(_){}
+    db.classList.add('on');db.textContent='✓ 학습 완료됨';
+    status.textContent='진도가 저장되었습니다. 카탈로그에서 진도 바를 확인하세요.';
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
