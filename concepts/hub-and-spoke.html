@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>허브 앤 스포크 vs Point-to-Point — 물류 개념 시각화</title>
+<meta name="description" content="Point-to-Point 직송망과 허브 앤 스포크 환송망을 노선 수·총 주행 거리·트럭 대수로 비교하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 18px;color:var(--muted-foreground);font-size:15px;max-width:62ch}
+.def b{color:var(--foreground)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+svg{display:block;width:100%}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+.t{fill:var(--foreground);font-size:12px;font-weight:600}
+.tm{fill:var(--muted-foreground);font-size:11px}
+.tb{fill:var(--foreground);font-size:17px;font-weight:700}
+.th{fill:var(--primary-foreground);font-size:11px;font-weight:700}
+.lP{stroke:var(--muted-foreground);stroke-width:1.1;opacity:.3}
+.lH{stroke:var(--primary);stroke-width:2;opacity:.72}
+.nd{fill:var(--card);stroke:var(--border);stroke-width:1.25}
+.hubc{fill:var(--primary)}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+label.sl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground)}
+input[type=range]{accent-color:var(--primary);width:110px}
+output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums}
+#status{font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground)}
+.stat em{font-style:normal;color:var(--primary)}
+.stat b.cmp{font-size:17px}
+.stat b i{font-style:normal;font-size:12px;font-weight:600;color:var(--muted-foreground);padding:0 3px}
+.takeaway{margin:6px 0 22px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.foot{margin:-12px 0 22px;color:var(--muted-foreground);font-size:12.5px}
+.done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:border-color .15s ease-out,background-color .15s ease-out,color .15s ease-out}
+.done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">수송·네트워크</span>
+  <h1>허브 앤 스포크 vs Point-to-Point</h1>
+  <p class="def"><b>Point-to-Point</b>는 목적지끼리 전부 직결, <b>허브 앤 스포크</b>는 중앙 허브 하나 경유. 노드 수를 올려 좌측 노선이 폭발하는 걸 직접 보세요.</p>
+</header>
+
+<div class="panel">
+  <svg id="sim" role="img" aria-label="Point-to-Point 직송망(좌)과 허브 앤 스포크 환송망(우) 비교 시뮬레이션: 노선 수, 총 주행 거리, 트럭 대수와 화물 점 이동"></svg>
+  <div class="controls">
+    <label class="sl">노드 수 <input type="range" id="nN" min="4" max="12" step="1" value="10"> <output id="nNo">10</output></label>
+    <label class="sl">트럭 정원 <input type="range" id="cap" min="4" max="20" step="1" value="10"> <output id="capO">10</output></label>
+    <label class="sl">화동량 배수 <input type="range" id="mul" min="1" max="3" step="0.5" value="1"> <output id="mulO">×1</output></label>
+    <button type="button" class="act" id="play">▶ 재생</button>
+    <button type="button" class="ghostb" id="reset">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="takeaway">직송은 노선이 n²으로 늘고, 허브는 노선 n개로 정리되는 대신 <b>우회 거리·허브 병목</b>이라는 대가 — 소량·다점은 허브, 대량·전용은 직송.</p>
+<p class="foot">단순화 모델 — 실제로는 허브 처리능력, 시간창, 양방향 흐름이 결과를 바꾼다.</p>
+<button class="done" id="done">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const SLUG='hub-and-spoke';
+/*MATH-BEGIN*/
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  const MAXN=12, RKM=200; // 반경 1 = 200 km (지름 400 km) — px 좌표와 무관한 정규 좌표로 실측
+  const VBASE=(()=>{const r=rng(42),a=[];for(let i=0;i<MAXN;i++)for(let j=i+1;j<MAXN;j++)a.push({i,j,v:1+Math.floor(r()*5)});return a})();
+  function metrics(n,cap,mult){
+    const xy=[],H=[0,0];
+    for(let k=0;k<n;k++){const a=-Math.PI/2+2*Math.PI*k/n;xy.push([Math.cos(a),Math.sin(a)]);}
+    const d=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1]);
+    let kmp=0,kmh=0,tp=0;const touch=new Array(n).fill(0);
+    for(const p of VBASE){
+      if(p.i>=n||p.j>=n)continue;
+      const v=Math.max(1,Math.round(p.v*mult));
+      kmp+=d(xy[p.i],xy[p.j])*RKM;                                   // 직송: 현(絃) 거리
+      kmh+=(d(xy[p.i],H)+d(H,xy[p.j]))*RKM;                          // 허브: i→허브→j 우회
+      tp+=Math.ceil(v/cap);                                          // 직송: 쌍별 트럭
+      touch[p.i]+=v;touch[p.j]+=v;
+    }
+    let th=0;for(let i=0;i<n;i++)th+=Math.ceil(touch[i]/cap);        // 허브: 노드별 들어옴+나감 통합
+    return{routesP:n*(n-1)/2,routesH:n,kmp:Math.round(kmp),kmh:Math.round(kmh),tp,th};
+  }
+/*MATH-END*/
+  const NS='http://www.w3.org/2000/svg', SPD=0.16; // px/ms
+  let nv=10, cv=10, mv=1;
+  let playing=false, raf=0, lastT=0, accP=0, accH=0;
+  let dP=[], dH=[], pulses=[], arng=rng(42);
+  let geo=null, lastW=0;
+  const svg=document.getElementById('sim'),
+        status=document.getElementById('status'),
+        play=document.getElementById('play'),
+        statsEl=document.getElementById('stats');
+  const fmt=x=>x.toLocaleString('ko-KR');
+  const pct=(a,b)=>Math.round((1-a/b)*100);
+
+  function layout(){
+    const W=Math.max(260, svg.parentElement.clientWidth-32);
+    const side=W>=620;
+    const pw=side?Math.floor((W-16)/2):W;
+    const R=Math.max(76, Math.min(pw,340)/2-26);
+    const headH=52, panelH=headH+2*R+38;
+    const H=side?panelH:panelH*2+16;
+    const mk=(px,py)=>{
+      const cx=px+pw/2, cy=py+headH+R+8, pts=[];
+      for(let k=0;k<nv;k++){const a=-Math.PI/2+2*Math.PI*k/nv;pts.push([cx+R*Math.cos(a),cy+R*Math.sin(a)]);}
+      return{px,py,cx,cy,pts};
+    };
+    const A=mk(0,0), B=mk(side?pw+16:0, side?0:panelH+16);
+    return{W,H,side,pw,R,A,B,hub:[B.cx,B.cy]};
+  }
+
+  function render(){
+    dP=[];dH=[];pulses=[];
+    geo=layout(); lastW=svg.parentElement.clientWidth;
+    const m=metrics(nv,cv,mv);
+    svg.setAttribute('viewBox',`0 0 ${geo.W} ${geo.H}`);
+    svg.setAttribute('height',geo.H);
+    const s=[];
+    // 좌: Point-to-Point — 모든 쌍 직결
+    s.push('<text x="2" y="14" class="tm">Point-to-Point · 모든 쌍 직결</text>');
+    s.push(`<text x="2" y="36" class="tb">노선 ${m.routesP}개</text>`);
+    const P=geo.A.pts;
+    for(let i=0;i<nv;i++)for(let j=i+1;j<nv;j++)
+      s.push(`<line class="lP" x1="${P[i][0].toFixed(1)}" y1="${P[i][1].toFixed(1)}" x2="${P[j][0].toFixed(1)}" y2="${P[j][1].toFixed(1)}"/>`);
+    // 우: 허브 앤 스포크 — 스포크만
+    s.push(`<text x="${geo.B.px+2}" y="${geo.B.py+14}" class="tm">허브 앤 스포크 · 중앙 허브 경유</text>`);
+    s.push(`<text x="${geo.B.px+2}" y="${geo.B.py+36}" class="tb">노선 ${m.routesH}개</text>`);
+    const Q=geo.B.pts, hx=geo.hub[0], hy=geo.hub[1];
+    for(let i=0;i<nv;i++)
+      s.push(`<line class="lH" x1="${Q[i][0].toFixed(1)}" y1="${Q[i][1].toFixed(1)}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}"/>`);
+    // 노드(원 위) 두 패널 공통
+    for(let i=0;i<nv;i++){
+      const ch=String.fromCharCode(65+i);
+      s.push(`<circle class="nd" cx="${P[i][0].toFixed(1)}" cy="${P[i][1].toFixed(1)}" r="13"/>`);
+      s.push(`<text class="t" x="${P[i][0].toFixed(1)}" y="${(P[i][1]+4).toFixed(1)}" text-anchor="middle">${ch}</text>`);
+      s.push(`<circle class="nd" cx="${Q[i][0].toFixed(1)}" cy="${Q[i][1].toFixed(1)}" r="13"/>`);
+      s.push(`<text class="t" x="${Q[i][0].toFixed(1)}" y="${(Q[i][1]+4).toFixed(1)}" text-anchor="middle">${ch}</text>`);
+    }
+    // 중앙 허브(강조)
+    s.push(`<circle class="hubc" cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="17"/>`);
+    s.push(`<text class="th" x="${hx.toFixed(1)}" y="${(hy+4).toFixed(1)}" text-anchor="middle">허브</text>`);
+    // 패널 하단 요약
+    s.push(`<text x="2" y="${(geo.A.cy+geo.R+24).toFixed(1)}" class="tm">총 주행 ${fmt(m.kmp)} km · 트럭 ${fmt(m.tp)}대</text>`);
+    s.push(`<text x="${geo.B.px+2}" y="${(geo.B.cy+geo.R+24).toFixed(1)}" class="tm">총 주행 ${fmt(m.kmh)} km · 트럭 ${fmt(m.th)}대</text>`);
+    s.push('<g id="gd"></g>');
+    svg.innerHTML=s.join('');
+  }
+
+  // ── 재생: 화물 점 이동 (v 비례 스폰) ─────────────────
+  const gd=()=>svg.getElementById('gd');
+  function addDot(color){
+    const el=document.createElementNS(NS,'circle');
+    el.setAttribute('r','3.5');el.setAttribute('fill',color);
+    gd().appendChild(el);return el;
+  }
+  function pickPair(){
+    let tot=0;const ws=[];
+    for(const p of VBASE){if(p.i>=nv||p.j>=nv)continue;const w=Math.max(1,Math.round(p.v*mv));tot+=w;ws.push([p,tot]);}
+    if(!ws.length)return null;
+    const x=arng()*tot;for(const[p,c]of ws)if(x<c)return p;
+    return ws[ws.length-1][0];
+  }
+  function pickNode(skip){ // 노드 유출·유입량 가중 (skip은 제외)
+    let tot=0;const ws=[];
+    for(let i=0;i<nv;i++){
+      let f=0;
+      if(i!==skip)for(const p of VBASE){if(p.i>=nv||p.j>=nv)continue;if(p.i===i||p.j===i)f+=Math.max(1,Math.round(p.v*mv));}
+      tot+=f;ws.push([i,tot]);
+    }
+    const x=arng()*tot;for(const[i,c]of ws)if(x<c)return i;
+    return ws[ws.length-1][0];
+  }
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  function spawnP2P(){
+    const p=pickPair();if(!p||!geo)return;
+    let a=geo.A.pts[p.i], b=geo.A.pts[p.j];
+    if(arng()<.5){const t=a;a=b;b=t;}
+    dP.push({ax:a[0],ay:a[1],bx:b[0],by:b[1],p:0,dur:Math.max(80,dist(a,b)/SPD),el:addDot('var(--primary)')});
+  }
+  function spawnHub(){
+    if(!geo)return;
+    const home=pickNode(-1), Q=geo.B.pts, hx=geo.hub[0], hy=geo.hub[1];
+    dH.push({home,ax:Q[home][0],ay:Q[home][1],hx,hy,bx:0,by:0,leg:0,p:0,
+      dur:Math.max(80,dist(Q[home],[hx,hy])/SPD),until:0,el:addDot('var(--s2)')});
+  }
+  function addPulse(x,y){
+    const el=document.createElementNS(NS,'circle');
+    el.setAttribute('cx',x);el.setAttribute('cy',y);el.setAttribute('r','17');
+    el.setAttribute('fill','none');el.setAttribute('stroke','var(--primary)');el.setAttribute('stroke-width','2');
+    gd().appendChild(el);pulses.push({el,t:0});
+  }
+  function tick(ts){
+    if(!playing)return;
+    const dt=Math.min(50,lastT?ts-lastT:16);lastT=ts;
+    accP+=dt;accH+=dt;
+    if(accP>150){accP=0;if(dP.length<24)spawnP2P();}
+    if(accH>560){accH=0;const k=3+Math.floor(arng()*3);for(let i=0;i<k&&dH.length<18;i++)spawnHub();}
+    for(let i=dP.length-1;i>=0;i--){const d=dP[i];d.p+=dt/d.dur;
+      if(d.p>=1){d.el.remove();dP.splice(i,1);}
+      else{d.el.setAttribute('cx',d.ax+(d.bx-d.ax)*d.p);d.el.setAttribute('cy',d.ay+(d.by-d.ay)*d.p);}}
+    const Q=geo?geo.B.pts:[];
+    for(let i=dH.length-1;i>=0;i--){const d=dH[i];
+      if(d.leg===0){ // 수집: 노드→허브
+        d.p+=dt/d.dur;
+        if(d.p>=1){d.leg=2;d.el.setAttribute('opacity','0');d.until=ts+360+arng()*320;addPulse(d.hx,d.hy);}
+        else{d.el.setAttribute('cx',d.ax+(d.hx-d.ax)*d.p);d.el.setAttribute('cy',d.ay+(d.hy-d.ay)*d.p);}
+      }else if(d.leg===2){ // 허브 대기(컨솔리데이션): 모였다가
+        if(ts>=d.until){
+          let j=pickNode(d.home);if(j===d.home)j=(d.home+1)%nv;
+          d.leg=1;d.bx=Q[j][0];d.by=Q[j][1];d.p=0;
+          d.dur=Math.max(80,dist([d.hx,d.hy],[d.bx,d.by])/SPD);
+          d.el.setAttribute('opacity','1');
+        }
+      }else{ // 배분: 허브→노드
+        d.p+=dt/d.dur;
+        if(d.p>=1){d.el.remove();dH.splice(i,1);}
+        else{d.el.setAttribute('cx',d.hx+(d.bx-d.hx)*d.p);d.el.setAttribute('cy',d.hy+(d.by-d.hy)*d.p);}
+      }
+    }
+    for(let i=pulses.length-1;i>=0;i--){const pl=pulses[i];pl.t+=dt;
+      if(pl.t>420){pl.el.remove();pulses.splice(i,1);}
+      else{pl.el.setAttribute('r',(17+pl.t*0.05).toFixed(1));pl.el.setAttribute('opacity',Math.max(0,.5-pl.t/900).toFixed(2));}}
+    raf=requestAnimationFrame(tick);
+  }
+  function start(){
+    if(playing)return;playing=true;lastT=0;arng=rng(42);
+    play.textContent='⏸ 일시정지';
+    status.textContent=`재생 중 — 좌: 직송 직선 이동 / 우: 노드→허브 모여서→노드 (컨솔리데이션)`;
+    raf=requestAnimationFrame(tick);
+  }
+  function stop(){
+    playing=false;cancelAnimationFrame(raf);
+    play.textContent='▶ 재생';status.textContent='일시정지';
+  }
+  function clearAnim(){
+    dP.forEach(d=>d.el.remove());dH.forEach(d=>d.el.remove());pulses.forEach(p=>p.el.remove());
+    dP=[];dH=[];pulses=[];accP=0;accH=0;
+  }
+  function resetAll(){stop();clearAnim();arng=rng(42);status.textContent='';}
+
+  function stats(m){
+    m=m||metrics(nv,cv,mv);
+    const card=(label,pv,hv,noteP,noteH)=>{
+      const w=pv<hv?0:hv<pv?1:2;
+      const pb=w===0?`<em>${fmt(pv)}</em>`:fmt(pv), hb=w===1?`<em>${fmt(hv)}</em>`:fmt(hv);
+      const note=w===0?noteP:w===1?noteH:'동률 — 우위 없음';
+      return `<div class="stat"><span>${label} · 직송 vs 허브</span><b class="cmp">${pb}<i>vs</i>${hb}</b><span>${note}</span></div>`;
+    };
+    statsEl.innerHTML=
+      card('노선 수',m.routesP,m.routesH,
+        '모든 쌍 직결 — n(n−1)/2로 폭발',
+        `허브 경유 — 노선 ${pct(m.routesH,m.routesP)}% 절감`)+
+      card('총 일일 주행 km',m.kmp,m.kmh,
+        `직송이 ${pct(m.kmp,m.kmh)}% 짧음`,
+        '허브는 우회 거리가 대가')+
+      card('트럭 대수',m.tp,m.th,
+        '짐이 쌍별로 흩어져 대부분 빈 채 운행',
+        `컨솔리데이션 — ${pct(m.th,m.tp)}% 절감`);
+  }
+  function onParam(){
+    const m=metrics(nv,cv,mv);
+    render();stats(m);
+    if(!playing)status.textContent=`노드 ${nv}개 · 정원 ${cv} · 화동량 ×${mv} — 직송 노선 ${m.routesP} vs 허브 ${m.routesH}`;
+  }
+
+  document.getElementById('nN').addEventListener('input',e=>{nv=+e.target.value;document.getElementById('nNo').textContent=nv;onParam();});
+  document.getElementById('cap').addEventListener('input',e=>{cv=+e.target.value;document.getElementById('capO').textContent=cv;onParam();});
+  document.getElementById('mul').addEventListener('input',e=>{mv=+e.target.value;document.getElementById('mulO').textContent='×'+mv;onParam();});
+  play.addEventListener('click',()=>playing?stop():start());
+  document.getElementById('reset').addEventListener('click',resetAll);
+  new ResizeObserver(()=>{const w=svg.parentElement.clientWidth;if(Math.abs(w-lastW)>1)render();}).observe(svg.parentElement);
+  // 진도
+  const db=document.getElementById('done');
+  const key='mv-done:'+SLUG;
+  try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
+  db.addEventListener('click',()=>{
+    try{localStorage.setItem(key,'1');}catch(_){}
+    db.classList.add('on');db.textContent='✓ 학습 완료됨';
+    status.textContent='진도가 저장되었습니다. 카탈로그에서 진도 바를 확인하세요.';
+  });
+  onParam();
+})();
+</script>
+</body>
+</html>

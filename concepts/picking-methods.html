@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>피킹 방식 4종 레이스 — Discrete·Batch·Zone·Cluster</title>
+<meta name="description" content="같은 주문 더미로 Discrete·Batch·Zone·Cluster 피킹 4전략이 경주하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 18px;color:var(--muted-foreground);font-size:15px;max-width:62ch}
+.def b{color:var(--foreground)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+svg{display:block;width:100%}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+.t{fill:var(--foreground);font-size:12px;font-weight:600}
+.tm{fill:var(--muted-foreground);font-size:11px}
+.sq{stroke:var(--border);stroke-width:1;fill:var(--soft);transition:fill .15s ease-out}
+.sq.on{fill:currentColor}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+label.sl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground)}
+input[type=range]{accent-color:var(--primary);width:120px}
+output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums}
+#status{font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground)}
+.stat em{font-style:normal;color:var(--primary)}
+.takeaway{margin:6px 0 22px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out,border-color .15s ease-out}
+.done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+table.cmp{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13.5px}
+.cmp th,.cmp td{border-bottom:1px solid var(--border);padding:7px 8px;text-align:right;font-variant-numeric:tabular-nums}
+.cmp th:first-child,.cmp td:first-child{text-align:left}
+.cmp th{color:var(--muted-foreground);font-weight:600;font-size:12px}
+.cmp td em{font-style:normal;color:var(--primary);font-weight:700}
+.cmp .sub{display:block;font-size:12px;color:var(--muted-foreground);font-weight:400}
+.tcap{margin:18px 0 0;font-size:12px;color:var(--muted-foreground)}
+.ok.fin{fill:var(--s2)}
+.foot{margin:16px 0 0;color:var(--muted-foreground);font-size:12.5px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">창고 운영</span>
+  <h1>피킹 방식 4종 — Discrete·Batch·Zone·Cluster</h1>
+  <p class="def">주문을 어떻게 묶고 누가 집는가의 4가지 방식. <b>같은 주문 더미</b>로 4전략이 경주한다.</p>
+</header>
+
+<div class="panel">
+  <svg id="sim" role="img" aria-label="피킹 방식 4종 레이스 시뮬레이션: 같은 주문 더미를 Discrete·Batch·Zone·Cluster 4전략이 경주. Zone 레인은 피커 2명(파랑·초록), Cluster 레인은 진행 투어 번호 표시"></svg>
+  <div class="controls">
+    <label class="sl">주문 수 N <input type="range" id="nOrd" min="2" max="12" step="1" value="8"> <output id="nOut">8</output></label>
+    <label class="sl">주문당 SKU k <input type="range" id="kSku" min="1" max="3" step="1" value="2"> <output id="kOut">2</output></label>
+    <button class="act" id="play">▶ 레이스 시작</button>
+    <button class="ghostb" id="reset">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="tcap">같은 주문 더미 기준 4전략 비교 — t는 틱(60ms, 피커 1u/틱)이며 Batch·Zone·Cluster의 완료시각·리드타임에 후처리 +3u/주문이 포함됩니다.</p>
+<table class="cmp" id="cmp"></table>
+<p class="takeaway"><b>Batch·Cluster</b>는 이동거리를 크게 줄이지만 완료가 한꺼번에 몰리고, <b>Discrete</b>는 리드타임은 짧아도 발이 늘어난다 — 처리량과 응답성의 트레이드오프.</p>
+<button class="done" id="done">✓ 학습 완료</button>
+<p class="foot">단순화 모델 — 단일 통로에서는 Zone의 전체 완료가 Batch와 수학적으로 같아집니다(2×최원거리 식이 동일). 실제 다중 통로 창고에서는 존 분할이 완료를 앞당기고, 피커 수·분류 장비도 결과를 바꿉니다.</p>
+</div>
+
+<script>
+(() => {
+const SLUG='picking-methods', FLASH=5, TICK_MS=60;
+// ==MODEL-BEGIN==
+const SLOTS=12, POST=3;
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function genOrders(n,k){
+  const r=rng(42),orders=[];
+  for(let i=0;i<n;i++){
+    const s=new Set();
+    while(s.size<k)s.add(1+Math.floor(r()*SLOTS));
+    orders.push([...s].sort((a,b)=>a-b));
+  }
+  return orders;
+}
+// 단일 통로: depot=0, 왕복 2×최원거리. 피커 속도 1u/틱 → 이동 u수 = 소요 틱수.
+function buildRoute(picks,t0){
+  let pos=0,t=t0;const legs=[],events=[];
+  for(const s of picks){
+    if(s!==pos){legs.push({from:pos,to:s,start:t,dur:s-pos});t+=s-pos;pos=s;}
+    events.push({t,slot:s});
+  }
+  if(pos>0){legs.push({from:pos,to:0,start:t,dur:pos});t+=pos;pos=0;}
+  return{legs,events,end:t};
+}
+function buildSim(orders){
+  const n=orders.length;
+  const all=[...new Set(orders.flat())].sort((a,b)=>a-b);
+  const z1=all.filter(s=>s<=6),z2=all.filter(s=>s>6);
+  const lanes=[];
+  { // Discrete: 주문별 순차 왕복, 후처리 0
+    let t=0;const legs=[],events=[],comp=[];
+    for(const o of orders){const r=buildRoute(o,t);t=r.end;comp.push(t);legs.push(...r.legs);events.push(...r.events);}
+    lanes.push({name:'Discrete',desc:'주문별 순차 왕복',
+      dist:orders.reduce((a,o)=>a+2*Math.max(...o),0),
+      done:Math.max(...comp),comp,avg:comp.reduce((a,b)=>a+b,0)/n,
+      pickers:[{legs,events}]});
+  }
+  { // Batch: 전 주문 한 투어 + 분류 +3u/주문
+    const r=buildRoute(all,0);
+    const comp=orders.map(()=>r.end+POST);
+    lanes.push({name:'Batch',desc:'한 투어 · 분류 +3u',
+      dist:2*all[all.length-1],
+      done:Math.max(...comp),comp,avg:comp.reduce((a,b)=>a+b,0)/n,
+      pickers:[{legs:r.legs,events:r.events}]});
+  }
+  { // Zone: 2존(1~6/7~12) 피커 2명 병렬 + 합류 +3u/주문
+    const rA=buildRoute(z1,0),rB=buildRoute(z2,0),ends=[rA.end,rB.end];
+    const comp=orders.map(o=>Math.max(...[...new Set(o.map(s=>s<=6?0:1))].map(z=>ends[z]))+POST);
+    lanes.push({name:'Zone',desc:'2존 병렬 · 합류 +3u',
+      dist:rA.end+rB.end,
+      done:Math.max(...comp),comp,avg:comp.reduce((a,b)=>a+b,0)/n,
+      pickers:[{legs:rA.legs,events:rA.events},{legs:rB.legs,events:rB.events,color:'var(--s2)'}]});
+  }
+  { // Cluster: 카트 4토트, 4주문씩 투어 순차 + 후처리 +3u/주문
+    let t=0,dist=0;const legs=[],events=[],comp=Array(n).fill(0),tours=[];
+    for(let i=0;i<n;i+=4){
+      const grp=orders.slice(i,i+4);
+      const slots=[...new Set(grp.flat())].sort((a,b)=>a-b);
+      const st=t;const r=buildRoute(slots,t);t=r.end;
+      dist+=2*slots[slots.length-1];
+      tours.push({start:st,end:t});
+      grp.forEach((o,j)=>comp[i+j]=t+POST);
+      legs.push(...r.legs);events.push(...r.events);
+    }
+    lanes.push({name:'Cluster',desc:'4토트 카트 · +3u',tours,
+      dist,
+      done:Math.max(...comp),comp,avg:comp.reduce((a,b)=>a+b,0)/n,
+      pickers:[{legs,events}]});
+  }
+  const T=Math.max(...lanes.map(l=>l.done));
+  return{lanes,T,N:n};
+}
+// ==MODEL-END==
+
+const svg=document.getElementById('sim'),status=document.getElementById('status'),
+      play=document.getElementById('play'),
+      nOut=document.getElementById('nOut'),kOut=document.getElementById('kOut');
+let N=8,k=2,sim=null,frame=0,timer=null,clk=null,lay=null,L=[];
+const minBy=(a,f)=>a.reduce((x,y)=>f(y)<f(x)?y:x);
+
+function renderStatic(){
+  const W=Math.max(320,svg.parentElement.clientWidth-2);
+  const wide=W>=620;
+  const leftW=wide?158:0,rightW=wide?78:64;
+  const axisX=leftW+10,axisW=W-axisX-rightW-6,sp=axisW/SLOTS;
+  const laneH=wide?66:82,headH=28,H=headH+4*laneH+8;
+  lay={axisX,sp};
+  const ss=Math.max(9,Math.min(16,Math.round(sp*0.55)));
+  const pr=Math.max(5,Math.min(7,Math.round(ss*0.45)));
+  const parts=[];
+  parts.push(`<text x="2" y="16" class="t">경주 시계 t = <tspan id="clk">0</tspan></text>`);
+  parts.push(`<text x="${W-2}" y="16" text-anchor="end" class="tm">${wide?'0=depot · 피커 1u/틱 · 후처리 +3u/주문':'0=depot · 1u/틱'}</text>`);
+  sim.lanes.forEach((ln,i)=>{
+    const ly=headH+i*laneH,axisY=wide?ly+42:ly+50;
+    parts.push(`<g data-lane="${i}">`);
+    if(wide){
+      parts.push(`<text x="6" y="${axisY-5}" class="t">${ln.name}</text>`);
+      parts.push(`<text x="6" y="${axisY+13}" class="tm">${ln.desc}${ln.tours?` <tspan class="tm tour">투어 1/${ln.tours.length}</tspan>`:''}</text>`);
+    }else{
+      parts.push(`<text x="6" y="${ly+18}"><tspan class="t">${ln.name}</tspan><tspan class="tm" dx="7">${ln.desc}</tspan>${ln.tours?`<tspan class="tm tour" dx="7">투어 1/${ln.tours.length}</tspan>`:''}</text>`);
+    }
+    parts.push(`<line x1="${axisX-7}" y1="${axisY}" x2="${axisX+axisW+7}" y2="${axisY}" stroke="var(--border)" stroke-width="1.5"/>`);
+    parts.push(`<rect x="${axisX-ss/2}" y="${axisY-ss/2}" width="${ss}" height="${ss}" rx="3" fill="var(--muted-foreground)" opacity=".45"/>`);
+    parts.push(`<text x="${axisX}" y="${axisY+16}" text-anchor="middle" class="tm">0</text>`);
+    for(let s=1;s<=SLOTS;s++){
+      const x=axisX+s*sp;
+      parts.push(`<rect data-s="${s}" x="${x-ss/2}" y="${axisY-ss/2}" width="${ss}" height="${ss}" rx="3" class="sq" style="color:var(--primary)"/>`);
+      parts.push(`<text x="${x}" y="${axisY+16}" text-anchor="middle" class="tm">${s}</text>`);
+    }
+    ln.pickers.forEach(p=>{
+      parts.push(`<circle class="pk" cx="${axisX}" cy="${axisY}" r="${pr}" fill="${p.color||'var(--primary)'}" stroke="var(--card)" stroke-width="1.5"/>`);
+    });
+    parts.push(`<text x="${W-4}" y="${axisY-5}" text-anchor="end" class="t ok">✓ 0/${sim.N}</text>`);
+    parts.push(`<text x="${W-4}" y="${axisY+13}" text-anchor="end" class="tm du">0.0 u</text>`);
+    parts.push(`</g>`);
+  });
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.setAttribute('height',H);
+  svg.innerHTML=parts.join('');
+  clk=svg.querySelector('#clk');
+  L=sim.lanes.map((_,i)=>{
+    const g=svg.querySelector(`[data-lane="${i}"]`);
+    const slots=new Map();
+    g.querySelectorAll('rect[data-s]').forEach(r=>slots.set(+r.dataset.s,r));
+    return{pickers:[...g.querySelectorAll('circle.pk')],slots,
+      ok:g.querySelector('.ok'),du:g.querySelector('.du'),tour:g.querySelector('.tour')};
+  });
+}
+
+function posAt(legs,t){
+  if(!legs.length)return 0;
+  if(t<=legs[0].start)return legs[0].from;
+  for(const g of legs)if(t<g.start+g.dur)return g.from+(g.to-g.from)*(t-g.start)/g.dur;
+  return 0;
+}
+
+function paint(){
+  const f=frame;
+  if(clk)clk.textContent=f;
+  sim.lanes.forEach((ln,i)=>{
+    const R=L[i];
+    ln.pickers.forEach((p,j)=>R.pickers[j].setAttribute('cx',lay.axisX+posAt(p.legs,f)*lay.sp));
+    const fl=new Set();
+    ln.pickers.forEach(p=>p.events.forEach(ev=>{if(ev.t<=f&&f<ev.t+FLASH)fl.add(ev.slot);}));
+    R.slots.forEach((el,s)=>el.classList.toggle('on',fl.has(s)));
+    const d=ln.comp.filter(c=>c<=f).length;
+    R.ok.textContent=`✓ ${d}/${sim.N}`;
+    R.ok.classList.toggle('fin',d===sim.N);
+    R.du.textContent=`${ln.dist.toFixed(1)} u`;
+    if(R.tour&&ln.tours){
+      let cur=ln.tours.length;
+      for(let x=0;x<ln.tours.length;x++)if(f<ln.tours[x].end){cur=x+1;break;}
+      R.tour.textContent=`투어 ${cur}/${ln.tours.length}`;
+    }
+  });
+}
+
+function start(){
+  if(frame>=sim.T){frame=0;paint();}
+  if(timer)return;
+  play.textContent='⏸ 일시정지';
+  timer=setInterval(()=>{
+    frame++;
+    paint();
+    if(frame>=sim.T){stop();finishMsg();}
+    else status.textContent=`경주 중 t=${frame}/${sim.T}`;
+  },TICK_MS);
+}
+function stop(){clearInterval(timer);timer=null;play.textContent='▶ 레이스 시작';}
+function finishMsg(){
+  const d=minBy(sim.lanes,l=>l.dist),t=minBy(sim.lanes,l=>l.done),v=minBy(sim.lanes,l=>l.avg);
+  status.textContent=`완료 — 총이동거리 최저 ${d.name}(${d.dist.toFixed(1)}u) · 전체완료 최단 ${t.name}(${t.done}t) · 평균 리드타임 최저 ${v.name}(${v.avg.toFixed(1)}t)`;
+}
+function reset(){stop();frame=0;paint();status.textContent='초기화 — ▶로 레이스 시작';}
+
+function updateKPI(){
+  const d=minBy(sim.lanes,l=>l.dist),t=minBy(sim.lanes,l=>l.done),v=minBy(sim.lanes,l=>l.avg);
+  document.getElementById('stats').innerHTML=
+    `<div class="stat"><b><em>${d.name}</em> ${d.dist.toFixed(1)} u</b><span>최저 총이동거리</span></div>`+
+    `<div class="stat"><b><em>${t.name}</em> ${t.done.toFixed(1)} t</b><span>최단 전체완료</span></div>`+
+    `<div class="stat"><b><em>${v.name}</em> ${v.avg.toFixed(1)} t</b><span>최저 평균 주문 리드타임</span></div>`;
+}
+function updateTable(){
+  const dW=minBy(sim.lanes,l=>l.dist),tW=minBy(sim.lanes,l=>l.done),vW=minBy(sim.lanes,l=>l.avg);
+  const cell=(v,win)=>win?`<em>${v.toFixed(1)}</em>`:v.toFixed(1);
+  document.getElementById('cmp').innerHTML=
+    `<thead><tr><th>전략</th><th>총이동거리 (u)</th><th>전체완료 (t)</th><th>평균 리드타임 (t)</th></tr></thead><tbody>`+
+    sim.lanes.map(l=>`<tr><td>${l.name}<span class="sub">${l.desc}</span></td>`+
+      `<td>${cell(l.dist,l===dW)}</td><td>${cell(l.done,l===tW)}</td><td>${cell(l.avg,l===vW)}</td></tr>`).join('')+
+    `</tbody>`;
+}
+
+function regenerate(){
+  stop();
+  sim=buildSim(genOrders(N,k));
+  frame=0;
+  renderStatic();paint();updateKPI();updateTable();
+  status.textContent=`주문 ${sim.N}개 · 주문당 SKU ${k}개 재생성 — ▶로 레이스 시작`;
+}
+
+document.getElementById('nOrd').addEventListener('input',e=>{N=+e.target.value;nOut.textContent=N;regenerate();});
+document.getElementById('kSku').addEventListener('input',e=>{k=+e.target.value;kOut.textContent=k;regenerate();});
+play.addEventListener('click',()=>timer?stop():start());
+document.getElementById('reset').addEventListener('click',reset);
+new ResizeObserver(()=>{renderStatic();paint();}).observe(svg.parentElement);
+// 진도
+const db=document.getElementById('done');
+const key='mv-done:'+SLUG;
+try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
+db.addEventListener('click',()=>{
+  try{localStorage.setItem(key,'1');}catch(_){}
+  db.classList.add('on');db.textContent='✓ 학습 완료됨';
+  status.textContent='진도가 저장되었습니다. 카탈로그에서 진도 바를 확인하세요.';
+});
+regenerate();
+})();
+</script>
+</body>
+</html>

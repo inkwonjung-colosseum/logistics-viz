@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKU vs SKU Instance vs LPN — 물류 개념 시각화</title>
+<meta name="description" content="SKU(품목 정의)·인스턴스(개별 실물)·LPN(물리 묶음의 번호판)을 스캔 실험으로 체감하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 18px;color:var(--muted-foreground);font-size:15px;max-width:62ch}
+.def b{color:var(--foreground)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+svg{display:block;width:100%}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+.t{fill:var(--foreground);font-size:12px;font-weight:600}
+.tm{fill:var(--muted-foreground);font-size:11px}
+.sq{stroke:var(--border);stroke-width:1;fill:var(--soft);transition:fill .15s ease-out}
+.sq.on{fill:currentColor}
+.beam{fill:none;stroke:var(--primary);stroke-width:2;rx:4;transition:all .15s ease-out}
+.tagp{fill:var(--foreground);rx:6}
+.tag-on{fill:var(--primary)}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+label.sl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground)}
+input[type=range]{accent-color:var(--primary);width:120px}
+output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums}
+#status{font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground)}
+.stat em{font-style:normal;color:var(--primary)}
+.takeaway{margin:6px 0 22px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:all .15s ease-out}
+.done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">식별·단위</span>
+  <h1>SKU vs SKU Instance vs LPN</h1>
+  <p class="def"><b>SKU</b>는 '무엇'(품목 정의) · <b>인스턴스</b>는 '그 하나'(개별 실물) · <b>LPN</b>은 '어느 묶음'(물리 묶음의 번호판). 입고 검수를 직접 스캔해 보면 차이가 체감됩니다.</p>
+</header>
+
+<div class="panel">
+  <svg id="sim" role="img" aria-label="입고 도크 검수 스캔 시뮬레이션: SKU 마스터와 LPN 팔레트 2개"></svg>
+  <div class="controls">
+    <div class="seg" id="mode" role="group" aria-label="스캔 모드">
+      <button type="button" data-m="ea" aria-pressed="true">EA 개별 스캔</button>
+      <button type="button" data-m="lpn" aria-pressed="false">LPN 스캔</button>
+    </div>
+    <label class="sl">케이스당 EA <input type="range" id="caseEA" min="4" max="12" step="2" value="6"> <output id="cOut">6</output></label>
+    <button class="act" id="play">▶ 스캔 시작</button>
+    <button class="ghostb" id="reset">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+<p class="takeaway">EA <span id="tkEA">24</span>개를 하나씩 스캔하던 검수가 팔레트 번호판 <b>2번</b>으로 끝납니다 — WMS가 재고 추적 단위로 LPN을 쓰는 이유.</p>
+<button class="done" id="done">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  const SLUG='sku-lpn';
+  const SKUS=[
+    {k:'A',name:'생수 500ml',cls:'cA'},
+    {k:'B',name:'콜라 500ml',cls:'cB'},
+    {k:'C',name:'이온음료 500ml',cls:'cC'}
+  ];
+  // 주문(필요량): A 2케이스, B 1케이스, C 1케이스 → LPN-1001(A,B) + LPN-1002(A,C)
+  const PALLETS=[
+    {tag:'LPN 1001',rows:[{k:'A'},{k:'B'}]},
+    {tag:'LPN 1002',rows:[{k:'A'},{k:'C'}]}
+  ];
+  let mode='ea', c=6, p=0, timer=null;
+  const svg=document.getElementById('sim'),
+        status=document.getElementById('status'),
+        play=document.getElementById('play'),
+        cOut=document.getElementById('cOut'),
+        tkEA=document.getElementById('tkEA');
+  const skuColor=k=>k==='A'?'var(--primary)':k==='B'?'var(--s2)':'var(--s3)';
+  const totalEA=()=>4*c;
+  const events=()=>mode==='ea'
+    ? PALLETS.flatMap((pl,pi)=>pl.rows.flatMap(r=>Array.from({length:c},(_,i)=>({pi,k:r.k,i,all:false}))))
+    : PALLETS.map((pl,pi)=>({pi,k:null,i:null,all:true}));
+
+  function render(){
+    const W=Math.max(320,svg.parentElement.clientWidth-2);
+    const side=W>=560, pw=Math.floor(side?(W-20)/2:W);
+    const sq=Math.max(9,Math.min(16,Math.floor((pw-30-(c-1)*4)/c)));
+    const rh=sq+18, ph=PALLETS[0].rows.length*rh+40;
+    const parts=[];
+    parts.push('<text x="2" y="14" class="tm">논리 · SKU 마스터 (무엇을)</text>');
+    // SKU 칩 (폭이 부족하면 다음 줄)
+    let cx=2, cy=22;
+    SKUS.forEach(s=>{
+      const label=`SKU-${s.k} ${s.name}`;
+      const w=17+label.split('').reduce((a,ch)=>a+(ch.charCodeAt(0)>127?11:6.4),0)+16;
+      if(cx+w>W){cx=2;cy+=20;}
+      parts.push(`<rect x="${cx}" y="${cy}" width="11" height="11" rx="3" fill="${skuColor(s.k)}"/>`);
+      parts.push(`<text x="${cx+17}" y="${cy+10}" class="tm">${label}</text>`);
+      cx+=w;
+    });
+    const subY=cy+34;
+    parts.push(`<text x="2" y="${subY}" class="tm">물리 · 입고 도크 (어느 묶음에)</text>`);
+    const y0=subY+18;
+    PALLETS.forEach((pl,pi)=>{
+      const px=side?pi*(pw+20):0, y=y0+(side?0:pi*(ph+18));
+      parts.push(`<rect x="${px}" y="${y}" width="${pw}" height="${ph}" rx="12" fill="var(--soft)" stroke="var(--border)"/>`);
+      parts.push(`<rect id="tag${pi}" x="${px+12}" y="${y-9}" width="86" height="20" rx="6" class="tagp"/>`);
+      parts.push(`<text id="tagt${pi}" x="${px+55}" y="${y+5}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--background)">${pl.tag}</text>`);
+      parts.push(`<text x="${px+pw-12}" y="${y+5}" text-anchor="end" class="tm">${c} EA × ${pl.rows.length} SKU</text>`);
+      let ry=y+26;
+      pl.rows.forEach(r=>{
+        parts.push(`<text x="${px+12}" y="${ry+sq-2}" font-size="10.5" fill="${skuColor(r.k)}" font-weight="700">${r.k}</text>`);
+        for(let i=0;i<c;i++){
+          parts.push(`<rect data-key="${pi}-${r.k}-${i}" x="${px+26+i*(sq+4)}" y="${ry}" width="${sq}" height="${sq}" rx="3" class="sq" style="color:${skuColor(r.k)}"/>`);
+        }
+        ry+=rh;
+      });
+    });
+    const height=y0+(side?ph:2*(ph+18))+6;
+    svg.setAttribute('viewBox',`0 0 ${W} ${height}`);
+    svg.setAttribute('height',height);
+    svg.innerHTML=parts.join('');
+    // 진행 상태 복원
+    const evs=events();
+    if(mode==='ea'){for(let e=0;e<p;e++){const ev=evs[e];svg.querySelectorAll(`[data-key="${ev.pi}-${ev.k}-${ev.i}"]`).forEach(el=>el.classList.add('on'));}}
+    else{for(let e=0;e<p;e++)applyLpn(evs[e]);}
+  }
+  function q(pi,k,i,on){
+    svg.querySelectorAll(`[data-key="${pi}-${k}-${i}"]`).forEach(el=>el.classList.toggle('on',on));
+  }
+  function applyLpn(e){
+    svg.querySelectorAll(`[data-key^="${e.pi}-"]`).forEach(el=>el.classList.add('on'));
+    const t=svg.getElementById('tag'+e.pi), tt=svg.getElementById('tagt'+e.pi);
+    if(t){t.classList.add('tag-on');tt&&tt.setAttribute('fill','var(--primary-foreground)');}
+  }
+  function step(){
+    const evs=events();
+    if(p>=evs.length){stop();status.textContent=`완료 — 스캔 ${mode==='ea'?totalEA():2}회, ${totalEA()} EA 식별`;return;}
+    const e=evs[p++];
+    if(e.all){applyLpn(e);status.textContent=`${PALLETS[e.pi].tag} 스캔 — ${2*c} EA 일괄 식별 (스캔 ${p}회)`;}
+    else{q(e.pi,e.k,e.i,true);status.textContent=`EA 스캔 ${p}/${totalEA()} — 개별 실물(instance) 식별`;}
+  }
+  function start(){if(timer)return;play.textContent='⏸ 일시정지';timer=setInterval(step,110);}
+  function stop(){clearInterval(timer);timer=null;play.textContent='▶ 스캔 시작';}
+  function reset(){stop();p=0;render();status.textContent='';}
+
+  function stats(){
+    const ea=totalEA();
+    document.getElementById('stats').innerHTML=
+      `<div class="stat"><b>${ea}회</b><span>EA 모드 스캔 수 (예상 ${ea*2}초)</span></div>`+
+      `<div class="stat"><b><em>2회</em></b><span>LPN 모드 스캔 수 (예상 4초)</span></div>`+
+      `<div class="stat"><b>${Math.round((1-2/ea)*100)}%</b><span>검수 스캔 절감률</span></div>`;
+    tkEA.textContent=ea;
+  }
+
+  document.getElementById('mode').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    mode=b.dataset.m;
+    document.querySelectorAll('#mode button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    reset();
+  });
+  document.getElementById('caseEA').addEventListener('input',e=>{c=+e.target.value;cOut.textContent=c;stats();reset();});
+  play.addEventListener('click',()=>timer?stop():start());
+  document.getElementById('reset').addEventListener('click',reset);
+  new ResizeObserver(()=>{const s=p;render();p=s;}).observe(svg.parentElement);
+  // 진도
+  const db=document.getElementById('done');
+  const key='mv-done:'+SLUG;
+  try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
+  db.addEventListener('click',()=>{
+    try{localStorage.setItem(key,'1');}catch(_){}
+    db.classList.add('on');db.textContent='✓ 학습 완료됨';
+    status.textContent='진도가 저장되었습니다. 카탈로그에서 진도 바를 확인하세요.';
+  });
+  stats();render();
+})();
+</script>
+</body>
+</html>

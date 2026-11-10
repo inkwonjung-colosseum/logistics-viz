@@ -2798,5 +2798,23 @@ html&gt;body{padding:0}&lt;/style&gt;
   delete frame.dataset.srcdoc;
 })();
 </script>
+<!-- mv-done -->
+<style>
+#mv-bar{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;gap:8px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif}
+#mv-bar a,#mv-bar button{border-radius:999px;padding:8px 14px;cursor:pointer;text-decoration:none;font-size:13px;font-family:inherit;background:light-dark(#ffffff,#161923);color:light-dark(#5f6470,#9aa0ae);border:1px solid light-dark(#e4e6ec,#262a36)}
+#mv-bar button.on{background:light-dark(#2c5ce5,#7aa5ff);border-color:transparent;color:light-dark(#ffffff,#0d1526);font-weight:600}
+@media (hover:hover){#mv-bar a:hover,#mv-bar button:hover{color:light-dark(#1a1c22,#e9eaf0)}}
+@media (prefers-reduced-motion:reduce){#mv-bar *{transition:none!important}}
+</style>
+<div id="mv-bar">
+  <a href="../index.html">← 카탈로그</a>
+  <button id="mv-done-btn" type="button" data-slug="crossdock">✓ 학습 완료</button>
+</div>
+<script>
+(function(){var b=document.getElementById('mv-done-btn');if(!b)return;var k='mv-done:'+b.dataset.slug;
+function ko(){b.classList.add('on');b.textContent='✓ 학습 완료됨'}
+try{if(localStorage.getItem(k))ko()}catch(e){}
+b.addEventListener('click',function(){try{localStorage.setItem(k,'1')}catch(e){}ko()});})();
+</script>
 </body>
 </html>

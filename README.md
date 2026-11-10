@@ -2,7 +2,7 @@
 
 크로스독, LPN, SKU, 피킹 방식 같은 물류 핵심 개념을 **인터랙티브 애니메이션**으로 설명하는 정적 사이트입니다.
 
-**현재 진행**: 1 / 49편 공개 (크로스독 ✅) — 전체 목록은 `docs/roadmap.md`
+**현재 진행**: 우선순위 TOP 5 완료 · 입고(Inbound) 모듈 8편 · 슬로팅 미니게임 — 전체 목록은 `docs/roadmap.md`
 
 ## 핵심 설계 원칙
 
@@ -11,6 +11,12 @@
 - 각 시각화는 외부 CSS/JS 없이 단일 파일로 완결됩니다 (빌드 도구 불필요).
 - 라이브러리(D3 등)는 페이지에 임베드되므로 배포 후에도 외부 CDN 의존이 없습니다.
 - 색·타이포 통일은 코드 공유가 아닌 컨벤션 공유로 해결 → `docs/design-tokens.md`
+- 모든 페이지는 "체험 → 손잡이 → KPI → 결론" 학습 패턴을 따름 → `docs/learning-pattern.md`
+
+## 학습 기능
+
+- **학습 트랙**: 입문 5개념 / 입고(Inbound) / 실전 챌린지 — `data/catalog.json`의 `tracks`에서 관리
+- **진도 저장**: 각 페이지 하단 `✓ 학습 완료` 버튼 → `localStorage['mv-done:<slug>']`, 홈에서 진도 바·완료 배지로 표시
 
 ## 다루는 영역
 
@@ -29,12 +35,13 @@
 
 ```
 물류/
-├── index.html            # 카탈로그 홈 (개념 카드 + 카테고리 필터)
+├── index.html            # 카탈로그 홈 (트랙 진도 + 개념 카드 + 카테고리 필터)
 ├── concepts/             # 배포되는 개별 시각화 페이지 (자기완결 HTML)
-│   └── crossdock.html    #   예: 크로스독
-├── data/catalog.json     # 개념 메타데이터 (index.html이 읽어 렌더링)
+├── data/catalog.json     # 개념 메타데이터 + 학습 트랙 (index.html이 읽어 렌더링)
 ├── docs/roadmap.md       # 전체 개념 로드맵 + 진행 상태
-└── docs/design-tokens.md # 색·타이포·애니메이션 제작 컨벤션
+├── docs/design-tokens.md # 색·타이포·애니메이션 제작 컨벤션
+├── docs/learning-pattern.md # 페이지 5단계 학습 패턴 표준
+└── docs/inbound-concepts.md # 입고 모듈 개념 지도
 ```
 
 ## 워크플로 (새 개념 추가하기)
@@ -46,9 +53,10 @@
      <fragment.html> concepts/<slug>.html
    ```
    - slug는 ASCII 소문자-하이픈 (예: `crossdock`, `fifo-fefo`, `hub-and-spoke`)
-3. **등록** — `data/catalog.json`의 `concepts` 배열에 메타데이터 추가 (제목/카테고리/요약/파일 경로)
-4. **로드맵 갱신** — `docs/roadmap.md`에서 상태를 ✅ 로 변경
-5. **배포** — 커밋 & 푸시하면 끝
+3. **등록** — `data/catalog.json`의 `concepts` 배열에 메타데이터 추가 (제목/카테고리/요약/파일 경로), 필요시 `tracks`에 포함
+4. **완료 버튼** — 페이지 하단에 `✓ 학습 완료` 버튼 추가 (`localStorage['mv-done:<slug>']` 저장, 골격은 기존 페이지 참고)
+5. **로드맵 갱신** — `docs/roadmap.md`에서 상태를 ✅ 로 변경
+6. **배포** — 커밋 & 푸시하면 끝
 
 ## 로컬 미리보기
 

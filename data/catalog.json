@@ -1,5 +1,25 @@
 {
   "updated": "2026-11-10",
+  "tracks": [
+    {
+      "id": "intro",
+      "title": "입문 트랙 · 핵심 5개념",
+      "desc": "창고·재고·수송을 관통하는 기초 개념. 시뮬레이션을 돌려보고 ✓ 학습 완료를 누르면 진도가 저장됩니다.",
+      "items": ["crossdock", "sku-lpn", "picking-methods", "fifo-lifo-fefo", "hub-and-spoke"]
+    },
+    {
+      "id": "inbound",
+      "title": "입고(Inbound) 트랙",
+      "desc": "발주부터 가용 전환·적치, 수입 입고까지 — 입고 생애주기를 따라가는 시리즈.",
+      "items": ["inbound-lifecycle", "asn", "yms-dock-scheduling", "blind-receiving", "qc-stock-status", "osd-exceptions", "putaway-strategies", "import-inbound"]
+    },
+    {
+      "id": "game",
+      "title": "실전 챌린지",
+      "desc": "개념을 몸으로 익히는 미니게임.",
+      "items": ["slotting-game"]
+    }
+  ],
   "concepts": [
     {
       "id": "crossdock",
@@ -8,19 +28,118 @@
       "summary": "창고에 저장하지 않고 입고 화물을 곧바로 출고 도크로 통과시키는 방식. 일반 창고와의 터치 수·체류 시간 차이를 애니메이션으로 비교합니다.",
       "file": "concepts/crossdock.html",
       "tags": ["cross-dock", "put-away", "피킹", "도크"]
+    },
+    {
+      "id": "sku-lpn",
+      "title": "SKU vs SKU Instance vs LPN",
+      "category": "식별·단위",
+      "summary": "SKU는 '무엇', 인스턴스는 '그 하나', LPN은 '어느 묶음'. 입고 검수를 직접 스캔하며 EA 24번 vs 팔레트 번호판 2번의 차이를 체감합니다.",
+      "file": "concepts/sku-lpn.html",
+      "tags": ["SKU", "LPN", "검수", "스캔"]
+    },
+    {
+      "id": "picking-methods",
+      "title": "피킹 방식 4종 (Discrete·Batch·Zone·Cluster)",
+      "category": "창고 운영",
+      "summary": "같은 주문 더미로 4가지 피킹 전략이 레이스합니다. 주문 수·주문당 SKU 수를 바꾸며 총 이동거리와 주문 리드타임의 트레이드오프를 관찰하세요.",
+      "file": "concepts/picking-methods.html",
+      "tags": ["피킹", "batch", "zone", "cluster"]
+    },
+    {
+      "id": "fifo-lifo-fefo",
+      "title": "FIFO · LIFO · FEFO",
+      "category": "재고",
+      "summary": "같은 수요, 같은 입고인데 꺼내는 순서만으로 폐기율이 갈립니다. 수요와 유통기한 편차를 바꾸며 3정책의 폐기 대결을 지켜보세요.",
+      "file": "concepts/fifo-lifo-fefo.html",
+      "tags": ["FIFO", "LIFO", "FEFO", "유통기한", "폐기"]
+    },
+    {
+      "id": "hub-and-spoke",
+      "title": "허브 앤 스포크 vs Point-to-Point",
+      "category": "수송·네트워크",
+      "summary": "노드 수를 늘리면 직송 노선은 n²으로 폭발하고 허브는 n개로 정리됩니다. 노선 수·주행거리·차량 대수의 트레이드오프를 직접 확인하세요.",
+      "file": "concepts/hub-and-spoke.html",
+      "tags": ["허브", "네트워크", "컨솔리데이션"]
+    },
+    {
+      "id": "slotting-game",
+      "title": "슬로팅 챌린지 (미니게임)",
+      "category": "창고 운영",
+      "summary": "6칸 선반에 6개 SKU를 배치하고 100회 피킹 비용을 최적 배치와 겨뤄보세요. 골든존·ABC 분석·무게 기준을 몸으로 익히는 게임.",
+      "file": "concepts/slotting-game.html",
+      "tags": ["슬로팅", "골든존", "ABC", "게임"]
+    },
+    {
+      "id": "asn",
+      "title": "ASN (사전 출하 통지)",
+      "category": "창고 운영",
+      "summary": "화물보다 선적 데이터를 먼저 보내 입고를 준비시키는 메시지. ASN 유무에 따라 도크 체류와 입고 리드타임이 어떻게 달라지는지 타임라인으로 비교합니다.",
+      "file": "concepts/asn.html",
+      "tags": ["ASN", "EDI", "입고", "도크"]
+    },
+    {
+      "id": "blind-receiving",
+      "title": "블라인드 입고 vs ASN 스캔 검수",
+      "category": "창고 운영",
+      "summary": "사전 정보 없이 받는 블라인드 입고와 ASN 스캔 검수의 작업 속도와 불일치 포착 방식을 박스 단위 애니메이션으로 비교합니다.",
+      "file": "concepts/blind-receiving.html",
+      "tags": ["receiving", "검수", "ASN", "블라인드"]
+    },
+    {
+      "id": "putaway-strategies",
+      "title": "Put-away 전략 (적치)",
+      "category": "창고 운영",
+      "summary": "랜덤·고정 위치·ABC 슬로팅 세 가지 적치 전략이 지게차 이동 거리와 이후 피킹 동선에 어떤 차이를 만드는지 보여줍니다.",
+      "file": "concepts/putaway-strategies.html",
+      "tags": ["put-away", "슬로팅", "ABC", "골든존"]
+    },
+    {
+      "id": "yms-dock-scheduling",
+      "title": "YMS · 도크 스케줄링",
+      "category": "창고 운영",
+      "summary": "게이트→야적장→도크로 이어지는 트럭 흐름 시뮬레이션. 예약제 스케줄링과 선착순 도착의 야적 대기·야적장 점유 차이를 비교합니다.",
+      "file": "concepts/yms-dock-scheduling.html",
+      "tags": ["YMS", "야적장", "도크", "어포인트먼트"]
+    },
+    {
+      "id": "qc-stock-status",
+      "title": "입고 검품(QC) · 재고 상태 전환",
+      "category": "창고 운영",
+      "summary": "입고 재고가 검품을 거쳐 가용 재고로 전환되는 흐름. 전수검사와 샘플링(AQL)의 속도와 불량 포착 리스크를 비교합니다.",
+      "file": "concepts/qc-stock-status.html",
+      "tags": ["QC", "검품", "가용재고", "AQL"]
+    },
+    {
+      "id": "inbound-lifecycle",
+      "title": "입고 생애주기 · 문서 흐름",
+      "category": "창고 운영",
+      "summary": "발주(PO)부터 가용 전환·3-way match까지 입고가 시스템을 통과하는 전체 순서. 단계별 문서(EDI 850·856·861·810), 재고 상태, ERP 전기 시점을 보여줍니다.",
+      "file": "concepts/inbound-lifecycle.html",
+      "tags": ["PO", "GR", "3-way match", "EDI", "상태 머신"]
+    },
+    {
+      "id": "osd-exceptions",
+      "title": "입고 예외 처리 (OS&D)",
+      "category": "창고 운영",
+      "summary": "PO 기준 8개에 대해 과다·부족·파손이 발생했을 때의 처리 경로. 가용 전환 수량과 보류, 클레임·백오더 후속 조치를 시나리오별로 비교합니다.",
+      "file": "concepts/osd-exceptions.html",
+      "tags": ["OS&D", "과다입고", "부족입고", "파손", "예외"]
+    },
+    {
+      "id": "import-inbound",
+      "title": "수입 입고 체인",
+      "category": "창고 운영",
+      "summary": "해외 출하부터 창고 입고까지의 국제 물류 흐름. B/L, Invoice, 수입신고필증 등 문서와 공급사·선사·관세사·트러킹으로의 인계, 리드타임(D-45~D+1)을 보여줍니다.",
+      "file": "concepts/import-inbound.html",
+      "tags": ["수입", "B/L", "통관", "Incoterms", "트러킹"]
     }
   ],
   "planned": [
-    { "title": "SKU vs SKU Instance vs LPN", "category": "식별·단위", "top": 2 },
-    { "title": "피킹 방식 4종 (Discrete·Batch·Zone·Cluster)", "category": "창고 운영", "top": 3 },
-    { "title": "FIFO · LIFO · FEFO", "category": "재고", "top": 4 },
-    { "title": "허브 앤 스포크 vs Point-to-Point", "category": "수송·네트워크", "top": 5 },
     { "title": "Wave Picking", "category": "창고 운영" },
-    { "title": "슬로팅 · ABC 분석 · 골든존", "category": "창고 운영" },
+    { "title": "슬로팅 · ABC 분석 · 골든존 (개념 편)", "category": "창고 운영" },
     { "title": "인바운드 플로우 (입고→검수→적치)", "category": "창고 운영" },
     { "title": "아웃바운드 플로우 (웨이브→피킹→패킹→출고)", "category": "창고 운영" },
     { "title": "리플레니시먼트 (피킹 존 보충)", "category": "창고 운영" },
-    { "title": "ASN (사전 출하 통지)", "category": "창고 운영" },
     { "title": "Pack Hierarchy (Each→Case→Pallet)", "category": "식별·단위" },
     { "title": "Lot/Batch vs Serial Number", "category": "식별·단위" },
     { "title": "UoM 변환 (EA·CS·PL)", "category": "식별·단위" },

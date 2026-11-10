@@ -89,6 +89,23 @@ a.card.ghost,div.card.ghost{background:transparent;border:1px dashed var(--borde
 .card.ghost .go{color:var(--muted);font-weight:500}
 .card.ghost .badge{background:transparent;color:var(--muted);border:1px dashed var(--border);padding:1px 7px}
 .badge{display:inline-flex;align-items:center;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:600;letter-spacing:.02em;padding:2px 8px;font-variant-numeric:tabular-nums}
+.card-top .donemark{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;background:var(--primary);color:var(--primary-foreground);font-size:11px;font-weight:700;flex:none}
+
+/* ── Tracks ───────────────────────────── */
+.tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin:30px 0 6px}
+.track{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow-rest)}
+.track h2{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:15px;font-weight:650;margin:0 0 4px}
+.track h2 b{font-weight:600;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.track .desc{font-size:13px;color:var(--muted);margin:0 0 12px}
+.track .bar{height:6px;background:var(--chip);border-radius:999px;overflow:hidden;margin:0 0 12px}
+.track .bar i{display:block;height:100%;width:0;background:var(--primary);border-radius:999px;transition:width .4s cubic-bezier(.2,0,0,1)}
+.track .pills{display:flex;flex-wrap:wrap;gap:6px}
+.track .pills a{font-size:12px;border-radius:999px;padding:4px 10px;text-decoration:none;color:var(--muted);border:1px solid var(--border);transition:color .15s ease-out,border-color .15s ease-out}
+.track .pills a.did{background:var(--primary);border-color:transparent;color:var(--primary-foreground);font-weight:600}
+@media (hover:hover){
+  .track .pills a:hover{color:var(--foreground);border-color:color-mix(in oklab, var(--primary) 40%, var(--border))}
+  .track .pills a.did:hover{color:var(--primary-foreground)}
+}
 
 /* ── Footer ───────────────────────────── */
 footer{margin-top:60px;border-top:1px solid var(--border);padding-top:20px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -119,9 +136,10 @@ code{background:var(--chip);border-radius:6px;padding:1px 6px;font-size:12.5px}
   <p class="lede">크로스독·LPN·SKU 같은 물류 핵심 개념을 인터랙티브 애니메이션으로 설명합니다.</p>
   <div class="stats" id="meta"></div>
 </header>
-<nav id="filters" class="enter" style="--d:100ms" aria-label="카테고리 필터"></nav>
+<section id="tracks" class="tracks enter" style="--d:100ms" aria-label="학습 트랙"></section>
+<nav id="filters" class="enter" style="--d:200ms" aria-label="카테고리 필터"></nav>
 <main id="grid"></main>
-<footer class="enter" style="--d:300ms">
+<footer class="enter" style="--d:400ms">
   <span>전체 로드맵과 제작 규칙은 <code>docs/roadmap.md</code> · <code>docs/design-tokens.md</code>에 정리되어 있습니다.</span>
   <a href="https://github.com/inkwonjung-colosseum/logistics-viz">GitHub ↗</a>
 </footer>
@@ -152,11 +170,35 @@ code{background:var(--chip);border-radius:6px;padding:1px 6px;font-size:12.5px}
     const ghosts=(data.planned||[]).map(p=>({title:p.title,category:p.category,top:p.top}));
     const all=items.concat(ghosts);
     const cats=['전체',...new Set(all.map(c=>c.category))];
+    const byId=Object.fromEntries(items.map(c=>[c.id,c]));
+    const isDone=id=>{try{return !!localStorage.getItem('mv-done:'+id)}catch(_){return false}};
     let active='전체';
     meta.innerHTML=
       '<span class="stat"><b>'+items.length+'</b><span>공개된 시각화</span></span>'+
       '<span class="stat"><b>'+all.length+'</b><span>전체 로드맵</span></span>'+
       '<span class="stat"><b>'+(data.updated||'')+'</b><span>마지막 업데이트</span></span>';
+    function renderTracks(){
+      const box=document.getElementById('tracks');
+      const tracks=data.tracks||[];
+      if(!tracks.length){box.style.display='none';return;}
+      box.innerHTML=tracks.map(t=>{
+        const known=t.items.map(id=>byId[id]).filter(Boolean);
+        const done=known.filter(c=>isDone(c.id)).length;
+        const pct=known.length?Math.round(done/known.length*100):0;
+        const pills=known.map(c=>'<a class="'+(isDone(c.id)?'did':'')+'" href="'+c.file+'" title="'+c.title+'">'+(isDone(c.id)?'✓ ':'')+c.title+'</a>').join('');
+        return '<div class="track"><h2>'+t.title+'<b>'+done+'/'+known.length+'</b></h2>'+
+          '<p class="desc">'+t.desc+'</p>'+
+          '<div class="bar"><i style="width:0%"></i></div>'+
+          '<div class="pills">'+pills+'</div></div>';
+      }).join('');
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        box.querySelectorAll('.bar i').forEach((el,i)=>{
+          const t=tracks[i];const known=t.items.map(id=>byId[id]).filter(Boolean);
+          const done=known.filter(c=>isDone(c.id)).length;
+          el.style.width=(known.length?Math.round(done/known.length*100):0)+'%';
+        });
+      }));
+    }
     function renderFilters(){
       filters.innerHTML='';
       cats.forEach(c=>{
@@ -185,13 +227,13 @@ code{background:var(--chip);border-radius:6px;padding:1px 6px;font-size:12.5px}
       el.className='card'+(ghost?' ghost':'');
       if(!ghost)el.href=c.file;
       if(first){el.classList.add('enter');el.style.setProperty('--d',(200+Math.min(i*40,320))+'ms');}
-      el.innerHTML='<span class="card-top"><span class="cat-ico">'+iconFor(c.category)+'</span><span class="cat">'+c.category+'</span>'+(c.top?'<span class="badge">TOP '+c.top+'</span>':'')+'</span>'+
+      el.innerHTML='<span class="card-top"><span class="cat-ico">'+iconFor(c.category)+'</span><span class="cat">'+c.category+'</span>'+(c.top?'<span class="badge">TOP '+c.top+'</span>':'')+(!ghost&&isDone(c.id)?'<span class="donemark" title="학습 완료">✓</span>':'')+'</span>'+
         '<h2>'+c.title+'</h2>'+
         (ghost?'<p>제작 예정 — 로드맵에 포함된 개념입니다.</p>':'<p>'+c.summary+'</p>')+
         (ghost?'<span class="go">준비중</span>':'<span class="go">시각화 보기 '+ARROW+'</span>');
       return el;
     }
-    renderFilters(); renderGrid();
+    renderTracks(); renderFilters(); renderGrid();
     first=false;
   }).catch(()=>{
     grid.innerHTML='<div class="empty">카탈로그를 불러오지 못했습니다. 로컬에서는 <code>python3 -m http.server</code>로 서버를 띄워 접속하세요. 배포 후에는 정상 표시됩니다.</div>';

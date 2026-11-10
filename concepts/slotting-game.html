@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>슬로팅 챌린지 — 골든존에 누구를? — 물류 개념 시각화</title>
+<meta name="description" content="ABC 회전율과 무게를 고려해 6칸 선반에 SKU 6종을 배치하고 100회 피킹의 총비용을 최소화하는 슬로팅 미니게임.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --bad:light-dark(#c23b3b,#e57373);
+  --gold:light-dark(#a97a15,#e0b34c);
+  --goldsoft:light-dark(rgb(169 122 21/.12),rgb(224 179 76/.14));
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 18px;color:var(--muted-foreground);font-size:15px;max-width:62ch}
+.def b{color:var(--foreground)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+svg{display:block;width:100%}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+.t{fill:var(--foreground);font-size:12px;font-weight:600}
+.tm{fill:var(--muted-foreground);font-size:11px}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.act:disabled{opacity:.45;cursor:default}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+#status{font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground)}
+.stat em{font-style:normal;color:var(--primary)}
+.takeaway{margin:6px 0 22px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out,color .15s ease-out}
+.done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* 슬로팅 게임 전용 */
+[data-slot],[data-sku]{cursor:pointer}
+.slot .bg{fill:var(--soft);stroke:var(--border);stroke-width:1;transition:fill .15s ease-out}
+.slot.gold .bg{fill:var(--goldsoft);stroke:var(--gold)}
+.slot .hint{fill:var(--muted-foreground);font-size:11.5px}
+.slot .hint.go{fill:var(--primary);font-weight:700;font-size:12px}
+.chipr{fill:var(--card);stroke-width:1.25;transition:stroke .15s ease-out}
+.chipr.held{stroke-dasharray:5 3;stroke-width:2}
+.flash{opacity:0;transition:opacity .12s ease-out;pointer-events:none}
+.flash.on{opacity:.45}
+.tray-off{pointer-events:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">창고 운영</span>
+  <h1>슬로팅 챌린지 — 골든존에 누구를?</h1>
+  <p class="def"><b>슬로팅</b>: 어떤 SKU를 어떤 자리에 둘까. 회전율(A/B/C)과 무게를 고려해 100회 피킹의 총 비용을 최소화하라.</p>
+</header>
+
+<div class="panel">
+  <svg id="sim" role="img" aria-label="슬로팅 챌린지 시뮬레이션: 위에서부터 비용 3·1·1·2·3·4의 6칸 선반(2·3번째 칸 골든존)에 SKU 6종을 배치해 100회 피킹 총비용을 최소화하는 게임"></svg>
+  <div class="controls">
+    <button class="act" id="score" disabled>채점 시작</button>
+    <button class="ghostb" id="resetb">다시 배치</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="kCost">—</b><span>총 피킹 비용 (100픽)</span></div>
+  <div class="stat"><b id="kEff">—</b><span>최적 대비 효율 (최적=100%)</span></div>
+  <div class="stat"><b id="kGrade">—</b><span>등급 (S 최적 · A 105% 이내 · B 115% 이내)</span></div>
+</div>
+
+<p class="takeaway">회전 빠른 A는 골든존, 무거운 SKU는 허리 아래 — ABC 분석·슬로팅·골든존이 실전에서 쓰이는 방식 그대로다.</p>
+<button class="done" id="done">✓ 학습 완료</button>
+</div>
+
+<script>
+(() => {
+  /*PURE-START*/
+  const SLOTS=[3,1,1,2,3,4]; // 위→아래 칸 기본 비용
+  const SKUS=[
+    {id:'A-01',picks:32,cls:'A',heavy:false},
+    {id:'A-02',picks:20,cls:'A',heavy:true}, // ★무거움
+    {id:'B-01',picks:14,cls:'B',heavy:false},
+    {id:'B-02',picks:12,cls:'B',heavy:false},
+    {id:'C-01',picks:12,cls:'C',heavy:false},
+    {id:'C-02',picks:10,cls:'C',heavy:false}
+  ];
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  const slotCost=(si,s)=>SLOTS[si]+(s.heavy&&si<2?1.5:0);
+  const layoutCost=a=>a.reduce((t,s,i)=>t+SKUS[s].picks*slotCost(i,SKUS[s]),0);
+  function bestLayout(){ // 6!=720 완전탐색 (사전순 순회, 첫 최적 유지)
+    let best=null,bc=Infinity;
+    const cur=[],used=Array(6).fill(false);
+    (function rec(){
+      if(cur.length===6){const c=layoutCost(cur);if(c<bc){bc=c;best=cur.slice();}return;}
+      for(let i=0;i<6;i++){if(used[i])continue;used[i]=true;cur.push(i);rec();cur.pop();used[i]=false;}
+    })();
+    return {cost:bc,arr:best};
+  }
+  function makeOrder(){ // 100픽 순서 (시드 42, 결정론적 셔플 — 같은 배치면 항상 같은 시뮬레이션)
+    const r=rng(42),a=[];
+    SKUS.forEach((s,i)=>{for(let k=0;k<s.picks;k++)a.push(i);});
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}
+    return a;
+  }
+  const fmt=v=>{const r=Math.round(v*10)/10;return Number.isInteger(r)?String(r):r.toFixed(1);};
+  const gradeOf=(t,best)=>t===best?'S':t<=best*1.05+1e-9?'A':t<=best*1.15+1e-9?'B':'C';
+  /*PURE-END*/
+  const opt=bestLayout(), ORDER=makeOrder();
+  let slots=Array(6).fill(null), sel=null, held=null;
+  let scored=false, running=false, timer=null, tick=0, acc=0, prevFlash=-1, posBySku=[];
+  const svg=document.getElementById('sim'), statusEl=document.getElementById('status'),
+        scoreBtn=document.getElementById('score'), resetBtn=document.getElementById('resetb'),
+        kCost=document.getElementById('kCost'), kEff=document.getElementById('kEff'),
+        kGrade=document.getElementById('kGrade');
+  const COLORS={A:'var(--primary)',B:'var(--s2)',C:'var(--muted-foreground)'};
+  const GRADE_COLOR={S:'var(--gold)',A:'var(--s2)',B:'var(--s3)',C:'var(--bad)'};
+  const grade=t=>gradeOf(t,opt.cost);
+  const allPlaced=()=>slots.every(v=>v!==null);
+  const setStatus=m=>{statusEl.textContent=m;};
+
+  function counterText(){
+    if(running)return '누적 비용 '+fmt(acc)+' · '+tick+'/100픽';
+    if(scored){const t=layoutCost(slots);return '총비용 '+fmt(t)+' · 등급 '+grade(t);}
+    if(!slots.some(v=>v!==null))return '예상 총비용 —';
+    const sum=slots.reduce((t,s,i)=>s!==null?t+SKUS[s].picks*slotCost(i,SKUS[s]):t,0);
+    return (allPlaced()&&!held?'예상 총비용 ':'부분 배치 비용 ')+fmt(sum);
+  }
+
+  function trayGrid(P,x0,y0,tw){
+    const chipW=Math.min(180,Math.floor((tw-8)/2)), chipH=46;
+    SKUS.forEach((s,k)=>{
+      const c=k%2, r=Math.floor(k/2);
+      const px=x0+c*(chipW+8), py=y0+r*(chipH+8);
+      const placed=slots.indexOf(k)>=0, isSel=sel===k;
+      P.push(`<g data-sku="${k}" class="${placed?'tray-off':''}" opacity="${placed?0.38:1}">`);
+      P.push(`<rect x="${px}" y="${py}" width="${chipW}" height="${chipH}" rx="9" fill="${isSel?'var(--soft)':'var(--card)'}" stroke="${isSel?'var(--primary)':'var(--border)'}"${isSel?' stroke-width="2"':''}/>`);
+      P.push(`<rect x="${px}" y="${py}" width="5" height="${chipH}" rx="2.5" fill="${COLORS[s.cls]}"/>`);
+      P.push(`<text x="${px+14}" y="${py+19}" font-size="12" font-weight="700" fill="${COLORS[s.cls]}">${s.id}${s.heavy?'<tspan fill="var(--gold)"> ★</tspan>':''}</text>`);
+      P.push(`<text x="${px+14}" y="${py+36}" font-size="11" class="tm">${placed?'✓ 배치됨':(s.heavy?'★무거움 ':'')+s.picks+'픽'}</text>`);
+      P.push('</g>');
+    });
+  }
+
+  function resultBlock(P,x0,ry){
+    if(!scored){
+      P.push(`<text x="${x0}" y="${ry}" class="tm">6칸을 모두 채우면 [채점 시작]이 활성화됩니다.</text>`);
+      P.push(`<text x="${x0}" y="${ry+18}" class="tm">등급: S 최적 · A ≤105% · B ≤115% · C 그 외</text>`);
+      return;
+    }
+    const total=layoutCost(slots), g=grade(total);
+    const eff=Math.round(opt.cost/total*100), ratio=Math.round(total/opt.cost*100);
+    const line=ratio===100?'최적 슬로팅 달성!':'최적보다 '+fmt(total-opt.cost)+' 비용 높음 (+'+(ratio-100)+'%)';
+    P.push(`<text x="${x0}" y="${ry}" font-size="12" font-weight="700" class="t">채점 결과 — 100픽 시뮬레이션</text>`);
+    P.push(`<text x="${x0}" y="${ry+42}" font-size="34" font-weight="700" fill="${GRADE_COLOR[g]}">${g}</text>`);
+    P.push(`<text x="${x0+46}" y="${ry+20}" font-size="12" class="t">총비용 ${fmt(total)} · 최적 ${fmt(opt.cost)}</text>`);
+    P.push(`<text x="${x0+46}" y="${ry+38}" font-size="11.5" class="tm">효율 ${eff}% · 최적 대비 ${ratio}%</text>`);
+    P.push(`<text x="${x0+46}" y="${ry+56}" font-size="11.5" font-weight="700" fill="${GRADE_COLOR[g]}">${line}</text>`);
+    P.push(`<text x="${x0}" y="${ry+82}" class="tm">최적 1–3칸: ${opt.arr.slice(0,3).map(i=>SKUS[i].id).join(' · ')}</text>`);
+    P.push(`<text x="${x0}" y="${ry+100}" class="tm">최적 4–6칸: ${opt.arr.slice(3).map(i=>SKUS[i].id).join(' · ')}</text>`);
+  }
+
+  function render(){
+    const W=Math.max(320,svg.parentElement.clientWidth-2);
+    const narrow=W<620;
+    const bx=8;
+    const slotW=narrow?W-108:Math.min(300,Math.round((W-150)*0.56));
+    const colX=bx+slotW+100, colW=W-colX-6;
+    const slotH=52, gap=8, shelfY=52;
+    const slotY=i=>shelfY+i*(slotH+gap);
+    const shelfBot=slotY(5)+slotH;
+    const P=[];
+    P.push('<text x="2" y="13" class="tm">숫자 = 픽당 기본 비용 · ★무거움 × 상단 2칸 = 비용 +1.5</text>');
+    P.push(`<text id="counter" x="${W-2}" y="31" text-anchor="end" font-size="12" font-weight="700" class="t">${counterText()}</text>`);
+    // 골든존 밴드 (2·3번째 칸)
+    P.push(`<rect x="${bx-4}" y="${slotY(1)-6}" width="${slotW+8}" height="${slotH*2+gap+12}" rx="12" fill="var(--goldsoft)"/>`);
+    const brx=bx+slotW+5;
+    const bracket=(y1,y2,label)=>{
+      P.push(`<line x1="${brx}" y1="${y1}" x2="${brx}" y2="${y2}" stroke="var(--border)"/>`);
+      P.push(`<line x1="${brx}" y1="${y1}" x2="${brx+5}" y2="${y1}" stroke="var(--border)"/>`);
+      P.push(`<line x1="${brx}" y1="${y2}" x2="${brx+5}" y2="${y2}" stroke="var(--border)"/>`);
+      P.push(`<text x="${brx+9}" y="${(y1+y2)/2+4}" class="tm">${label}</text>`);
+    };
+    bracket(slotY(0)+2,slotY(1)+slotH-2,'상단(사다리)');
+    bracket(slotY(3)+2,slotY(5)+slotH-2,'숙임');
+    P.push(`<text x="${brx+9}" y="${(slotY(1)+slotY(2)+slotH)/2+4}" font-size="12" font-weight="700" fill="var(--gold)">★골든존</text>`);
+    // 6칸 선반
+    for(let i=0;i<6;i++){
+      const y=slotY(i), si=slots[i], sku=si===null?null:SKUS[si];
+      const gold=i===1||i===2;
+      const perPick=sku?slotCost(i,sku):null;
+      const penal=!!sku&&sku.heavy&&i<2;
+      P.push(`<g data-slot="${i}" class="slot${gold?' gold':''}">`);
+      P.push(`<rect class="bg" x="${bx}" y="${y}" width="${slotW}" height="${slotH}" rx="10"/>`);
+      P.push(`<rect x="${bx+8}" y="${y+16}" width="34" height="20" rx="6" fill="var(--background)" stroke="var(--border)"/>`);
+      P.push(`<text x="${bx+25}" y="${y+30}" text-anchor="middle" font-size="12" font-weight="700" fill="${penal?'var(--bad)':'var(--foreground)'}">${sku?fmt(perPick):SLOTS[i]}</text>`);
+      if(sku){
+        const cw=slotW-54-(scored?58:16);
+        P.push(`<rect class="chipr${held&&held.from===i?' held':''}" x="${bx+52}" y="${y+8}" width="${cw}" height="36" rx="8" stroke="${COLORS[sku.cls]}"/>`);
+        P.push(`<rect x="${bx+52}" y="${y+8}" width="5" height="36" rx="2.5" fill="${COLORS[sku.cls]}"/>`);
+        P.push(`<text x="${bx+66}" y="${y+30}" font-size="12" font-weight="700" fill="${COLORS[sku.cls]}">${sku.id}<tspan font-size="11.5" font-weight="400" class="tm"> · ${sku.picks}픽</tspan>${sku.heavy?'<tspan fill="var(--gold)"> ★</tspan>':''}</text>`);
+        if(scored)P.push(`<text x="${bx+slotW-12}" y="${y+30}" text-anchor="end" font-size="11.5" font-weight="700" fill="${penal?'var(--bad)':'var(--muted-foreground)'}">${fmt(perPick)}/픽</text>`);
+      }else{
+        const go=sel!==null||held!==null;
+        P.push(`<text x="${bx+slotW/2+14}" y="${y+30}" text-anchor="middle" class="hint${go?' go':''}">${go?'여기에 배치 ←':'빈 칸'}</text>`);
+      }
+      P.push(`<rect id="fl${i}" class="flash" x="${bx}" y="${y}" width="${slotW}" height="${slotH}" rx="10" fill="var(--primary)"/>`);
+      P.push('</g>');
+    }
+    // 트레이 + 결과 블록
+    let H;
+    if(narrow){
+      const tY=shelfBot+20, chipsY=tY+10, trayEnd=chipsY+3*54-8, rY=trayEnd+26;
+      P.push(`<text x="${bx}" y="${tY}" class="tm">SKU 트레이 — 클릭해 선택</text>`);
+      trayGrid(P,bx,chipsY,W-16);
+      resultBlock(P,bx,rY);
+      H=Math.max(shelfBot,trayEnd,rY+(scored?104:30))+10;
+    }else{
+      const chipsY=58, trayEnd=chipsY+3*54-8, rY=trayEnd+26;
+      P.push(`<text x="${colX}" y="48" class="tm">SKU 트레이 — 클릭해 선택</text>`);
+      trayGrid(P,colX,chipsY,colW);
+      resultBlock(P,colX,rY);
+      H=Math.max(shelfBot,trayEnd,rY+(scored?104:30))+10;
+    }
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('height',H);
+    svg.innerHTML=P.join('');
+  }
+
+  function updateButtons(){
+    scoreBtn.disabled=running||scored||held!==null||!allPlaced();
+    scoreBtn.textContent=running?'채점 중…':scored?'채점 완료':'채점 시작';
+  }
+
+  function updateKPIs(){
+    if(!scored){kCost.textContent='—';kEff.textContent='—';kGrade.textContent='—';return;}
+    const total=layoutCost(slots), g=grade(total), eff=Math.round(opt.cost/total*100);
+    const best=total===opt.cost;
+    kCost.innerHTML=(best?'<em>':'')+fmt(total)+(best?'</em>':'');
+    kEff.innerHTML=(best?'<em>':'')+eff+'%'+(best?'</em>':'');
+    kGrade.innerHTML='<em>'+g+'</em>';
+  }
+
+  function onTray(k){
+    if(scored||running)return;
+    if(held){setStatus('집은 SKU를 먼저 이동하거나 내려놓으세요 — 선반 칸을 클릭하세요.');return;}
+    if(slots.indexOf(k)>=0)return;
+    if(sel===k){sel=null;render();updateButtons();setStatus('선택 해제 — 트레이에서 SKU를 다시 선택하세요.');}
+    else{sel=k;render();updateButtons();setStatus(SKUS[k].id+' 선택 — 빈 칸을 클릭해 배치');}
+  }
+
+  function onSlot(i){
+    if(scored||running)return;
+    const occ=slots[i];
+    let msg='';
+    if(held){
+      if(i===held.from){held=null;msg='내려놓았습니다 — '+SKUS[occ].id+' · '+(i+1)+'번칸 유지';}
+      else if(occ===null){const mv=held.sku;slots[i]=mv;slots[held.from]=null;held=null;msg=SKUS[mv].id+' 이동 → '+(i+1)+'번칸';}
+      else{const mv=held.sku;slots[held.from]=occ;slots[i]=mv;held=null;msg=SKUS[mv].id+' ↔ '+SKUS[occ].id+' 교환';}
+    }else if(sel!==null){
+      if(occ===null){slots[i]=sel;msg=SKUS[sel].id+' 배치 → '+(i+1)+'번칸';sel=null;}
+      else{const mv=sel;slots[i]=mv;msg=SKUS[occ].id+' 트레이 복귀 · '+SKUS[mv].id+' 배치 → '+(i+1)+'번칸';sel=null;}
+    }else if(occ!==null){
+      held={sku:occ,from:i};
+      msg=SKUS[occ].id+' 집기 — 다른 칸 클릭: 이동·교환 / 같은 칸 클릭: 내려놓기';
+    }else{
+      msg='먼저 트레이에서 SKU를 선택하세요.';
+    }
+    if(held===null&&sel===null&&allPlaced())msg='모두 배치됨 — 채점 시작!';
+    render();updateButtons();setStatus(msg);
+  }
+
+  function startScore(){
+    if(scoreBtn.disabled||running)return;
+    running=true;tick=0;acc=0;prevFlash=-1;
+    posBySku=Array(6).fill(-1);
+    slots.forEach((s,i)=>{if(s!==null)posBySku[s]=i;});
+    render();updateButtons();
+    setStatus('100회 피킹 시뮬레이션 실행 중… (픽 비율대로 칸이 플래시됩니다)');
+    timer=setInterval(()=>{
+      const k=ORDER[tick], si=posBySku[k];
+      acc+=slotCost(si,SKUS[k]);
+      const fl=svg.querySelector('#fl'+si);
+      if(fl){fl.setAttribute('fill',COLORS[SKUS[k].cls]);fl.classList.add('on');}
+      if(prevFlash>=0&&prevFlash!==si){const pf=svg.querySelector('#fl'+prevFlash);if(pf)pf.classList.remove('on');}
+      prevFlash=si;
+      const cEl=svg.querySelector('#counter');
+      if(cEl)cEl.textContent='누적 비용 '+fmt(acc)+' · '+(tick+1)+'/100픽';
+      tick++;
+      if(tick>=100){clearInterval(timer);timer=null;finish();}
+    },30);
+  }
+
+  function finish(){
+    running=false;scored=true;
+    if(prevFlash>=0){const pf=svg.querySelector('#fl'+prevFlash);if(pf)pf.classList.remove('on');}
+    render();updateButtons();updateKPIs();
+    const total=layoutCost(slots), g=grade(total), ratio=Math.round(total/opt.cost*100);
+    setStatus('등급 '+g+' — 최적 대비 '+ratio+'% (총비용 '+fmt(total)+' / 최적 '+fmt(opt.cost)+')');
+  }
+
+  function resetAll(){
+    if(timer){clearInterval(timer);timer=null;}
+    running=false;scored=false;sel=null;held=null;tick=0;acc=0;prevFlash=-1;
+    slots=Array(6).fill(null);
+    render();updateButtons();updateKPIs();
+    setStatus('초기화 — 트레이에서 SKU를 선택해 배치하세요.');
+  }
+
+  svg.addEventListener('click',e=>{
+    const s=e.target.closest('[data-slot]');
+    if(s){onSlot(+s.getAttribute('data-slot'));return;}
+    const t=e.target.closest('[data-sku]');
+    if(t)onTray(+t.getAttribute('data-sku'));
+  });
+  scoreBtn.addEventListener('click',startScore);
+  resetBtn.addEventListener('click',resetAll);
+  new ResizeObserver(()=>render()).observe(svg.parentElement);
+  // 진도
+  const db=document.getElementById('done');
+  const key='mv-done:slotting-game';
+  try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
+  db.addEventListener('click',()=>{
+    try{localStorage.setItem(key,'1');}catch(_){}
+    db.classList.add('on');db.textContent='✓ 학습 완료됨';
+    setStatus('진도가 저장되었습니다. 카탈로그에서 진도 바를 확인하세요.');
+  });
+  updateKPIs();render();
+  setStatus('트레이에서 SKU를 클릭해 선택한 뒤, 빈 칸을 클릭해 배치하세요.');
+})();
+</script>
+</body>
+</html>

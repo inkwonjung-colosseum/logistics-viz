@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIFO · LIFO · FEFO — 폐기율 대결 | 물류 개념 시각화</title>
+<meta name="description" content="같은 입고, 같은 수요에서 꺼내는 순서(FIFO·LIFO·FEFO)만 바꿔 폐기율이 어떻게 갈리는지 40일 시뮬레이션으로 체감하는 인터랙티브 시각화.">
+<style>
+:root{color-scheme:light dark;
+  --background:light-dark(#f7f8fa,#0e0f14);--foreground:light-dark(#1a1c22,#e9eaf0);
+  --card:light-dark(#ffffff,#161923);--border:light-dark(#e4e6ec,#262a36);
+  --muted-foreground:light-dark(#5f6470,#9aa0ae);
+  --primary:light-dark(#2c5ce5,#7aa5ff);
+  --primary-foreground:light-dark(#ffffff,#0d1526);
+  --soft:light-dark(rgb(44 92 229/.08),rgb(122 165 255/.13));
+  --s2:light-dark(#1a8a55,#4fbf8a);--s3:light-dark(#c47a2a,#e0a35c);
+  --bad:light-dark(#c23b3b,#e57373);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px}
+.back{display:inline-block;color:var(--muted-foreground);text-decoration:none;font-size:13.5px;margin-bottom:18px}
+.back:hover{color:var(--foreground)}
+.cat{color:var(--primary);font-weight:600;font-size:13px;letter-spacing:.02em}
+h1{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.def{margin:0 0 18px;color:var(--muted-foreground);font-size:15px;max-width:62ch}
+.def b{color:var(--foreground)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+svg{display:block;width:100%}
+svg text{font-family:inherit;font-variant-numeric:tabular-nums}
+.t{fill:var(--foreground);font-size:12px;font-weight:600}
+.tm{fill:var(--muted-foreground);font-size:11px}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,background-color .15s ease-out}
+.seg button[aria-pressed="true"]{background:var(--foreground);color:var(--background)}
+button.act{border:0;border-radius:999px;background:var(--primary);color:var(--primary-foreground);padding:7px 16px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.ghostb{border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted-foreground);padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;transition:color .15s ease-out,border-color .15s ease-out}
+button.ghostb:hover{color:var(--foreground)}
+label.sl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted-foreground)}
+input[type=range]{accent-color:var(--primary);width:120px}
+output{color:var(--foreground);font-weight:600;font-variant-numeric:tabular-nums}
+#status{font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.prog{margin:16px 0 0;font-size:13px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12px;color:var(--muted-foreground)}
+.stat em{font-style:normal;color:var(--primary)}
+.tblwrap{overflow-x:auto;margin:0 0 16px}
+table.ct{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+.ct th,.ct td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+.ct th:first-child,.ct td:first-child{text-align:left}
+.ct thead th{color:var(--muted-foreground);font-weight:600;font-size:12px}
+.ct tbody th{font-weight:600}
+.ct td em{font-style:normal;color:var(--primary);font-weight:700}
+.takeaway{margin:6px 0 22px;border-left:3px solid var(--primary);padding:2px 0 2px 14px;color:var(--foreground);font-size:15px}
+.done{border:1px solid var(--border);background:var(--card);color:var(--muted-foreground);border-radius:999px;padding:9px 20px;font:inherit;font-size:14px;cursor:pointer;transition:background-color .15s ease-out,color .15s ease-out,border-color .15s ease-out}
+.done.on{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+.fn{color:var(--muted-foreground);font-size:13px;margin:14px 0 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="../index.html">← 카탈로그</a>
+<header>
+  <span class="cat">재고</span>
+  <h1>FIFO · LIFO · FEFO — 폐기율 대결</h1>
+  <p class="def">재고를 꺼내는 순서의 3가지 규칙: <b>FIFO</b>(먼저 들어온 것부터) · <b>LIFO</b>(나중에 들어온 것부터) · <b>FEFO</b>(유통기한 임박부터).</p>
+</header>
+
+<div class="panel">
+  <svg id="sim" role="img" aria-label="FIFO·LIFO·FEFO 세 정책이 같은 입고·수요 시나리오 사본을 40일간 소비하는 레인 시뮬레이션: 정책별 소비 순서로 로트 블록, 만료까지 남은 일수, 재고와 폐기 집계 표시"></svg>
+  <div class="controls">
+    <label class="sl">평균 수요 <input type="range" id="pMean" min="2" max="6" step="1" value="3"> <output id="mOut">3</output></label>
+    <label class="sl">기한 편차 <input type="range" id="pDev" min="2" max="12" step="1" value="12"> <output id="dOut">±12</output></label>
+    <div class="seg" id="spd" role="group" aria-label="재생 속도">
+      <button type="button" data-s="1" aria-pressed="true">1x</button>
+      <button type="button" data-s="3" aria-pressed="false">3x</button>
+    </div>
+    <button class="act" id="play">▶ 재생</button>
+    <button class="ghostb" id="reset">초기화</button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+</div>
+
+<p class="prog" id="prog">▶ 재생으로 40일 시뮬레이션을 시작하세요</p>
+<div class="stats" id="stats"></div>
+<div class="tblwrap">
+<table class="ct">
+  <thead><tr><th scope="col">정책</th><th scope="col">판매</th><th scope="col">폐기</th><th scope="col">미충족</th><th scope="col">폐기율</th></tr></thead>
+  <tbody id="ctb"></tbody>
+</table>
+</div>
+<p class="takeaway">같은 수요, 같은 입고인데 꺼내는 순서만으로 폐기가 갈린다 — <b>기한 편차가 클수록 FEFO의 위력이 커진다.</b></p>
+<button class="done" id="done">✓ 학습 완료</button>
+<p class="fn">단순화 모델 — 실제로는 리드타임·발주 정책·수요 예측이 함께 작동한다.</p>
+</div>
+
+<script>
+(() => {
+  const SLUG='fifo-lifo-fefo';
+  // 결정론적 난수 — 시드 42 고정, 같은 파라미터면 항상 같은 시나리오
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  const DAYS=40,SEED=42;
+  const POLICIES=[
+    {k:'FIFO',name:'선입선출',color:'var(--primary)'},
+    {k:'LIFO',name:'후입선출',color:'var(--s3)'},
+    {k:'FEFO',name:'기한임박',color:'var(--s2)'}
+  ];
+  // 소비 순서: FIFO=선입고, LIFO=후입고, FEFO=만료임박(동률이면 선입고)
+  const CMP={
+    FIFO:(a,b)=>a.day-b.day||a.id-b.id,
+    LIFO:(a,b)=>b.day-a.day||b.id-a.id,
+    FEFO:(a,b)=>a.exp-b.exp||a.day-b.day
+  };
+
+  let mean=3,dev=12,speed=1,scenario=null,states=[],day=0,timer=null,curD=0;
+
+  const svg=document.getElementById('sim'),status=document.getElementById('status'),
+        play=document.getElementById('play'),prog=document.getElementById('prog'),
+        stats=document.getElementById('stats'),ctb=document.getElementById('ctb');
+
+  // 시나리오(시드 42): 입고 3일마다 1로트(수량 8~14, 유통기한=입고일+14±편차),
+  // 일일 수요=평균±(0~2) 랜덤 → [평균-2, 평균+2] 균등. 3정책이 같은 시나리오 사본으로 경쟁.
+  function genScenario(){
+    const r=rng(SEED);const lots=[];let id=0;
+    for(let d=0;d<DAYS;d+=3){
+      lots.push({id:id++,day:d,qty:8+Math.floor(r()*7),life:Math.max(2,Math.round(14+(r()*2-1)*dev)),exp:0});
+    }
+    lots.forEach(l=>l.exp=l.day+l.life);
+    const demand=Array.from({length:DAYS},()=>mean+Math.floor(r()*5)-2);
+    return {lots,demand};
+  }
+  // 정책별 독립 사본(같은 시나리오 보장). day 0 입고분은 표시를 위해 선도착 처리.
+  function freshStates(){
+    return POLICIES.map(()=>({lots:scenario.lots.map(l=>({...l,arr:l.day<=0})),sold:0,waste:0,unmet:0,todayWaste:0}));
+  }
+
+  function stepDay(){
+    if(day>=DAYS)return;
+    const d=day;day++;curD=d;
+    states.forEach((st,pi)=>{
+      st.todayWaste=0;
+      // ① 매일 시작 시 만료 로트 전량 폐기
+      for(const l of st.lots){if(l.arr&&l.qty>0&&l.exp<d){st.waste+=l.qty;st.todayWaste+=l.qty;l.qty=0;}}
+      // ② 입고
+      for(const l of st.lots){if(!l.arr&&l.day===d)l.arr=true;}
+      // ③ 수요 충족 — 정책 순서대로 소비, 재고<수요면 미충족
+      let need=scenario.demand[d];
+      const stock=st.lots.filter(l=>l.arr&&l.qty>0).sort(CMP[POLICIES[pi].k]);
+      for(const l of stock){if(need<=0)break;const t=Math.min(l.qty,need);l.qty-=t;st.sold+=t;need-=t;}
+      st.unmet+=need;
+    });
+    render();kpis();table();
+    if(day>=DAYS){stop();prog.textContent='40일 시뮬레이션 완료';status.textContent='완료 — 3정책 폐기 결과를 아래 비교표에서 확인하세요.';}
+    else{prog.textContent=`진행 중 — ${day}일차`;status.textContent=`Day ${day}/${DAYS} · 수요 ${scenario.demand[d]}`;}
+  }
+
+  const tw=s=>s.split('').reduce((a,ch)=>a+(ch.charCodeAt(0)>127?11:6.4),0); // 11px 기준 폭 추정
+  const urg=l=>{const left=l.exp-curD,ratio=left/l.life;
+    return (left<=3||ratio<=.25)?'var(--bad)':(left<=7||ratio<=.5)?'var(--s3)':'var(--s2)'};
+
+  function render(){
+    const W=Math.max(320,svg.parentElement.clientWidth-2);
+    const parts=[];
+    const hd=day>0?`Day ${day}/${DAYS} · 수요 ${scenario.demand[curD]}`:`Day 0/${DAYS} · ▶ 재생으로 시작`;
+    parts.push(`<text x="2" y="16" class="t">${hd}</text>`);
+    const HEAD=28,LANEH=96,GAP=6;
+    const maxInv=Math.max(40,...states.map(st=>st.lots.reduce((a,l)=>a+((l.arr&&l.qty>0)?l.qty:0),0)));
+    const u=(W-24)*0.8/maxInv; // 블록 폭 ∝ 남은 수량 (3레인 공유 스케일)
+    states.forEach((st,pi)=>{
+      const p=POLICIES[pi],y=HEAD+pi*(LANEH+GAP);
+      parts.push(`<rect x="0" y="${y}" width="${W}" height="${LANEH}" rx="12" fill="var(--soft)"/>`);
+      const label=`${p.k} · ${p.name}`,cw=tw(label)+16;
+      parts.push(`<rect x="10" y="${y+10}" width="${cw}" height="20" rx="6" fill="${p.color}"/>`);
+      parts.push(`<text x="${10+cw/2}" y="${y+24}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--background)">${label}</text>`);
+      const inv=st.lots.reduce((a,l)=>a+((l.arr&&l.qty>0)?l.qty:0),0);
+      parts.push(`<text x="${W-12}" y="${y+24}" text-anchor="end" class="tm">재고 ${inv} · 폐기 ${st.waste}</text>`);
+      // 로트 블록 — 맨 왼쪽이 다음 소비(링 하이라이트)
+      const blocks=st.lots.filter(l=>l.arr&&l.qty>0).sort(CMP[p.k]);
+      let x=12;const by=y+38,bh=24;
+      for(const l of blocks){
+        const bw=Math.max(4,l.qty*u);
+        parts.push(`<rect x="${x}" y="${by}" width="${bw}" height="${bh}" rx="4" fill="${urg(l)}"${l===blocks[0]?' stroke="var(--primary)" stroke-width="2.5"':''}/>`);
+        if(bw>=30)parts.push(`<text x="${x+bw/2}" y="${by+16}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--background)">${l.qty}</text>`);
+        l._x=x;l._w=bw;
+        x+=bw+3;
+      }
+      // 오늘 폐기 ✕ 칩 + 카운터
+      if(st.todayWaste>0){
+        const s=`✕${st.todayWaste}`,w2=tw(s)+14,cx0=Math.min(Math.max(x+3,12),W-10-w2);
+        parts.push(`<rect x="${cx0}" y="${by}" width="${w2}" height="${bh}" rx="4" fill="var(--bad)"/>`);
+        parts.push(`<text x="${cx0+w2/2}" y="${by+16}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--background)">${s}</text>`);
+      }
+      // '만료 D+n' 라벨 — 두 줄 번갈아 배치, 겹치면 생략
+      const rows=[-1e9,-1e9];let lastRow=1;
+      for(const l of blocks){
+        const s=`만료 D+${l.exp-curD}`,w2=tw(s),cx=l._x+l._w/2;
+        let left=cx-w2/2,right=cx+w2/2,anchor='middle',tx=cx;
+        if(left<2){tx=2;anchor='start';left=2;right=2+w2;}
+        else if(right>W-2){tx=W-2;anchor='end';right=W-2;left=right-w2;}
+        let r=(lastRow+1)%2;
+        if(left<rows[r]+4)r=lastRow;
+        if(left<rows[r]+4)continue;
+        rows[r]=right;lastRow=r;
+        parts.push(`<text x="${tx}" y="${y+76+r*12}" text-anchor="${anchor}" class="tm">${s}</text>`);
+      }
+    });
+    // 범례
+    const segs=['블록 폭 = 남은 수량','색 = 남은 기한(초록 여유→빨강 임박)','링 = 다음 소비 로트','D+n = 만료까지 남은 일','✕n = 오늘 폐기 수'];
+    let lx=2,lyy=HEAD+3*(LANEH+GAP)+16;
+    for(const s of segs){
+      const w2=tw(s);
+      if(lx+w2>W-2){lx=2;lyy+=15;}
+      parts.push(`<text x="${lx}" y="${lyy}" class="tm">${s}</text>`);
+      lx+=w2+14;
+    }
+    const H=lyy+8;
+    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+    svg.setAttribute('height',H);
+    svg.innerHTML=parts.join('');
+  }
+
+  function kpis(){
+    if(day===0){
+      stats.innerHTML=
+        `<div class="stat"><b>—</b><span>최소 폐기 정책</span></div>`+
+        `<div class="stat"><b>—</b><span>최대 폐기 정책</span></div>`+
+        `<div class="stat"><b>—</b><span>폐기 격차 (최대÷최소)</span></div>`;
+      return;
+    }
+    const ws=POLICIES.map((p,i)=>({k:p.k,w:states[i].waste}));
+    const min=Math.min(...ws.map(o=>o.w)),max=Math.max(...ws.map(o=>o.w));
+    let kmin=ws[0].k,kmax=ws[0].k; // 동률이면 뒤 정책(FEFO)을 승자로
+    for(let i=ws.length-1;i>=0;i--){if(ws[i].w===min)kmin=ws[i].k;if(ws[i].w===max)kmax=ws[i].k;}
+    const gap=max===0?'—':min===0?'∞':(max/min).toFixed(1)+'배';
+    stats.innerHTML=
+      `<div class="stat"><b>${min}</b><span>최소 폐기 — 승자 <em>${kmin}</em></span></div>`+
+      `<div class="stat"><b>${max}</b><span>최대 폐기 — ${kmax}</span></div>`+
+      `<div class="stat"><b>${gap}</b><span>폐기 격차 (최대÷최소)</span></div>`;
+  }
+
+  function table(){
+    let best=-1,bw=Infinity; // 최소 폐기 행 강조(동률이면 뒤 정책)
+    for(let i=POLICIES.length-1;i>=0;i--){if(states[i].waste<bw){bw=states[i].waste;best=i;}}
+    ctb.innerHTML=POLICIES.map((p,i)=>{
+      const st=states[i],den=st.sold+st.waste;
+      const rate=den>0?(st.waste/den*100).toFixed(1)+'%':'—';
+      return `<tr><th scope="row">${p.k} ${p.name}</th><td>${st.sold}</td><td>${i===best?`<em>${st.waste}</em>`:st.waste}</td><td>${st.unmet}</td><td>${rate}</td></tr>`;
+    }).join('');
+  }
+
+  function rebuild(){ // 파라미터 변경 시: 시나리오 재생성+정지+초기화
+    stop();scenario=genScenario();states=freshStates();day=0;curD=0;
+    render();kpis();table();
+    prog.textContent='▶ 재생으로 40일 시뮬레이션을 시작하세요';
+    status.textContent='파라미터 변경 — 같은 시드(42)로 시나리오를 다시 만들었습니다.';
+  }
+  function start(){
+    if(timer)return;
+    if(day>=DAYS){day=0;curD=0;states=freshStates();render();kpis();table();}
+    play.textContent='⏸ 일시정지';
+    timer=setInterval(stepDay,speed===3?210:620);
+  }
+  function stop(){clearInterval(timer);timer=null;play.textContent='▶ 재생';}
+  function reset(){
+    stop();day=0;curD=0;states=freshStates();
+    render();kpis();table();
+    prog.textContent='▶ 재생으로 40일 시뮬레이션을 시작하세요';
+    status.textContent='';
+  }
+
+  document.getElementById('pMean').addEventListener('input',e=>{mean=+e.target.value;mOut.textContent=mean;rebuild();});
+  document.getElementById('pDev').addEventListener('input',e=>{dev=+e.target.value;dOut.textContent='±'+dev;rebuild();});
+  document.getElementById('spd').addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    speed=+b.dataset.s;
+    document.querySelectorAll('#spd button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    if(timer){clearInterval(timer);timer=setInterval(stepDay,speed===3?210:620);}
+  });
+  play.addEventListener('click',()=>timer?stop():start());
+  document.getElementById('reset').addEventListener('click',reset);
+  new ResizeObserver(()=>render()).observe(svg.parentElement);
+
+  // 진도
+  const db=document.getElementById('done');
+  const key='mv-done:'+SLUG;
+  try{if(localStorage.getItem(key))db.classList.add('on'),db.textContent='✓ 학습 완료됨';}catch(_){}
+  db.addEventListener('click',()=>{
+    try{localStorage.setItem(key,'1');}catch(_){}
+    db.classList.add('on');db.textContent='✓ 학습 완료됨';
+    status.textContent='진도가 저장되었습니다. 카탈로그에서 진도 바를 확인하세요.';
+  });
+
+  scenario=genScenario();states=freshStates();kpis();table();render();
+})();
+</script>
+</body>
+</html>
