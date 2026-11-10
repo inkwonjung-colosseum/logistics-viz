@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물류 개념 시각화</title>
+<meta name="description" content="크로스독, LPN, SKU 등 물류 핵심 개념을 인터랙티브 시각화로 설명합니다.">
+<style>
+:root{ color-scheme: light dark;
+  --bg: light-dark(#fafafa,#0f0f13);
+  --fg: light-dark(#1b1b20,#ececf1);
+  --card: light-dark(#ffffff,#1a1a21);
+  --border: light-dark(#e3e3e9,#2a2a33);
+  --muted: light-dark(#6d6d78,#9a9aa6);
+  --accent: light-dark(#3565e0,#7aa2ff);
+  --chip: light-dark(#eef0f6,#23232d);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:48px 20px 64px}
+header h1{font-size:28px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted)}
+.meta{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.meta span{background:var(--chip);border-radius:999px;padding:3px 12px;font-size:13px;color:var(--muted)}
+.meta b{color:var(--fg);font-weight:600}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin:32px 0 20px}
+nav button{border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:999px;padding:6px 14px;font-size:13.5px;cursor:pointer;font-family:inherit}
+nav button:hover{color:var(--fg)}
+nav button[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+a.card{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+a.card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.card .cat{font-size:12px;color:var(--accent);font-weight:600;letter-spacing:.02em}
+.card h2{font-size:16.5px;font-weight:600;margin:0}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.card .go{margin-top:auto;padding-top:6px;font-size:12.5px;color:var(--accent);font-weight:600}
+.planned{margin-top:44px}
+.planned h2{font-size:15px;font-weight:600;color:var(--muted);margin:0 0 12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{border:1px dashed var(--border);color:var(--muted);border-radius:999px;padding:4px 12px;font-size:12.5px}
+footer{margin-top:56px;border-top:1px solid var(--border);padding-top:18px;font-size:13px;color:var(--muted)}
+.empty{border:1px dashed var(--border);border-radius:14px;padding:28px;color:var(--muted);font-size:14px}
+code{background:var(--chip);border-radius:6px;padding:1px 6px;font-size:12.5px}
+@media (prefers-reduced-motion: reduce){a.card{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>물류 개념 시각화</h1>
+  <p>크로스독·LPN·SKU 같은 물류 핵심 개념을 인터랙티브 애니메이션으로 설명합니다.</p>
+  <div class="meta" id="meta"></div>
+</header>
+<nav id="filters" aria-label="카테고리 필터"></nav>
+<main id="grid"></main>
+<section class="planned">
+  <h2>제작 예정 로드맵</h2>
+  <div class="chips" id="planned"></div>
+</section>
+<footer>
+  전체 로드맵과 제작 규칙은 <code>docs/roadmap.md</code> · <code>docs/design-tokens.md</code>에 정리되어 있습니다.
+</footer>
+</div>
+<script>
+(async () => {
+  const grid=document.getElementById('grid'),
+        filters=document.getElementById('filters'),
+        planned=document.getElementById('planned'),
+        meta=document.getElementById('meta');
+  let data;
+  try{
+    data = await (await fetch('data/catalog.json')).json();
+  }catch(e){
+    grid.innerHTML='<div class="empty">카탈로그를 불러오지 못했습니다. 로컬에서는 <code>python3 -m http.server</code>로 서버를 띄워 접속하세요. 배포 후에는 정상 표시됩니다.</div>';
+    planned.style.display='none'; return;
+  }
+  const items=data.concepts||[];
+  const cats=['전체',...new Set(items.map(c=>c.category))];
+  let active='전체';
+  meta.innerHTML=
+    '<span>공개 <b>'+items.length+'</b>편</span>'+
+    '<span>로드맵 <b>'+(items.length+(data.planned||[]).length)+'</b>편</span>'+
+    '<span>업데이트 <b>'+data.updated+'</b></span>';
+  function renderFilters(){
+    filters.innerHTML='';
+    cats.forEach(c=>{
+      const b=document.createElement('button');
+      b.type='button'; b.textContent=c;
+      b.setAttribute('aria-pressed', String(c===active));
+      b.onclick=()=>{active=c; renderFilters(); renderGrid();};
+      filters.appendChild(b);
+    });
+  }
+  function renderGrid(){
+    const list=items.filter(c=>active==='전체'||c.category===active);
+    grid.innerHTML='';
+    if(!list.length){
+      grid.innerHTML='<div class="empty">해당 카테고리의 콘텐츠가 아직 없습니다.</div>';
+      return;
+    }
+    list.forEach(c=>{
+      const a=document.createElement('a');
+      a.className='card'; a.href=c.file;
+      a.innerHTML='<span class="cat">'+c.category+'</span>'+
+        '<h2>'+c.title+'</h2>'+
+        '<p>'+c.summary+'</p>'+
+        '<span class="go">시각화 보기 →</span>';
+      grid.appendChild(a);
+    });
+  }
+  planned.innerHTML=(data.planned||[]).map(p=>'<span>'+p.title+'</span>').join('');
+  renderFilters(); renderGrid();
+})();
+</script>
+</body>
+</html>
